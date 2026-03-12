@@ -1,4 +1,6 @@
 import math
+import matplotlib.pyplot as plt
+import numpy as np
 
 def evaluar_funcion(func_str, x):
     """
@@ -17,10 +19,11 @@ def evaluar_funcion(func_str, x):
             "pi": math.pi,
             "e": math.e,
             "abs": abs,
-            "pow": pow
+            "pow": pow,
+            "x": x
         }
         # Evalúa la cadena de la función con x y nombres permitidos
-        return eval(func_str, {"__builtins__": None}, {**nombres_permitidos, "x": x})
+        return eval(func_str, {"__builtins__": {}}, nombres_permitidos)
     except Exception as e:
         raise ValueError(f"Error al evaluar la función: {e}")
 
@@ -28,6 +31,7 @@ def metodo_biseccion(func_str, a, b, tol=1e-6, max_iter=100):
     """
     Encuentra la raíz de f(x) = 0 usando el método de Bisección.
     Requiere que f(a) * f(b) < 0.
+    Retorna una tupla (raiz, tabla_datos).
     """
     fa = evaluar_funcion(func_str, a)
     fb = evaluar_funcion(func_str, b)
@@ -38,15 +42,25 @@ def metodo_biseccion(func_str, a, b, tol=1e-6, max_iter=100):
     print(f"Iniciando método de Bisección con intervalo [{a}, {b}]")
     print(f"f({a}) = {fa}, f({b}) = {fb}")
 
+    # Lista para almacenar los datos de cada iteración
+    tabla_datos = []
+    raiz = None
+
     for iteracion in range(max_iter):
         c = (a + b) / 2
         fc = evaluar_funcion(func_str, c)
+
+        # Agregar datos a la tabla
+        tabla_datos.append((iteracion + 1, a, b, c, fa, fb, fc))
 
         print(f"Iteración {iteracion + 1}: c = {c}, f(c) = {fc}")
 
         if abs(fc) < tol:
             print(f"Convergido a la raíz: {c} después de {iteracion + 1} iteraciones")
-            return c
+            raiz = c
+            # Imprimir tabla
+            imprimir_tabla(tabla_datos)
+            return raiz, tabla_datos
 
         if fa * fc < 0:
             b = c
@@ -56,7 +70,60 @@ def metodo_biseccion(func_str, a, b, tol=1e-6, max_iter=100):
             fa = fc
 
     print(f"Máximo de iteraciones alcanzado. Raíz aproximada: {(a + b) / 2}")
-    return (a + b) / 2
+    raiz = (a + b) / 2
+    # Agregar la última iteración si no convergió
+    tabla_datos.append((max_iter + 1, a, b, raiz, fa, fb, evaluar_funcion(func_str, raiz)))
+    imprimir_tabla(tabla_datos)
+    return raiz, tabla_datos
+
+def imprimir_tabla(datos):
+    """
+    Imprime una tabla con los datos de cada iteración del método de bisección.
+    """
+    print("\nTabla de Iteraciones:")
+    print("=" * 60)
+    print(f"{'Iter':<5} {'a':<15} {'b':<15} {'c':<15} {'f(c)':<10}")
+    print("=" * 60)
+    for iteracion, a, b, c, fa, fb, fc in datos:
+        print(f"{iteracion:<5} {a:<15.6f} {b:<15.6f} {c:<15.6f} {fc:<10.6f}")
+    print("=" * 60)
+
+def graficar_funcion(func_str, a, b, raiz):
+    """
+    Grafica la función y marca la raíz encontrada.
+    """
+    try:
+        # Crear puntos x para el gráfico
+        x = np.linspace(a, b, 300)
+        y = []
+        
+        for xi in x:
+            try:
+                y.append(evaluar_funcion(func_str, xi))
+            except:
+                y.append(np.nan)
+        
+        y = np.array(y)
+        
+        # Crear la figura
+        plt.figure(figsize=(10, 6))
+        plt.plot(x, y, 'b-', linewidth=2, label=f'f(x) = {func_str}')
+        plt.axhline(y=0, color='k', linestyle='-', linewidth=0.5, alpha=0.3)
+        plt.axvline(x=0, color='k', linestyle='-', linewidth=0.5, alpha=0.3)
+        
+        # Marcar la raíz encontrada
+        plt.plot(raiz, 0, 'ro', markersize=10, label=f'Raíz: {raiz:.6f}')
+        
+        plt.grid(True, alpha=0.3)
+        plt.xlabel('x', fontsize=12)
+        plt.ylabel('f(x)', fontsize=12)
+        plt.title('Gráfico del Método de Bisección', fontsize=14)
+        plt.legend(fontsize=11)
+        plt.tight_layout()
+        plt.show()
+        
+    except Exception as e:
+        print(f"Error al graficar: {e}")
 
 def main():
     print("Búsqueda de Raíces usando Método de Bisección")
@@ -72,8 +139,13 @@ def main():
     max_iter = int(max_iter_input) if max_iter_input else 100
 
     try:
-        raiz = metodo_biseccion(func_str, a, b, tol, max_iter)
+        raiz, tabla_datos = metodo_biseccion(func_str, a, b, tol, max_iter)
         print(f"\nRaíz aproximada encontrada: {raiz}")
+        
+        # Preguntar si desea ver el gráfico
+        ver_grafico = input("\n¿Deseas ver el gráfico de la función? (s/n): ").lower()
+        if ver_grafico == 's':
+            graficar_funcion(func_str, a, b, raiz)
     except ValueError as e:
         print(f"Error: {e}")
 

@@ -44,9 +44,11 @@ def metodo_punto_fijo(g_str, x0, tol=1e-6, max_iter=100):
     """
     Encuentra la raíz de f(x) = 0 usando el método de Punto Fijo.
     Requiere que la función g(x) converja, es decir, |g'(x)| < 1 en el intervalo.
+    Retorna una tupla (raiz, tabla_datos).
     """
     print(f"Iniciando método de Punto Fijo con x0 = {x0}")
     x = x0
+    tabla_datos = []
 
     for iteracion in range(max_iter):
         try:
@@ -54,16 +56,34 @@ def metodo_punto_fijo(g_str, x0, tol=1e-6, max_iter=100):
         except ValueError as e:
             raise ValueError(f"Error en la evaluación de g(x): {e}")
 
+        # Calcular el error absoluto
+        error = abs(x_nuevo - x)
+        tabla_datos.append((iteracion + 1, x, x_nuevo, error))
+
         print(f"Iteración {iteracion + 1}: x = {x_nuevo}")
 
-        if abs(x_nuevo - x) < tol:
+        if error < tol:
             print(f"Convergido a la raíz: {x_nuevo} después de {iteracion + 1} iteraciones")
-            return x_nuevo
+            imprimir_tabla(tabla_datos)
+            return x_nuevo, tabla_datos
 
         x = x_nuevo
 
     print(f"Máximo de iteraciones alcanzado. Valor aproximado: {x}")
-    return x
+    imprimir_tabla(tabla_datos)
+    return x, tabla_datos
+
+def imprimir_tabla(datos):
+    """
+    Imprime una tabla con los datos de cada iteración del método de punto fijo.
+    """
+    print("\nTabla de Iteraciones:")
+    print("=" * 70)
+    print(f"{'Iter':<5} {'x_n':<20} {'x_(n+1)':<20} {'Error':<20}")
+    print("=" * 70)
+    for iteracion, x_n, x_n1, error in datos:
+        print(f"{iteracion:<5} {x_n:<20.10f} {x_n1:<20.10f} {error:<20.2e}")
+    print("=" * 70)
 
 def graficar_funcion(func_str, a, b, raiz=None):
     """
@@ -107,7 +127,7 @@ def main():
     max_iter = int(max_iter_input) if max_iter_input else 100
 
     try:
-        raiz = metodo_punto_fijo(g_str, x0, tol, max_iter)
+        raiz, tabla_datos = metodo_punto_fijo(g_str, x0, tol, max_iter)
         print(f"\nRaíz aproximada encontrada: {raiz}")
 
         # Preguntar si quiere graficar
