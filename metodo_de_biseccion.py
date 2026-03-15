@@ -82,10 +82,10 @@ def imprimir_tabla(datos):
     """
     print("\nTabla de Iteraciones:")
     print("=" * 60)
-    print(f"{'Iter':<5} {'a':<15} {'b':<15} {'c':<15} {'f(c)':<10}")
+    print(f"{'Iter':^5} {'a':^15} {'b':^15} {'c':^15} {'f(c)':^10}")
     print("=" * 60)
     for iteracion, a, b, c, fa, fb, fc in datos:
-        print(f"{iteracion:<5} {a:<15.6f} {b:<15.6f} {c:<15.6f} {fc:<10.6f}")
+        print(f"{iteracion:^5} {a:^15.6f} {b:^15.6f} {c:^15.6f} {fc:^10.6f}")
     print("=" * 60)
 
 def graficar_funcion(func_str, a, b, raiz):

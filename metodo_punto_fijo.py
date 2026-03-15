@@ -79,10 +79,10 @@ def imprimir_tabla(datos):
     """
     print("\nTabla de Iteraciones:")
     print("=" * 70)
-    print(f"{'Iter':<5} {'x_n':<20} {'x_(n+1)':<20} {'Error':<20}")
+    print(f"{'Iter':^5} {'x_n':^20} {'x_(n+1)':^20} {'Error':^20}")
     print("=" * 70)
     for iteracion, x_n, x_n1, error in datos:
-        print(f"{iteracion:<5} {x_n:<20.10f} {x_n1:<20.10f} {error:<20.2e}")
+        print(f"{iteracion:^5} {x_n:^20.10f} {x_n1:^20.10f} {error:^20.2e}")
     print("=" * 70)
 
 def graficar_funcion(func_str, a, b, raiz=None):
