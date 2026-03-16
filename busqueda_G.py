@@ -689,9 +689,14 @@ def menu_interactivo():
                                 
                                 print(f"\nOpcion seleccionada: g(x) = {opcion_seleccionada['g_str']}")
                                 
-                                x0 = float(input("Ingresa valor inicial x0: ").strip())
-                                tol = float(input("Ingresa tolerancia (ej: 1e-6): ").strip())
-                                max_iter = int(input("Ingresa maximo de iteraciones (ej: 100): ").strip())
+                                x0_input = input("Ingresa valor inicial x0 (ej: 1): ").strip()
+                                x0 = float(x0_input) if x0_input else 1.0
+                                
+                                tol_input = input("Ingresa tolerancia (por defecto 1e-6): ").strip()
+                                tol = float(tol_input) if tol_input else 1e-6
+                                
+                                max_iter_input = input("Ingresa maximo de iteraciones (por defecto 100): ").strip()
+                                max_iter = int(max_iter_input) if max_iter_input else 100
                                 
                                 # Ejecutar metodo del punto fijo
                                 raiz, tabla = metodo_punto_fijo(
@@ -706,8 +711,8 @@ def menu_interactivo():
                                 break
                             else:
                                 print(f"Por favor, ingresa un numero entre 1 y {len(opciones)}")
-                        except ValueError:
-                            print("Ingresa un numero valido")
+                        except ValueError as e:
+                            print("Ingresa valores numericos validos")
         else:
             print("Opcion no valida. Intenta de nuevo.")
 
