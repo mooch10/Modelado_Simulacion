@@ -39,8 +39,10 @@ def metodo_newton_raphson(
     # Convertir string a expresión simbólica
     x = sp.Symbol(variable)
     try:
-        f_expr = sp.sympify(funcion_str)
-    except:
+        # Si el usuario usa "e" para el número de Euler, mapearlo a sympy.E
+        # para evitar errores al lambdificar (numpy.log no puede manejar símbolos).
+        f_expr = sp.sympify(funcion_str, locals={"e": sp.E, "pi": sp.pi})
+    except Exception:
         print(f"Error: No se pudo interpretar la función '{funcion_str}'")
         return None, [], False
     
