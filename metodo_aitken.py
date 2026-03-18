@@ -86,38 +86,40 @@ def metodo_aitken(
     print(f"{'='*100}\n")
     
     iteraciones = []
-    x_anterior = x0
     convergencia = False
     
     try:
-        # Calcular primeras dos iteraciones
-        x_actual = evaluar_funcion(g_str, x_anterior)
-        x_siguiente = evaluar_funcion(g_str, x_actual)
+        # Usamos x0 como semilla inicial
+        x0_iter = x0
         
         for i in range(max_iteraciones):
+            # Calcular los tres valores requeridos para la aceleración de Aitken
+            x1 = evaluar_funcion(g_str, x0_iter)
+            x2 = evaluar_funcion(g_str, x1)
+            
             # Calcular el denominador de la fórmula de Aitken
-            denominador = x_siguiente - 2 * x_actual + x_anterior
+            denominador = x2 - 2 * x1 + x0_iter
             
             # Verificar que no sea singular
             if abs(denominador) < 1e-15:
-                # Si el denominador es muy pequeño, continuar con iteración normal
-                x_acelerado = x_siguiente
+                # Si el denominador es muy pequeño, usar la iteración simple
+                x_acelerado = x2
                 es_acelerado = False
             else:
                 # Aplicar fórmula de Aitken
-                numerador = (x_actual - x_anterior) ** 2
-                x_acelerado = x_anterior - numerador / denominador
+                numerador = (x1 - x0_iter) ** 2
+                x_acelerado = x0_iter - numerador / denominador
                 es_acelerado = True
             
-            # Calcular error con respecto a la iteración anterior
-            error = abs(x_acelerado - x_anterior)
+            # Calcular error con respecto a la semilla (x0_iter)
+            error = abs(x_acelerado - x0_iter)
             
             # Guardar datos de la iteración
             iteraciones.append({
                 'Iteración': i + 1,
-                'x_(n-1)': x_anterior,
-                'x_n': x_actual,
-                'x_(n+1)': x_siguiente,
+                'x_(n-1)': x0_iter,
+                'x_n': x1,
+                'x_(n+1)': x2,
                 'x_acelerado': x_acelerado,
                 'Error': error,
                 'Acelerado': '✓' if es_acelerado else '✗'
@@ -131,10 +133,8 @@ def metodo_aitken(
                 print(f"\n✓ Convergencia alcanzada en iteración {i + 1}")
                 break
             
-            # Actualizar valores para la siguiente iteración
-            x_anterior = x_actual
-            x_actual = x_siguiente
-            x_siguiente = evaluar_funcion(g_str, x_acelerado)
+            # Usar el valor acelerado como nueva semilla para la siguiente iteración
+            x0_iter = x_acelerado
         
         if not convergencia:
             print(f"\n⚠ No se alcanzó convergencia después de {max_iteraciones} iteraciones")
@@ -271,7 +271,7 @@ def main():
             print(f"{'='*100}")
             print(f"{'Raíz encontrada:':.<50} {raiz:.15f}")
             print(f"{'Número de iteraciones:':.<50} {len(iteraciones)}")
-            print(f"{'Convergencia:':.<50} {'✓ SÍ' if convergencia else '✗ NO'}")
+            print(f"{'Convergencia:':.<50} {' SÍ' if convergencia else '✗ NO'}")
             print(f"{'='*100}\n")
             
             # Ofrecer opción de visualización
