@@ -94,14 +94,14 @@ def metodo_newton_raphson(
         # Verificar convergencia
         if error < tolerancia:
             convergencia = True
-            print(f"✓ Convergencia alcanzada en iteración {i}")
+            print(f" Convergencia alcanzada en iteración {i}")
             x_actual = x_siguiente
             break
         
         x_actual = x_siguiente
     
     if not convergencia:
-        print(f"⚠ No se alcanzó convergencia después de {max_iteraciones} iteraciones")
+        print(f" No se alcanzó convergencia después de {max_iteraciones} iteraciones")
     
     return x_actual, iteraciones, convergencia
 
@@ -209,7 +209,7 @@ def main():
         print("RESULTADO FINAL")
         print("="*80)
         print(f"Raíz encontrada: x = {raiz:.15e}")
-        print(f"Convergencia: {'✓ Sí' if convergencia else '✗ No'}")
+        print(f"Convergencia: {' Sí' if convergencia else ' No'}")
         print(f"Número de iteraciones: {len(iteraciones)}")
         print("="*80 + "\n")
         
