@@ -629,7 +629,164 @@ def graficar_punto_fijo(func_str, a, b, raiz=None):
     plt.grid(True)
     plt.show()
 
-# Menú principal
+def comparativa_metodos():
+    """Ejecuta los 4 métodos con la misma función y compara resultados"""
+    print("\n" + "="*100)
+    print("COMPARATIVA DE LOS 4 MÉTODOS".center(100))
+    print("="*100)
+    
+    # Recolectar parámetros comunes
+    print("\nIngrese los parámetros para ejecutar los 4 métodos:")
+    print("-" * 100)
+    
+    funcion = input("\n1. Función principal f(x) (ej: x**3 - 2*x - 5): ").strip()
+    if not funcion:
+        print("Error: Debe ingresar una función")
+        return
+    
+    g_iteracion = input("2. Función de iteración g(x) (para Aitken y Punto Fijo, ej: cos(x)): ").strip()
+    if not g_iteracion:
+        print("Error: Debe ingresar una función de iteración")
+        return
+    
+    try:
+        x0 = float(input("3. Aproximación inicial x₀: "))
+    except ValueError:
+        print("Error: x₀ debe ser un número")
+        return
+    
+    try:
+        a = float(input("4. Límite inferior a (para Bisección): "))
+        b = float(input("5. Límite superior b (para Bisección): "))
+    except ValueError:
+        print("Error: Los límites deben ser números")
+        return
+    
+    try:
+        tol_input = input("6. Tolerancia de error (default 1e-6): ").strip()
+        tolerancia = float(tol_input) if tol_input else 1e-6
+    except ValueError:
+        print("Error: Tolerancia debe ser un número")
+        return
+    
+    try:
+        iter_input = input("7. Máximo de iteraciones (default 100): ").strip()
+        max_iteraciones = int(iter_input) if iter_input else 100
+    except ValueError:
+        print("Error: Máximo de iteraciones debe ser un entero")
+        return
+    
+    # Diccionario para almacenar resultados
+    resultados = {}
+    
+    # Ejecutar Newton-Raphson
+    print("\n" + "-"*100)
+    print("Ejecutando Método de Newton-Raphson...")
+    print("-"*100)
+    try:
+        raiz_nr, iter_nr, conv_nr = metodo_newton_raphson(funcion, x0, tolerancia, max_iteraciones)
+        if raiz_nr is not None:
+            resultados['Newton-Raphson'] = {
+                'raiz': raiz_nr,
+                'iteraciones': len(iter_nr),
+                'error': iter_nr[-1]['Error |x_(n+1) - x_n|'] if iter_nr else 0,
+                'convergencia': conv_nr
+            }
+    except Exception as e:
+        print(f"Error en Newton-Raphson: {e}")
+    
+    # Ejecutar Aitken
+    print("\n" + "-"*100)
+    print("Ejecutando Método de Aceleración de Aitken...")
+    print("-"*100)
+    try:
+        raiz_aitken, iter_aitken, conv_aitken = metodo_aitken(g_iteracion, x0, tolerancia, max_iteraciones)
+        if raiz_aitken is not None:
+            resultados['Aitken'] = {
+                'raiz': raiz_aitken,
+                'iteraciones': len(iter_aitken),
+                'error': iter_aitken[-1]['Error'] if iter_aitken else 0,
+                'convergencia': conv_aitken
+            }
+    except Exception as e:
+        print(f"Error en Aitken: {e}")
+    
+    # Ejecutar Bisección
+    print("\n" + "-"*100)
+    print("Ejecutando Método de Bisección...")
+    print("-"*100)
+    try:
+        raiz_bis, iter_bis = metodo_biseccion(funcion, a, b, tolerancia, max_iteraciones)
+        if raiz_bis is not None:
+            resultados['Bisección'] = {
+                'raiz': raiz_bis,
+                'iteraciones': len(iter_bis),
+                'error': abs(iter_bis[-1][6]) if iter_bis else 0,
+                'convergencia': True
+            }
+    except Exception as e:
+        print(f"Error en Bisección: {e}")
+    
+    # Ejecutar Punto Fijo
+    print("\n" + "-"*100)
+    print("Ejecutando Método de Punto Fijo...")
+    print("-"*100)
+    try:
+        raiz_pf, iter_pf = metodo_punto_fijo(g_iteracion, x0, tolerancia, max_iteraciones)
+        if raiz_pf is not None:
+            resultados['Punto Fijo'] = {
+                'raiz': raiz_pf,
+                'iteraciones': len(iter_pf),
+                'error': iter_pf[-1][3] if iter_pf else 0,
+                'convergencia': True
+            }
+    except Exception as e:
+        print(f"Error en Punto Fijo: {e}")
+    
+    # Mostrar tabla comparativa
+    print("\n\n" + "="*130)
+    print("TABLA COMPARATIVA DE RESULTADOS".center(130))
+    print("="*130)
+    print(f"{'Método':^25} {'Raíz encontrada':^30} {'Iteraciones':^15} {'Error final':^25} {'Convergencia':^15}")
+    print("-"*130)
+    
+    for metodo, datos in resultados.items():
+        raiz = datos['raiz']
+        iteraciones = datos['iteraciones']
+        error = datos['error']
+        convergencia = "✓ Sí" if datos['convergencia'] else "✗ No"
+        
+        print(f"{metodo:^25} {raiz:^30.15e} {iteraciones:^15} {error:^25.10e} {convergencia:^15}")
+    
+    print("="*130)
+    
+    # Mostrar análisis adicional
+    if resultados:
+        print("\n" + "="*130)
+        print("ANÁLISIS COMPARATIVO".center(130))
+        print("="*130)
+        
+        # Raíz promedio
+        raices = [datos['raiz'] for datos in resultados.values()]
+        raiz_promedio = np.mean(raices)
+        print(f"\nRaíz promedio: {raiz_promedio:.15e}")
+        
+        # Método más rápido (menos iteraciones)
+        metodo_rapido = min(resultados.items(), key=lambda x: x[1]['iteraciones'])
+        print(f"Método más rápido (menos iteraciones): {metodo_rapido[0]} con {metodo_rapido[1]['iteraciones']} iteraciones")
+        
+        # Método con menor error final
+        metodo_preciso = min(resultados.items(), key=lambda x: x[1]['error'])
+        print(f"Método más preciso (menor error): {metodo_preciso[0]} con error de {metodo_preciso[1]['error']:.10e}")
+        
+        # Divergencia entre raíces
+        if len(raices) > 1:
+            divergencia_max = max(raices) - min(raices)
+            print(f"Divergencia máxima entre raíces: {divergencia_max:.10e}")
+        
+        print("="*130 + "\n")
+
+
 def main():
     while True:
         print("\n" + "="*80)
@@ -639,11 +796,12 @@ def main():
         print("2. Método de Aceleración de Aitken")
         print("3. Método de Bisección")
         print("4. Método de Punto Fijo")
-        print("5. Salir")
+        print("5. Comparativa de los 4 métodos")
+        print("6. Salir")
         print("="*80)
         
         try:
-            opcion = int(input("Selecciona una opción (1-5): ").strip())
+            opcion = int(input("Selecciona una opción (1-6): ").strip())
         except ValueError:
             print("Error: Debe ingresar un número entero.")
             continue
@@ -792,6 +950,10 @@ def main():
                 print(f"Error: {e}")
         
         elif opcion == 5:
+            # Comparativa de los 4 métodos
+            comparativa_metodos()
+        
+        elif opcion == 6:
             print("¡Hasta luego!")
             break
         
