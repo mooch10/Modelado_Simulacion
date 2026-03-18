@@ -628,10 +628,10 @@ def mostrar_opciones_despeje(f_str):
         opciones_todas.append(opcion_dict)
         
         if es_convergente:
-            print(f"  [V] CONVERGENTE: |g'(x)| < 1 en el intervalo")
+            print(f"  CONVERGENTE: |g'(x)| < 1 en el intervalo")
             opciones_validas.append(opcion_dict)
         else:
-            print(f"  [X] DIVERGENTE: |g'(x)| >= 1 (pero puedes probar de todas formas)")
+            print(f"  DIVERGENTE: |g'(x)| >= 1 (pero puedes probar de todas formas)")
     
     print(f"\n{'='*70}")
     print(f"Resumen: {len(opciones_validas)} opciones convergentes de {len(despejes)} totales")
