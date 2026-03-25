@@ -2,6 +2,36 @@ import numpy as np
 import sympy as sp
 
 
+def _locals_simbolicos():
+    """Diccionario de funciones/constantes permitidas para sympify."""
+    return {
+        "e": sp.E,
+        "pi": sp.pi,
+        "sin": sp.sin,
+        "cos": sp.cos,
+        "tan": sp.tan,
+        "exp": sp.exp,
+        "log": sp.log,
+        "sqrt": sp.sqrt,
+        "abs": sp.Abs,
+    }
+
+
+def _parsear_expresion(texto, variable=None):
+    """Parsea una expresion con soporte de e, pi y funciones trigonométricas."""
+    expr = sp.sympify(texto, locals=_locals_simbolicos())
+
+    if variable is None:
+        if expr.free_symbols:
+            raise ValueError("La expresion no debe contener variables")
+    else:
+        simbolos_invalidos = expr.free_symbols - {variable}
+        if simbolos_invalidos:
+            raise ValueError(f"Se encontraron variables no permitidas: {simbolos_invalidos}")
+
+    return expr
+
+
 def normalizar_puntos(x_vals, y_vals):
     """Valida y ordena los puntos por x para evitar inconsistencias."""
     x_arr = np.array(x_vals, dtype=float)
@@ -175,7 +205,44 @@ def aproximar_derivada_tres_formas(x_vals, y_vals, forma, x_objetivo=None):
 def _leer_lista_flotantes(mensaje):
     texto = input(mensaje).strip()
     partes = [p.strip() for p in texto.split(",") if p.strip()]
-    return [float(p) for p in partes]
+    valores = []
+
+    for p in partes:
+        expr = _parsear_expresion(p)
+        valores.append(float(sp.N(expr)))
+
+    return valores
+
+
+def _cargar_puntos_interpolacion():
+    """Permite cargar datos por lista de y o por funcion f(x)."""
+    print("\nCarga de datos para Lagrange:")
+    print("1. Ingresar x e y como listas")
+    print("2. Ingresar x y una funcion f(x) para calcular y")
+
+    modo = input("Seleccione modo (1-2): ").strip()
+
+    x_vals = _leer_lista_flotantes(
+        "Ingrese x separados por coma (admite expresiones como pi/2, e, sqrt(2)): "
+    )
+
+    if modo == "2":
+        x = sp.Symbol("x")
+        funcion = input(
+            "Ingrese f(x) (ej: sin(x), exp(x), x**2 + pi, cos(x)+e): "
+        ).strip()
+
+        if not funcion:
+            raise ValueError("Debe ingresar una funcion f(x)")
+
+        f_expr = _parsear_expresion(funcion, variable=x)
+        y_vals = [float(sp.N(f_expr.subs(x, xv))) for xv in x_vals]
+    else:
+        y_vals = _leer_lista_flotantes(
+            "Ingrese y=f(x) separados por coma (admite expresiones numericas como pi, e, sqrt(2)): "
+        )
+
+    return normalizar_puntos(x_vals, y_vals)
 
 
 def _imprimir_tabla_dd(x_vals, tabla):
@@ -207,9 +274,7 @@ def ejecutar_metodo_lagrange():
     print("=" * 90)
 
     try:
-        x_vals = _leer_lista_flotantes("Ingrese x separados por coma (ej: 0,1,2,3): ")
-        y_vals = _leer_lista_flotantes("Ingrese y=f(x) separados por coma (ej: 1,2,4,8): ")
-        x_vals, y_vals = normalizar_puntos(x_vals, y_vals)
+        x_vals, y_vals = _cargar_puntos_interpolacion()
     except ValueError as e:
         print(f"Error de datos: {e}")
         return
@@ -302,9 +367,7 @@ def ejecutar_metodo_lagrange():
 
         elif opcion == "5":
             try:
-                x_vals = _leer_lista_flotantes("Ingrese x separados por coma: ")
-                y_vals = _leer_lista_flotantes("Ingrese y=f(x) separados por coma: ")
-                x_vals, y_vals = normalizar_puntos(x_vals, y_vals)
+                x_vals, y_vals = _cargar_puntos_interpolacion()
                 print("Puntos actualizados correctamente")
             except ValueError as e:
                 print(f"Error de datos: {e}")
