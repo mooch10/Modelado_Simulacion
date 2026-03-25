@@ -644,6 +644,16 @@ def ejecutar_metodo_lagrange():
                 print(f"Polinomio local: {_expr_a_texto_decimal(p_local)}")
                 print(f"d/dx polinomio local: {_expr_a_texto_decimal(dp_local)}")
                 print(f"f'({resultado['x_evaluacion']}) ≈ {resultado['derivada']}")
+
+                x = sp.Symbol("x")
+                if funcion_referencia is not None:
+                    derivada_real_expr = sp.diff(funcion_referencia, x)
+                    derivada_real = float(sp.N(derivada_real_expr.subs(x, resultado["x_evaluacion"])))
+                    error_abs = abs(resultado["derivada"] - derivada_real)
+                    print(f"f'({resultado['x_evaluacion']}) real = {derivada_real}")
+                    print(f"Error |derivada aproximada - derivada real| = {error_abs}")
+                else:
+                    print("Error |derivada aproximada - derivada real| = no disponible (sin f(x) exacta)")
             except Exception as e:
                 print(f"Error: {e}")
 
