@@ -4,6 +4,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 import sympy as sp
 from typing import Callable, Tuple, List, Dict
+from Metodos.metodo_lagrange_derivacion import ejecutar_metodo_lagrange
 
 # Funciones del método de Newton-Raphson
 def evaluar_funcion_newton(funcion_str: str, x: float, variable: str = 'x') -> float:
@@ -797,11 +798,12 @@ def main():
         print("3. Método de Bisección")
         print("4. Método de Punto Fijo")
         print("5. Comparativa de los 4 métodos")
-        print("6. Salir")
+        print("6. Interpolación Lagrange + Derivación + Diferencias Divididas")
+        print("7. Salir")
         print("="*80)
         
         try:
-            opcion = int(input("Selecciona una opción (1-6): ").strip())
+            opcion = int(input("Selecciona una opción (1-7): ").strip())
         except ValueError:
             print("Error: Debe ingresar un número entero.")
             continue
@@ -952,8 +954,12 @@ def main():
         elif opcion == 5:
             # Comparativa de los 4 métodos
             comparativa_metodos()
-        
+
         elif opcion == 6:
+            # Lagrange + derivación + diferencias divididas
+            ejecutar_metodo_lagrange()
+        
+        elif opcion == 7:
             print("¡Hasta luego!")
             break
         
