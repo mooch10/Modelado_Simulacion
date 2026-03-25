@@ -112,7 +112,7 @@ def polinomio_newton_desde_dd(x_vals, tabla_dd):
 def _ordenar_descendente(expr):
     """Retorna una expresion polinomica expandida y ordenada por grado descendente."""
     x = sp.Symbol("x")
-    expr_expandida = sp.expand(sp.nsimplify(expr, rational=True))
+    expr_expandida = sp.expand(expr)
 
     try:
         pol = sp.Poly(expr_expandida, x)
@@ -121,17 +121,54 @@ def _ordenar_descendente(expr):
         return expr_expandida
 
 
-def _a_fraccion(expr):
-    """Convierte coeficientes decimales a forma racional exacta cuando sea posible."""
-    return sp.nsimplify(expr, rational=True)
+def _expr_a_texto_decimal(expr, decimales=7):
+    """Formatea expresiones con coma decimal y cantidad fija de decimales."""
+    x = sp.Symbol("x")
+    expr_ordenada = _ordenar_descendente(expr)
+
+    try:
+        pol = sp.Poly(expr_ordenada, x)
+        partes = []
+
+        for potencia, coef in sorted(pol.terms(), key=lambda t: t[0][0], reverse=True):
+            grado = potencia[0]
+            coef_num = float(coef)
+            signo = "-" if coef_num < 0 else "+"
+            coef_abs = abs(coef_num)
+            coef_txt = f"{coef_abs:.{decimales}f}".replace(".", ",")
+
+            if grado == 0:
+                termino = f"{coef_txt}"
+            elif grado == 1:
+                termino = f"{coef_txt}*x"
+            else:
+                termino = f"{coef_txt}*x**{grado}"
+
+            partes.append((signo, termino))
+
+        if not partes:
+            return f"{0:.{decimales}f}".replace(".", ",")
+
+        primer_signo, primer_termino = partes[0]
+        salida = ("-" if primer_signo == "-" else "") + primer_termino
+
+        for signo, termino in partes[1:]:
+            salida += f" {signo} {termino}"
+
+        return salida
+
+    except sp.PolynomialError:
+        expr_num = float(sp.N(expr_ordenada))
+        return f"{expr_num:.{decimales}f}".replace(".", ",")
 
 
 def _formato_suma_lagrange(y_vals, bases_ordenadas):
     """Construye la representacion P(x)=sum(y_i*L_i(x)) en texto legible."""
     terminos = []
     for i, yi in enumerate(y_vals):
-        yi_frac = _a_fraccion(yi)
-        terminos.append(f"({yi_frac})*({bases_ordenadas[i]})")
+        yi_txt = _expr_a_texto_decimal(yi)
+        li_txt = _expr_a_texto_decimal(bases_ordenadas[i])
+        terminos.append(f"({yi_txt})*({li_txt})")
     return " + ".join(terminos)
 
 
@@ -295,11 +332,11 @@ def ejecutar_metodo_lagrange():
         if opcion == "1":
             try:
                 _, bases = polinomio_lagrange(x_vals, y_vals)
-                bases_ordenadas = [_a_fraccion(_ordenar_descendente(li)) for li in bases]
+                bases_ordenadas = [_ordenar_descendente(li) for li in bases]
 
                 print("\nBases de Lagrange:")
                 for i, li in enumerate(bases_ordenadas):
-                    print(f"L_{i}(x) = {li}")
+                    print(f"L_{i}(x) = {_expr_a_texto_decimal(li)}")
 
                 print("\nSuma de polinomios (forma de interpolacion):")
                 print(f"P(x) = {_formato_suma_lagrange(y_vals, bases_ordenadas)}")
@@ -309,9 +346,9 @@ def ejecutar_metodo_lagrange():
         elif opcion == "2":
             try:
                 p, _ = polinomio_lagrange(x_vals, y_vals)
-                p = _a_fraccion(_ordenar_descendente(p))
+                p = _ordenar_descendente(p)
                 print("\nPolinomio interpolante de Lagrange:")
-                print(f"P(x) = {p}")
+                print(f"P(x) = {_expr_a_texto_decimal(p)}")
 
                 evaluar = input("¿Desea evaluar P(x) en un punto? (s/n): ").strip().lower()
                 if evaluar in ["s", "si", "sí"]:
@@ -334,14 +371,14 @@ def ejecutar_metodo_lagrange():
 
             try:
                 resultado = aproximar_derivada_tres_formas(x_vals, y_vals, forma, x_obj)
-                p_local = _a_fraccion(_ordenar_descendente(resultado['polinomio_local']))
-                dp_local = _a_fraccion(_ordenar_descendente(resultado['derivada_polinomio_local']))
+                p_local = _ordenar_descendente(resultado['polinomio_local'])
+                dp_local = _ordenar_descendente(resultado['derivada_polinomio_local'])
                 print("\nResultado de derivacion aproximada:")
                 print(f"Forma: {resultado['forma']}")
                 print(f"Puntos usados x: {resultado['x_sub']}")
                 print(f"Puntos usados y: {resultado['y_sub']}")
-                print(f"Polinomio local: {p_local}")
-                print(f"d/dx polinomio local: {dp_local}")
+                print(f"Polinomio local: {_expr_a_texto_decimal(p_local)}")
+                print(f"d/dx polinomio local: {_expr_a_texto_decimal(dp_local)}")
                 print(f"f'({resultado['x_evaluacion']}) ≈ {resultado['derivada']}")
             except Exception as e:
                 print(f"Error: {e}")
@@ -352,9 +389,9 @@ def ejecutar_metodo_lagrange():
                 _imprimir_tabla_dd(x_dd, tabla)
 
                 p_newton = polinomio_newton_desde_dd(x_dd, tabla)
-                p_newton = _a_fraccion(_ordenar_descendente(p_newton))
+                p_newton = _ordenar_descendente(p_newton)
                 print("\nPolinomio de Newton (desde DD):")
-                print(f"P_N(x) = {p_newton}")
+                print(f"P_N(x) = {_expr_a_texto_decimal(p_newton)}")
 
                 evaluar = input("¿Desea evaluar P_N(x) en un punto? (s/n): ").strip().lower()
                 if evaluar in ["s", "si", "sí"]:
