@@ -1,5 +1,6 @@
 import numpy as np
 import sympy as sp
+import math
 
 
 def _locals_simbolicos():
@@ -304,6 +305,7 @@ def _comparar_error_local(x_vals, y_vals, funcion_referencia=None):
     print("\n" + "=" * 90)
     print("COMPARACION DE ERROR LOCAL".center(90))
     print("=" * 90)
+
     print(f"x* = {str(sp.N(x_eval, 12)).replace('.', ',')}")
     print(f"P(x*) = {str(sp.N(p_eval, 12)).replace('.', ',')}")
 
@@ -336,6 +338,188 @@ def _comparar_error_local(x_vals, y_vals, funcion_referencia=None):
     else:
         print(f"Error relativo = {str(sp.N(error_rel, 12)).replace('.', ',')}")
     print("=" * 90)
+
+
+def _max_abs_polinomio_en_intervalo(poly_expr, a, b):
+    """Calcula max|poly(x)| en [a,b] usando puntos críticos del polinomio."""
+    x = sp.Symbol("x")
+    poly_expr = sp.expand(poly_expr)
+    dpoly = sp.diff(poly_expr, x)
+
+    candidatos = [float(a), float(b)]
+
+    if dpoly != 0:
+        try:
+            for r in sp.nroots(dpoly):
+                if abs(sp.im(r)) < 1e-10:
+                    rr = float(sp.re(r))
+                    if float(a) <= rr <= float(b):
+                        candidatos.append(rr)
+        except Exception:
+            pass
+
+    f_poly = sp.lambdify(x, sp.Abs(poly_expr), "numpy")
+    vals = np.array([float(f_poly(c)) for c in candidatos], dtype=float)
+    vals = vals[np.isfinite(vals)]
+
+    if vals.size == 0:
+        raise ValueError("No se pudo evaluar |w(x)| en el intervalo")
+
+    return float(np.max(vals))
+
+
+def _cota_error_global_teorica(x_vals, funcion_expr, a, b, muestras=4000, m_manual=None):
+    """
+    Calcula una cota teorica global del error de interpolacion de Lagrange:
+    ||f - P_n||_inf <= M/(n+1)! * max|w(x)|,  w(x)=prod(x-x_i)
+    usando maximos aproximados por muestreo en [a,b].
+    """
+    x = sp.Symbol("x")
+    n = len(x_vals) - 1
+
+    if b <= a:
+        raise ValueError("El intervalo debe cumplir a < b")
+
+    deriv_orden = sp.diff(funcion_expr, x, n + 1) if funcion_expr is not None else None
+    w_expr = sp.Integer(1)
+    for xi in x_vals:
+        w_expr *= (x - float(xi))
+    w_expr = sp.expand(w_expr)
+
+    if m_manual is not None:
+        m_aprox = abs(float(m_manual))
+        fuente_m = "manual"
+    else:
+        if deriv_orden is None:
+            raise ValueError("Debe ingresar f(x) o un valor manual para M")
+        xs = np.linspace(float(a), float(b), int(muestras))
+        d_fun = sp.lambdify(x, sp.Abs(deriv_orden), "numpy")
+        d_vals = np.array(d_fun(xs), dtype=float)
+        d_vals = d_vals[np.isfinite(d_vals)]
+        if d_vals.size == 0:
+            raise ValueError("No se pudo evaluar f^(n+1) en el intervalo indicado")
+        m_aprox = float(np.max(d_vals))
+        fuente_m = "automatica (muestreo)"
+
+    w_max_aprox = _max_abs_polinomio_en_intervalo(w_expr, a, b)
+    cota = (m_aprox * w_max_aprox) / math.factorial(n + 1)
+
+    return {
+        "n": n,
+        "derivada_orden": deriv_orden,
+        "w_expr": w_expr,
+        "M_aprox": m_aprox,
+        "fuente_M": fuente_m,
+        "Wmax_aprox": w_max_aprox,
+        "cota_global": cota,
+        "intervalo": (float(a), float(b)),
+    }
+
+
+def _error_real_maximo_intervalo(x_vals, y_vals, funcion_expr, a, b, muestras=4000):
+    """Estima el error real máximo |f(x)-P_n(x)| en [a,b] por muestreo denso."""
+    x = sp.Symbol("x")
+    p_lagrange, _ = polinomio_lagrange(x_vals, y_vals)
+
+    xs = np.linspace(float(a), float(b), int(muestras))
+    f_fun = sp.lambdify(x, funcion_expr, "numpy")
+    p_fun = sp.lambdify(x, p_lagrange, "numpy")
+
+    f_vals = np.array(f_fun(xs), dtype=float)
+    p_vals = np.array(p_fun(xs), dtype=float)
+    err_vals = np.abs(f_vals - p_vals)
+    err_vals = err_vals[np.isfinite(err_vals)]
+
+    if err_vals.size == 0:
+        raise ValueError("No se pudo estimar el error real en el intervalo")
+
+    return float(np.max(err_vals))
+
+
+def _mostrar_cota_error_global(x_vals, y_vals, funcion_referencia=None):
+    """Interfaz para calcular y mostrar la cota de error global (teórica)."""
+    x = sp.Symbol("x")
+
+    modo_m = input(
+        "¿Cómo desea obtener M=max|f^(n+1)|? 1) Automático con f(x)  2) Manual: "
+    ).strip()
+
+    m_manual = None
+
+    if modo_m == "2":
+        m_manual = float(_leer_lista_flotantes("Ingrese M (admite expresion): ")[0])
+    else:
+        if funcion_referencia is None:
+            func_txt = input(
+                "No hay funcion exacta cargada. Ingrese f(x) para cota teorica: "
+            ).strip()
+            if not func_txt:
+                print("Se requiere f(x) para calcular la cota teorica")
+                return
+            funcion_referencia = _parsear_expresion(func_txt, variable=x)
+
+    print("\nIntervalo para cota global [a,b].")
+    print("Si presiona Enter, se usa [min(x_i), max(x_i)].")
+
+    a_txt = input("a (Enter por defecto): ").strip()
+    b_txt = input("b (Enter por defecto): ").strip()
+
+    if a_txt:
+        a = float(sp.N(_parsear_expresion(a_txt)))
+    else:
+        a = float(np.min(x_vals))
+
+    if b_txt:
+        b = float(sp.N(_parsear_expresion(b_txt)))
+    else:
+        b = float(np.max(x_vals))
+
+    resultado = _cota_error_global_teorica(x_vals, funcion_referencia, a, b, m_manual=m_manual)
+
+    print("\n" + "=" * 95)
+    print("COTA DE ERROR GLOBAL TEORICA (LAGRANGE)".center(95))
+    print("=" * 95)
+    print(f"Grado del interpolante n = {resultado['n']}")
+    if resultado["derivada_orden"] is not None:
+        print(f"f^(n+1)(x) = {resultado['derivada_orden']}")
+    else:
+        print("f^(n+1)(x): no ingresada (se usa M manual)")
+    print(f"w(x) = {resultado['w_expr']}")
+    print(
+        f"Intervalo: [{_expr_a_texto_decimal(resultado['intervalo'][0])}, "
+        f"{_expr_a_texto_decimal(resultado['intervalo'][1])}]"
+    )
+    print(
+        f"M ({resultado['fuente_M']}) = max|f^(n+1)(x)| = "
+        f"{_expr_a_texto_decimal(resultado['M_aprox'])}"
+    )
+    print(f"Wmax (criticos de w) = max|w(x)| = {_expr_a_texto_decimal(resultado['Wmax_aprox'])}")
+    print(f"Cota global <= {_expr_a_texto_decimal(resultado['cota_global'])}")
+    print("Nota: si M es automático, se estima por muestreo; con M manual la cota es más controlable.")
+    
+    if funcion_referencia is not None:
+        error_real = _error_real_maximo_intervalo(
+            x_vals,
+            y_vals,
+            funcion_referencia,
+            a,
+            b,
+            muestras=4000,
+        )
+
+        razon = (resultado["cota_global"] / error_real) if error_real > 1e-15 else float("inf")
+
+        print("-" * 95)
+        print("COMPARACION EN PARALELO: COTA TEORICA VS ERROR REAL".center(95))
+        print("-" * 95)
+        print(f"Error real máximo (numérico) = {_expr_a_texto_decimal(error_real)}")
+        print(f"Cota teórica global         = {_expr_a_texto_decimal(resultado['cota_global'])}")
+        if np.isfinite(razon):
+            print(f"Relación cota/error real    = {_expr_a_texto_decimal(razon)}")
+        else:
+            print("Relación cota/error real    = infinito (error real ~ 0)")
+
+    print("=" * 95)
 
 
 def _imprimir_tabla_dd(x_vals, tabla):
@@ -381,10 +565,11 @@ def ejecutar_metodo_lagrange():
         print("3. Derivar por aproximacion (adelante, atras, centrada)")
         print("4. Diferencias divididas y polinomio de Newton")
         print("5. Comparar error local en un punto x*")
-        print("6. Reingresar puntos")
-        print("7. Volver al menu principal")
+        print("6. Calcular cota de error global teorica")
+        print("7. Reingresar puntos")
+        print("8. Volver al menu principal")
 
-        opcion = input("Seleccione una opcion (1-7): ").strip()
+        opcion = input("Seleccione una opcion (1-8): ").strip()
 
         if opcion == "1":
             try:
@@ -409,7 +594,7 @@ def ejecutar_metodo_lagrange():
 
                 evaluar = input("¿Desea evaluar P(x) en un punto? (s/n): ").strip().lower()
                 if evaluar in ["s", "si", "sí"]:
-                    x_eval = float(input("Ingrese x*: "))
+                    x_eval = _leer_lista_flotantes("Ingrese x* (admite pi/2, e, sqrt(2), etc.): ")[0]
                     x = sp.Symbol("x")
                     y_eval = float(sp.N(p.subs(x, x_eval)))
                     print(f"P({x_eval}) = {y_eval}")
@@ -424,7 +609,7 @@ def ejecutar_metodo_lagrange():
             if forma == "centrada":
                 x_txt = input("x objetivo interior (Enter para usar el central): ").strip()
                 if x_txt:
-                    x_obj = float(x_txt)
+                    x_obj = float(sp.N(_parsear_expresion(x_txt)))
 
             try:
                 resultado = aproximar_derivada_tres_formas(x_vals, y_vals, forma, x_obj)
@@ -452,7 +637,7 @@ def ejecutar_metodo_lagrange():
 
                 evaluar = input("¿Desea evaluar P_N(x) en un punto? (s/n): ").strip().lower()
                 if evaluar in ["s", "si", "sí"]:
-                    x_eval = float(input("Ingrese x*: "))
+                    x_eval = _leer_lista_flotantes("Ingrese x* (admite pi/2, e, sqrt(2), etc.): ")[0]
                     x = sp.Symbol("x")
                     y_eval = float(sp.N(p_newton.subs(x, x_eval)))
                     print(f"P_N({x_eval}) = {y_eval}")
@@ -467,12 +652,18 @@ def ejecutar_metodo_lagrange():
 
         elif opcion == "6":
             try:
+                _mostrar_cota_error_global(x_vals, y_vals, funcion_referencia)
+            except Exception as e:
+                print(f"Error: {e}")
+
+        elif opcion == "7":
+            try:
                 x_vals, y_vals, funcion_referencia = _cargar_puntos_interpolacion()
                 print("Puntos actualizados correctamente")
             except ValueError as e:
                 print(f"Error de datos: {e}")
 
-        elif opcion == "7":
+        elif opcion == "8":
             break
 
         else:

@@ -2,6 +2,7 @@ import numpy as np
 import sympy as sp
 import matplotlib.pyplot as plt
 from typing import Callable, Tuple, List
+from Metodos.input_parser import parse_real, parse_real_or_default, parse_int_or_default
 
 def metodo_newton_raphson(
     funcion_str: str,
@@ -176,21 +177,21 @@ def main():
         return
     
     try:
-        x0 = float(input("\nAproximación inicial (x₀): ").strip())
+        x0 = parse_real(input("\nAproximación inicial (x₀): ").strip(), "x₀")
     except ValueError:
         print("Error: x₀ debe ser un número")
         return
     
     try:
         tol_input = input("\nTolerancia de error (default 1e-6): ").strip()
-        tolerancia = float(tol_input) if tol_input else 1e-6
+        tolerancia = parse_real_or_default(tol_input, 1e-6, "tolerancia")
     except ValueError:
         print("Error: Tolerancia debe ser un número")
         return
     
     try:
         iter_input = input("\nMáximo de iteraciones (default 100): ").strip()
-        max_iter = int(iter_input) if iter_input else 100
+        max_iter = parse_int_or_default(iter_input, 100, "máximo de iteraciones")
     except ValueError:
         print("Error: Máximo de iteraciones debe ser un entero")
         return

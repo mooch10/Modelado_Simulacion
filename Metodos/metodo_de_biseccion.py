@@ -1,6 +1,7 @@
 import math
 import matplotlib.pyplot as plt
 import numpy as np
+from Metodos.input_parser import parse_real, parse_real_or_default, parse_int_or_default
 
 def evaluar_funcion(func_str, x):
     """
@@ -131,12 +132,12 @@ def main():
 
     # Obtener entradas del usuario
     func_str = input("Ingresa la función en términos de x (ej. x**2 - 2): ")
-    a = float(input("Ingresa el límite inferior a: "))
-    b = float(input("Ingresa el límite superior b: "))
+    a = parse_real(input("Ingresa el límite inferior a: "), "a")
+    b = parse_real(input("Ingresa el límite superior b: "), "b")
     tol_input = input("Ingresa la tolerancia (por defecto 1e-6): ")
-    tol = float(tol_input) if tol_input else 1e-6
+    tol = parse_real_or_default(tol_input, 1e-6, "tolerancia")
     max_iter_input = input("Ingresa el máximo de iteraciones (por defecto 100): ")
-    max_iter = int(max_iter_input) if max_iter_input else 100
+    max_iter = parse_int_or_default(max_iter_input, 100, "máximo de iteraciones")
 
     try:
         raiz, tabla_datos = metodo_biseccion(func_str, a, b, tol, max_iter)

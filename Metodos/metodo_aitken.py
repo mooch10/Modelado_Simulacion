@@ -3,6 +3,7 @@ import re
 import numpy as np
 import matplotlib.pyplot as plt
 from typing import Tuple, List, Dict
+from Metodos.input_parser import parse_real, parse_real_or_default, parse_int_or_default
 
 
 def evaluar_funcion(func_str, x):
@@ -250,13 +251,13 @@ def main():
             print("Error: Debe ingresar una función")
             return
         
-        x0 = float(input("Ingrese la aproximación inicial x₀: "))
+        x0 = parse_real(input("Ingrese la aproximación inicial x₀: "), "x₀")
         
         tolerancia_input = input("Ingrese la tolerancia de error (Enter para 1e-6): ").strip()
-        tolerancia = float(tolerancia_input) if tolerancia_input else 1e-6
+        tolerancia = parse_real_or_default(tolerancia_input, 1e-6, "tolerancia")
         
         max_iter_input = input("Ingrese el máximo de iteraciones (Enter para 100): ").strip()
-        max_iteraciones = int(max_iter_input) if max_iter_input else 100
+        max_iteraciones = parse_int_or_default(max_iter_input, 100, "máximo de iteraciones")
         
         # Ejecutar el método
         raiz, iteraciones, convergencia = metodo_aitken(g_str, x0, tolerancia, max_iteraciones)

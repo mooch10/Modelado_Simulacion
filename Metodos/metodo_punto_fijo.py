@@ -2,6 +2,7 @@ import math
 import re
 import numpy as np
 import matplotlib.pyplot as plt
+from Metodos.input_parser import parse_real, parse_real_or_default, parse_int_or_default
 
 def evaluar_funcion(func_str, x):
     """
@@ -120,11 +121,11 @@ def main():
     # Obtener entradas del usuario
     func_str = input("Ingresa la función f(x) = 0 (ej. x**2 - 2): ")
     g_str = input("Ingresa la función g(x) para el punto fijo (ej. x - (x**2 - 2)/(2*x)): ")
-    x0 = float(input("Ingresa el valor inicial x0: "))
+    x0 = parse_real(input("Ingresa el valor inicial x0: "), "x0")
     tol_input = input("Ingresa la tolerancia (por defecto 1e-6): ")
-    tol = float(tol_input) if tol_input else 1e-6
+    tol = parse_real_or_default(tol_input, 1e-6, "tolerancia")
     max_iter_input = input("Ingresa el máximo de iteraciones (por defecto 100): ")
-    max_iter = int(max_iter_input) if max_iter_input else 100
+    max_iter = parse_int_or_default(max_iter_input, 100, "máximo de iteraciones")
 
     try:
         raiz, tabla_datos = metodo_punto_fijo(g_str, x0, tol, max_iter)
@@ -133,8 +134,8 @@ def main():
         # Preguntar si quiere graficar
         graficar = input("¿Quieres ver el gráfico de la función? (s/n): ").lower()
         if graficar == 's':
-            a = float(input("Ingresa el límite inferior para el gráfico: "))
-            b = float(input("Ingresa el límite superior para el gráfico: "))
+            a = parse_real(input("Ingresa el límite inferior para el gráfico: "), "a")
+            b = parse_real(input("Ingresa el límite superior para el gráfico: "), "b")
             graficar_funcion(func_str, a, b, raiz)
     except ValueError as e:
         print(f"Error: {e}")
