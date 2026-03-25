@@ -123,6 +123,13 @@ def _ordenar_descendente(expr):
 
 def _expr_a_texto_decimal(expr, decimales=7):
     """Formatea expresiones con coma decimal y cantidad fija de decimales."""
+    def _formatear_decimal(valor):
+        txt = f"{valor:.{decimales}f}"
+        txt = txt.rstrip("0").rstrip(".")
+        if txt == "-0":
+            txt = "0"
+        return txt.replace(".", ",")
+
     x = sp.Symbol("x")
     expr_ordenada = _ordenar_descendente(expr)
 
@@ -135,7 +142,7 @@ def _expr_a_texto_decimal(expr, decimales=7):
             coef_num = float(coef)
             signo = "-" if coef_num < 0 else "+"
             coef_abs = abs(coef_num)
-            coef_txt = f"{coef_abs:.{decimales}f}".replace(".", ",")
+            coef_txt = _formatear_decimal(coef_abs)
 
             if grado == 0:
                 termino = f"{coef_txt}"
@@ -147,7 +154,7 @@ def _expr_a_texto_decimal(expr, decimales=7):
             partes.append((signo, termino))
 
         if not partes:
-            return f"{0:.{decimales}f}".replace(".", ",")
+            return "0"
 
         primer_signo, primer_termino = partes[0]
         salida = ("-" if primer_signo == "-" else "") + primer_termino
@@ -159,7 +166,7 @@ def _expr_a_texto_decimal(expr, decimales=7):
 
     except sp.PolynomialError:
         expr_num = float(sp.N(expr_ordenada))
-        return f"{expr_num:.{decimales}f}".replace(".", ",")
+        return _formatear_decimal(expr_num)
 
 
 def _formato_suma_lagrange(y_vals, bases_ordenadas):
@@ -262,6 +269,7 @@ def _cargar_puntos_interpolacion():
     x_vals = _leer_lista_flotantes(
         "Ingrese x separados por coma (admite expresiones como pi/2, e, sqrt(2)): "
     )
+    funcion_referencia = None
 
     if modo == "2":
         x = sp.Symbol("x")
@@ -273,13 +281,61 @@ def _cargar_puntos_interpolacion():
             raise ValueError("Debe ingresar una funcion f(x)")
 
         f_expr = _parsear_expresion(funcion, variable=x)
+        funcion_referencia = f_expr
         y_vals = [float(sp.N(f_expr.subs(x, xv))) for xv in x_vals]
     else:
         y_vals = _leer_lista_flotantes(
             "Ingrese y=f(x) separados por coma (admite expresiones numericas como pi, e, sqrt(2)): "
         )
 
-    return normalizar_puntos(x_vals, y_vals)
+    x_norm, y_norm = normalizar_puntos(x_vals, y_vals)
+    return x_norm, y_norm, funcion_referencia
+
+
+def _comparar_error_local(x_vals, y_vals, funcion_referencia=None):
+    """Compara el error local de interpolacion en un punto x* especifico."""
+    x = sp.Symbol("x")
+    p_lagrange, _ = polinomio_lagrange(x_vals, y_vals)
+    p_lagrange = _ordenar_descendente(p_lagrange)
+
+    x_eval = float(_leer_lista_flotantes("Ingrese el punto x* (ej: pi/3): ")[0])
+    p_eval = float(sp.N(p_lagrange.subs(x, x_eval)))
+
+    print("\n" + "=" * 90)
+    print("COMPARACION DE ERROR LOCAL".center(90))
+    print("=" * 90)
+    print(f"x* = {str(sp.N(x_eval, 12)).replace('.', ',')}")
+    print(f"P(x*) = {str(sp.N(p_eval, 12)).replace('.', ',')}")
+
+    valor_real = None
+    fuente = ""
+
+    if funcion_referencia is not None:
+        valor_real = float(sp.N(funcion_referencia.subs(x, x_eval)))
+        fuente = f"f(x) = {funcion_referencia}"
+    else:
+        usar_manual = input(
+            "No hay funcion exacta cargada. ¿Desea ingresar f(x*) manualmente? (s/n): "
+        ).strip().lower()
+        if usar_manual in ["s", "si", "sí"]:
+            valor_real = float(_leer_lista_flotantes("Ingrese f(x*) (admite expresion): ")[0])
+            fuente = "valor manual"
+
+    if valor_real is None:
+        print("No se puede calcular error sin un valor real de referencia.")
+        print("=" * 90)
+        return
+
+    error_abs = abs(valor_real - p_eval)
+    error_rel = (error_abs / abs(valor_real)) if abs(valor_real) > 1e-15 else float("nan")
+
+    print(f"Valor real ({fuente}) = {str(sp.N(valor_real, 12)).replace('.', ',')}")
+    print(f"Error absoluto = {str(sp.N(error_abs, 12)).replace('.', ',')}")
+    if np.isnan(error_rel):
+        print("Error relativo = no definido (valor real cercano a 0)")
+    else:
+        print(f"Error relativo = {str(sp.N(error_rel, 12)).replace('.', ',')}")
+    print("=" * 90)
 
 
 def _imprimir_tabla_dd(x_vals, tabla):
@@ -311,7 +367,7 @@ def ejecutar_metodo_lagrange():
     print("=" * 90)
 
     try:
-        x_vals, y_vals = _cargar_puntos_interpolacion()
+        x_vals, y_vals, funcion_referencia = _cargar_puntos_interpolacion()
     except ValueError as e:
         print(f"Error de datos: {e}")
         return
@@ -324,10 +380,11 @@ def ejecutar_metodo_lagrange():
         print("2. Construir polinomio interpolante de Lagrange")
         print("3. Derivar por aproximacion (adelante, atras, centrada)")
         print("4. Diferencias divididas y polinomio de Newton")
-        print("5. Reingresar puntos")
-        print("6. Volver al menu principal")
+        print("5. Comparar error local en un punto x*")
+        print("6. Reingresar puntos")
+        print("7. Volver al menu principal")
 
-        opcion = input("Seleccione una opcion (1-6): ").strip()
+        opcion = input("Seleccione una opcion (1-7): ").strip()
 
         if opcion == "1":
             try:
@@ -404,12 +461,18 @@ def ejecutar_metodo_lagrange():
 
         elif opcion == "5":
             try:
-                x_vals, y_vals = _cargar_puntos_interpolacion()
+                _comparar_error_local(x_vals, y_vals, funcion_referencia)
+            except Exception as e:
+                print(f"Error: {e}")
+
+        elif opcion == "6":
+            try:
+                x_vals, y_vals, funcion_referencia = _cargar_puntos_interpolacion()
                 print("Puntos actualizados correctamente")
             except ValueError as e:
                 print(f"Error de datos: {e}")
 
-        elif opcion == "6":
+        elif opcion == "7":
             break
 
         else:
