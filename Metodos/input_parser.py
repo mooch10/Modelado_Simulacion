@@ -1,4 +1,5 @@
 import math
+import re
 import sympy as sp
 
 
@@ -47,3 +48,27 @@ def parse_int_or_default(texto: str, default: int, nombre: str = "valor") -> int
     if abs(valor - entero) > 1e-12:
         raise ValueError(f"{nombre} debe ser un entero")
     return int(entero)
+
+
+def parse_function_expression(funcion: str, variable: str = "x") -> sp.Expr:
+    """Parsea una función f(x) con soporte de pi/e y funciones matemáticas."""
+    texto = funcion.strip()
+    if not texto:
+        raise ValueError("La función no puede estar vacía")
+
+    # Corrige casos como 0.4e**x para evitar errores de sintaxis.
+    texto = re.sub(r"(?P<num>\d)(?P<e>e\*\*)", r"\g<num>*\g<e>", texto)
+
+    x = sp.Symbol(variable)
+    expr = sp.sympify(texto, locals=_LOCALS)
+    simbolos_invalidos = expr.free_symbols - {x}
+    if simbolos_invalidos:
+        raise ValueError(f"Se encontraron variables no permitidas: {simbolos_invalidos}")
+    return expr
+
+
+def build_numeric_function(funcion: str, variable: str = "x"):
+    """Construye (expresion_simbolica, funcion_numerica_numpy) desde una función de usuario."""
+    x = sp.Symbol(variable)
+    expr = parse_function_expression(funcion, variable)
+    return expr, sp.lambdify(x, expr, "numpy")

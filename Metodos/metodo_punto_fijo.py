@@ -1,44 +1,34 @@
-import math
-import re
 import numpy as np
 import matplotlib.pyplot as plt
-from Metodos.input_parser import parse_real, parse_real_or_default, parse_int_or_default
+from Metodos.input_parser import (
+    parse_real,
+    parse_real_or_default,
+    parse_int_or_default,
+    build_numeric_function,
+)
 
-def evaluar_funcion(func_str, x):
+def _evaluar_numero(valor):
+    """Convierte resultados de lambdify a float real y valida finitud."""
+    if isinstance(valor, complex):
+        if abs(valor.imag) > 1e-12:
+            raise ValueError("La función devolvió un valor complejo")
+        valor = valor.real
+
+    valor = float(valor)
+    if not np.isfinite(valor):
+        raise ValueError("La función devolvió un valor no finito")
+    return valor
+
+
+def evaluar_funcion(g_num, x):
     """
     Evalúa la función definida por el usuario en un valor dado de x.
     Soporta funciones matemáticas básicas como sin, cos, exp, etc.
     """
-    # corrija casos típicos donde se olvida el operador '*' entre un número y
-    # la constante e, por ejemplo "0.4e**x**2" -> "0.4*e**x**2".
-    func_str = re.sub(r'(?P<num>\d)(?P<e>e\*\*)', r'\g<num>*\g<e>', func_str)
-
     try:
-        # Define nombres permitidos por seguridad
-        nombres_permitidos = {
-            "sin": math.sin,
-            "cos": math.cos,
-            "tan": math.tan,
-            "exp": math.exp,
-            "log": math.log,
-            "sqrt": math.sqrt,
-            "pi": math.pi,
-            "e": math.e,
-            "abs": abs,
-            "pow": pow
-        }
-        # Evalúa la cadena de la función con x y nombres permitidos
-        return eval(func_str, {"__builtins__": None}, {**nombres_permitidos, "x": x})
+        return _evaluar_numero(g_num(x))
     except Exception as e:
-            # Provide a clearer hint for common syntax mistakes
-            msg = str(e)
-            if 'invalid decimal literal' in msg:
-                msg += (
-                    " - revisa que uses el operador '*' cuando multiplies.\n"
-                    "    Por ejemplo: en lugar de escribir '0.4e**x**2' usa '0.4*e**x**2' o '0.4*math.e**x**2'."
-                    "\n    Evita la notación científica con 'e' sin multiplicar."
-                )
-            raise ValueError(f"Error al evaluar la función: {msg}")
+        raise ValueError(f"Error al evaluar la función: {e}")
 
 
 def metodo_punto_fijo(g_str, x0, tol=1e-6, max_iter=100):
@@ -48,12 +38,13 @@ def metodo_punto_fijo(g_str, x0, tol=1e-6, max_iter=100):
     Retorna una tupla (raiz, tabla_datos).
     """
     print(f"Iniciando método de Punto Fijo con x0 = {x0}")
+    _, g_num = build_numeric_function(g_str)
     x = x0
     tabla_datos = []
 
     for iteracion in range(max_iter):
         try:
-            x_nuevo = evaluar_funcion(g_str, x)
+            x_nuevo = evaluar_funcion(g_num, x)
         except ValueError as e:
             raise ValueError(f"Error en la evaluación de g(x): {e}")
 
@@ -91,12 +82,13 @@ def graficar_funcion(func_str, a, b, raiz=None):
     Grafica la función f(x) en el intervalo [a, b].
     Si se proporciona una raíz, la marca en el gráfico.
     """
+    _, f_num = build_numeric_function(func_str)
     x_vals = np.linspace(a, b, 1000)
     y_vals = []
 
     for x in x_vals:
         try:
-            y = evaluar_funcion(func_str, x)
+            y = evaluar_funcion(f_num, x)
             y_vals.append(y)
         except:
             y_vals.append(np.nan)  # Para evitar errores en la gráfica

@@ -34,21 +34,23 @@ def _parsear_expresion(texto, variable=None):
 
 
 def normalizar_puntos(x_vals, y_vals):
-    """Valida y ordena los puntos por x para evitar inconsistencias."""
-    x_arr = np.array(x_vals, dtype=float)
-    y_arr = np.array(y_vals, dtype=float)
-
-    if x_arr.size != y_arr.size:
+    """Valida y ordena puntos preservando forma simbólica (pi, e, etc.)."""
+    if len(x_vals) != len(y_vals):
         raise ValueError("x e y deben tener la misma cantidad de datos")
 
-    if x_arr.size < 2:
+    if len(x_vals) < 2:
         raise ValueError("Se requieren al menos 2 puntos")
 
-    if len(np.unique(x_arr)) != x_arr.size:
+    x_sym = [sp.nsimplify(v, [sp.pi, sp.E], rational=True) for v in x_vals]
+    y_sym = [sp.nsimplify(v, [sp.pi, sp.E], rational=True) for v in y_vals]
+
+    if len(set(map(str, x_sym))) != len(x_sym):
         raise ValueError("Los valores de x deben ser distintos")
 
-    orden = np.argsort(x_arr)
-    return x_arr[orden], y_arr[orden]
+    orden = sorted(range(len(x_sym)), key=lambda i: float(sp.N(x_sym[i])))
+    x_ord = np.array([x_sym[i] for i in orden], dtype=object)
+    y_ord = np.array([y_sym[i] for i in orden], dtype=object)
+    return x_ord, y_ord
 
 
 def bases_lagrange(x_vals):
@@ -82,17 +84,19 @@ def polinomio_lagrange(x_vals, y_vals):
 def tabla_diferencias_divididas(x_vals, y_vals):
     """Calcula la tabla de diferencias divididas de Newton."""
     x_vals, y_vals = normalizar_puntos(x_vals, y_vals)
+    x_num = np.array([float(sp.N(v)) for v in x_vals], dtype=float)
+    y_num = np.array([float(sp.N(v)) for v in y_vals], dtype=float)
     n = len(x_vals)
     tabla = np.zeros((n, n), dtype=float)
-    tabla[:, 0] = y_vals
+    tabla[:, 0] = y_num
 
     for j in range(1, n):
         for i in range(n - j):
             numerador = tabla[i + 1, j - 1] - tabla[i, j - 1]
-            denominador = x_vals[i + j] - x_vals[i]
+            denominador = x_num[i + j] - x_num[i]
             tabla[i, j] = numerador / denominador
 
-    return x_vals, tabla
+    return x_num, tabla
 
 
 def polinomio_newton_desde_dd(x_vals, tabla_dd):
@@ -123,7 +127,7 @@ def _ordenar_descendente(expr):
 
 
 def _expr_a_texto_decimal(expr, decimales=7):
-    """Formatea expresiones con coma decimal y cantidad fija de decimales."""
+    """Formatea expresiones: preserva pi simbólico y, si no aplica, usa decimales con coma."""
     def _formatear_decimal(valor):
         txt = f"{valor:.{decimales}f}"
         txt = txt.rstrip("0").rstrip(".")
@@ -133,6 +137,14 @@ def _expr_a_texto_decimal(expr, decimales=7):
 
     x = sp.Symbol("x")
     expr_ordenada = _ordenar_descendente(expr)
+
+    # Si se puede reconstruir una forma con pi de manera estable, priorizar salida simbólica.
+    try:
+        expr_pi = sp.nsimplify(expr_ordenada, [sp.pi], rational=True)
+        if expr_pi.has(sp.pi):
+            return str(_ordenar_descendente(sp.expand(expr_pi)))
+    except Exception:
+        pass
 
     try:
         pol = sp.Poly(expr_ordenada, x)
@@ -197,6 +209,7 @@ def aproximar_derivada_tres_formas(x_vals, y_vals, forma, x_objetivo=None):
     - centrada: usa 3 puntos alrededor de un x interior
     """
     x_vals, y_vals = normalizar_puntos(x_vals, y_vals)
+    x_num = np.array([float(sp.N(v)) for v in x_vals], dtype=float)
 
     if len(x_vals) < 3:
         raise ValueError("Se requieren al menos 3 puntos para derivar por aproximacion")
@@ -220,7 +233,7 @@ def aproximar_derivada_tres_formas(x_vals, y_vals, forma, x_objetivo=None):
         if x_objetivo is None:
             idx = len(x_vals) // 2
         else:
-            idx = int(np.argmin(np.abs(x_vals - float(x_objetivo))))
+            idx = int(np.argmin(np.abs(x_num - float(x_objetivo))))
 
         if idx == 0:
             idx = 1
@@ -259,6 +272,15 @@ def _leer_lista_flotantes(mensaje):
     return valores
 
 
+def _leer_lista_expresiones(mensaje):
+    texto = input(mensaje).strip()
+    partes = [p.strip() for p in texto.split(",") if p.strip()]
+    valores = []
+    for p in partes:
+        valores.append(_parsear_expresion(p))
+    return valores
+
+
 def _cargar_puntos_interpolacion():
     """Permite cargar datos por lista de y o por funcion f(x)."""
     print("\nCarga de datos para Lagrange:")
@@ -267,7 +289,7 @@ def _cargar_puntos_interpolacion():
 
     modo = input("Seleccione modo (1-2): ").strip()
 
-    x_vals = _leer_lista_flotantes(
+    x_vals = _leer_lista_expresiones(
         "Ingrese x separados por coma (admite expresiones como pi/2, e, sqrt(2)): "
     )
     funcion_referencia = None
@@ -283,9 +305,9 @@ def _cargar_puntos_interpolacion():
 
         f_expr = _parsear_expresion(funcion, variable=x)
         funcion_referencia = f_expr
-        y_vals = [float(sp.N(f_expr.subs(x, xv))) for xv in x_vals]
+        y_vals = [sp.simplify(f_expr.subs(x, xv)) for xv in x_vals]
     else:
-        y_vals = _leer_lista_flotantes(
+        y_vals = _leer_lista_expresiones(
             "Ingrese y=f(x) separados por coma (admite expresiones numericas como pi, e, sqrt(2)): "
         )
 
@@ -467,12 +489,12 @@ def _mostrar_cota_error_global(x_vals, y_vals, funcion_referencia=None):
     if a_txt:
         a = float(sp.N(_parsear_expresion(a_txt)))
     else:
-        a = float(np.min(x_vals))
+        a = float(min(float(sp.N(v)) for v in x_vals))
 
     if b_txt:
         b = float(sp.N(_parsear_expresion(b_txt)))
     else:
-        b = float(np.max(x_vals))
+        b = float(max(float(sp.N(v)) for v in x_vals))
 
     resultado = _cota_error_global_teorica(x_vals, funcion_referencia, a, b, m_manual=m_manual)
 

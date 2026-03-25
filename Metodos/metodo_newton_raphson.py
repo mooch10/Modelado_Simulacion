@@ -2,7 +2,12 @@ import numpy as np
 import sympy as sp
 import matplotlib.pyplot as plt
 from typing import Callable, Tuple, List
-from Metodos.input_parser import parse_real, parse_real_or_default, parse_int_or_default
+from Metodos.input_parser import (
+    parse_real,
+    parse_real_or_default,
+    parse_int_or_default,
+    build_numeric_function,
+)
 
 def metodo_newton_raphson(
     funcion_str: str,
@@ -37,12 +42,9 @@ def metodo_newton_raphson(
         True si convergió, False si no
     """
     
-    # Convertir string a expresión simbólica
     x = sp.Symbol(variable)
     try:
-        # Si el usuario usa "e" para el número de Euler, mapearlo a sympy.E
-        # para evitar errores al lambdificar (numpy.log no puede manejar símbolos).
-        f_expr = sp.sympify(funcion_str, locals={"e": sp.E, "pi": sp.pi})
+        f_expr, f = build_numeric_function(funcion_str, variable)
     except Exception:
         print(f"Error: No se pudo interpretar la función '{funcion_str}'")
         return None, [], False
@@ -51,7 +53,6 @@ def metodo_newton_raphson(
     f_prima_expr = sp.diff(f_expr, x)
     
     # Convertir a funciones evaluables
-    f = sp.lambdify(x, f_expr, 'numpy')
     f_prima = sp.lambdify(x, f_prima_expr, 'numpy')
     
     print(f"\n{'='*80}")
@@ -138,9 +139,10 @@ def mostrar_tabla_iteraciones(iteraciones: List[dict]) -> None:
 
 def graficar_funcion(funcion_str: str, raiz: float, variable: str = 'x') -> None:
     """Grafica la función y marca la raíz encontrada"""
-    x = sp.Symbol(variable)
-    f_expr = sp.sympify(funcion_str)
-    f = sp.lambdify(x, f_expr, 'numpy')
+    try:
+        _, f = build_numeric_function(funcion_str, variable)
+    except Exception as e:
+        raise ValueError(f"No se pudo interpretar la función para graficar: {e}")
     
     # Determinar rango automáticamente basado en la raíz
     margen = max(abs(raiz) * 0.5, 2)

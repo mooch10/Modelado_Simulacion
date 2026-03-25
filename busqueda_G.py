@@ -2,7 +2,7 @@ import sympy as sp
 import numpy as np
 from sympy import symbols, solve, diff, lambdify, simplify
 from itertools import combinations
-from metodo_punto_fijo import metodo_punto_fijo
+from Metodos.metodo_punto_fijo import metodo_punto_fijo
 
 
 def obtener_despejes_punto_fijo(f_str, variable='x'):

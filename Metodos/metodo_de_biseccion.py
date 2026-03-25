@@ -1,30 +1,32 @@
-import math
 import matplotlib.pyplot as plt
 import numpy as np
-from Metodos.input_parser import parse_real, parse_real_or_default, parse_int_or_default
+from Metodos.input_parser import (
+    parse_real,
+    parse_real_or_default,
+    parse_int_or_default,
+    build_numeric_function,
+)
 
-def evaluar_funcion(func_str, x):
+def _evaluar_numero(valor):
+    """Convierte resultados de lambdify a float real y valida finitud."""
+    if isinstance(valor, complex):
+        if abs(valor.imag) > 1e-12:
+            raise ValueError("La función devolvió un valor complejo")
+        valor = valor.real
+
+    valor = float(valor)
+    if not np.isfinite(valor):
+        raise ValueError("La función devolvió un valor no finito")
+    return valor
+
+
+def evaluar_funcion(f_num, x):
     """
     Evalúa la función definida por el usuario en un valor dado de x.
     Soporta funciones matemáticas básicas como sin, cos, exp, etc.
     """
     try:
-        # Define nombres permitidos por seguridad
-        nombres_permitidos = {
-            "sin": math.sin,
-            "cos": math.cos,
-            "tan": math.tan,
-            "exp": math.exp,
-            "log": math.log,
-            "sqrt": math.sqrt,
-            "pi": math.pi,
-            "e": math.e,
-            "abs": abs,
-            "pow": pow,
-            "x": x
-        }
-        # Evalúa la cadena de la función con x y nombres permitidos
-        return eval(func_str, {"__builtins__": {}}, nombres_permitidos)
+        return _evaluar_numero(f_num(x))
     except Exception as e:
         raise ValueError(f"Error al evaluar la función: {e}")
 
@@ -34,8 +36,10 @@ def metodo_biseccion(func_str, a, b, tol=1e-6, max_iter=100):
     Requiere que f(a) * f(b) < 0.
     Retorna una tupla (raiz, tabla_datos).
     """
-    fa = evaluar_funcion(func_str, a)
-    fb = evaluar_funcion(func_str, b)
+    _, f_num = build_numeric_function(func_str)
+
+    fa = evaluar_funcion(f_num, a)
+    fb = evaluar_funcion(f_num, b)
 
     if fa * fb >= 0:
         raise ValueError("La función debe tener signos opuestos en a y b (f(a) * f(b) < 0)")
@@ -49,7 +53,7 @@ def metodo_biseccion(func_str, a, b, tol=1e-6, max_iter=100):
 
     for iteracion in range(max_iter):
         c = (a + b) / 2
-        fc = evaluar_funcion(func_str, c)
+        fc = evaluar_funcion(f_num, c)
 
         # Agregar datos a la tabla
         tabla_datos.append((iteracion + 1, a, b, c, fa, fb, fc))
@@ -73,7 +77,7 @@ def metodo_biseccion(func_str, a, b, tol=1e-6, max_iter=100):
     print(f"Máximo de iteraciones alcanzado. Raíz aproximada: {(a + b) / 2}")
     raiz = (a + b) / 2
     # Agregar la última iteración si no convergió
-    tabla_datos.append((max_iter + 1, a, b, raiz, fa, fb, evaluar_funcion(func_str, raiz)))
+    tabla_datos.append((max_iter + 1, a, b, raiz, fa, fb, evaluar_funcion(f_num, raiz)))
     imprimir_tabla(tabla_datos)
     return raiz, tabla_datos
 
@@ -94,13 +98,15 @@ def graficar_funcion(func_str, a, b, raiz):
     Grafica la función y marca la raíz encontrada.
     """
     try:
+        _, f_num = build_numeric_function(func_str)
+
         # Crear puntos x para el gráfico
         x = np.linspace(a, b, 300)
         y = []
         
         for xi in x:
             try:
-                y.append(evaluar_funcion(func_str, xi))
+                y.append(evaluar_funcion(f_num, xi))
             except:
                 y.append(np.nan)
         

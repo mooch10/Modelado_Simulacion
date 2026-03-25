@@ -1,44 +1,36 @@
-import math
-import re
 import numpy as np
 import matplotlib.pyplot as plt
 from typing import Tuple, List, Dict
-from Metodos.input_parser import parse_real, parse_real_or_default, parse_int_or_default
+from Metodos.input_parser import (
+    parse_real,
+    parse_real_or_default,
+    parse_int_or_default,
+    build_numeric_function,
+)
 
 
-def evaluar_funcion(func_str, x):
+def _evaluar_numero(valor):
+    """Convierte resultados de lambdify a float real y valida finitud."""
+    if isinstance(valor, complex):
+        if abs(valor.imag) > 1e-12:
+            raise ValueError("La función devolvió un valor complejo")
+        valor = valor.real
+
+    valor = float(valor)
+    if not np.isfinite(valor):
+        raise ValueError("La función devolvió un valor no finito")
+    return valor
+
+
+def evaluar_funcion(g_num, x):
     """
     Evalúa la función definida por el usuario en un valor dado de x.
     Soporta funciones matemáticas básicas como sin, cos, exp, etc.
     """
-    # Corrija casos típicos donde se olvida el operador '*' entre un número y
-    # la constante e, por ejemplo "0.4e**x**2" -> "0.4*e**x**2"
-    func_str = re.sub(r'(?P<num>\d)(?P<e>e\*\*)', r'\g<num>*\g<e>', func_str)
-
     try:
-        # Define nombres permitidos por seguridad
-        nombres_permitidos = {
-            "sin": math.sin,
-            "cos": math.cos,
-            "tan": math.tan,
-            "exp": math.exp,
-            "log": math.log,
-            "sqrt": math.sqrt,
-            "pi": math.pi,
-            "e": math.e,
-            "abs": abs,
-            "pow": pow
-        }
-        # Evalúa la cadena de la función con x y nombres permitidos
-        return eval(func_str, {"__builtins__": None}, {**nombres_permitidos, "x": x})
+        return _evaluar_numero(g_num(x))
     except Exception as e:
         msg = str(e)
-        if 'invalid decimal literal' in msg:
-            msg += (
-                " - revisa que uses el operador '*' cuando multiplies.\n"
-                "    Por ejemplo: en lugar de escribir '0.4e**x**2' usa '0.4*e**x**2' o '0.4*math.e**x**2'."
-                "\n    Evita la notación científica con 'e' sin multiplicar."
-            )
         raise ValueError(f"Error al evaluar la función: {msg}")
 
 
@@ -90,13 +82,15 @@ def metodo_aitken(
     convergencia = False
     
     try:
+        _, g_num = build_numeric_function(g_str)
+
         # Usamos x0 como semilla inicial
         x0_iter = x0
         
         for i in range(max_iteraciones):
             # Calcular los tres valores requeridos para la aceleración de Aitken
-            x1 = evaluar_funcion(g_str, x0_iter)
-            x2 = evaluar_funcion(g_str, x1)
+            x1 = evaluar_funcion(g_num, x0_iter)
+            x2 = evaluar_funcion(g_num, x1)
             
             # Calcular el denominador de la fórmula de Aitken
             denominador = x2 - 2 * x1 + x0_iter
@@ -188,6 +182,8 @@ def graficar_metodo_aitken(
     Muestra la función g(x), la línea y=x, y los puntos de iteración.
     """
     try:
+        _, g_num = build_numeric_function(g_str)
+
         # Crear figura con dos subplots
         fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(16, 6))
         
@@ -199,7 +195,7 @@ def graficar_metodo_aitken(
         g_vals = []
         for x in x_vals:
             try:
-                y = evaluar_funcion(g_str, x)
+                y = evaluar_funcion(g_num, x)
                 g_vals.append(y)
             except:
                 g_vals.append(np.nan)
