@@ -488,18 +488,22 @@ def section_lagrange():
 
     st.markdown("Ingresa datos para interpolacion. Puedes cargar y manualmente o desde f(x).")
 
-    with st.form("form_lagrange_data"):
-        mode = st.radio("Modo de carga", ["y manual", "y desde f(x)"], horizontal=True)
-        x_text = st.text_input("x (separados por coma)", value="0, 1, 2, 3")
+    mode = st.radio(
+        "Modo de carga",
+        ["y manual", "y desde f(x)"],
+        horizontal=True,
+        key="lag_mode",
+    )
+    x_text = st.text_input("x (separados por coma)", value="0, 1, 2, 3", key="lag_x_text")
 
-        if mode == "y manual":
-            y_text = st.text_input("y (separados por coma)", value="1, 2, 0, 5")
-            f_exact_text = st.text_input("f(x) exacta opcional", value="")
-        else:
-            y_text = ""
-            f_exact_text = st.text_input("f(x) exacta", value="sin(x)")
+    if mode == "y manual":
+        y_text = st.text_input("y (separados por coma)", value="1, 2, 0, 5", key="lag_y_text")
+        f_exact_text = st.text_input("f(x) exacta opcional", value="", key="lag_f_exact_text")
+    else:
+        y_text = ""
+        f_exact_text = st.text_input("f(x) exacta", value="sin(x)", key="lag_f_exact_text")
 
-        build_btn = st.form_submit_button("Construir interpolacion")
+    build_btn = st.button("Construir interpolacion")
 
     if build_btn:
         try:
@@ -574,6 +578,58 @@ def section_lagrange():
             fig_e = plot_error_curve(err, "Error |f(x) - P(x)| en el intervalo")
             st.pyplot(fig_e)
             plt.close(fig_e)
+
+            # Error global maximo en el intervalo de interpolacion [min(x_i), max(x_i)].
+            x_global = np.linspace(x_min, x_max, 2000)
+            y_global_real = np.array(f_fun(x_global), dtype=float)
+            y_global_interp = np.array(p_fun(x_global), dtype=float)
+            err_global_arr = np.abs(y_global_real - y_global_interp)
+            idx_global_max = int(np.argmax(err_global_arr))
+            err_global_max = float(err_global_arr[idx_global_max])
+            x_global_max = float(x_global[idx_global_max])
+
+            st.markdown("---")
+            st.markdown("Error local en punto especifico y comparacion con error global")
+
+            c_local_1, c_local_2 = st.columns([2, 1])
+            x_local_text = c_local_1.text_input(
+                "Punto x* para error local",
+                value=str(round((x_min + x_max) / 2.0, 6)),
+                key="lag_local_xstar",
+            )
+            calc_local_btn = c_local_2.button("Calcular error local", key="lag_local_btn")
+
+            st.write(
+                f"Error global maximo en [{x_min:.7g}, {x_max:.7g}] = {err_global_max:.7f} "
+                f"(en x = {x_global_max:.7f})"
+            )
+
+            if calc_local_btn:
+                try:
+                    x_star = float(sp.N(sp.sympify(x_local_text, locals=ALLOWED_LOCALS)))
+                    y_star_real = float(sp.N(f_exact_expr.subs(x, x_star)))
+                    y_star_interp = float(sp.N(p_lagr.subs(x, x_star)))
+                    err_local = abs(y_star_real - y_star_interp)
+
+                    razon = err_local / err_global_max if err_global_max > 1e-15 else np.nan
+                    diferencia = err_global_max - err_local
+
+                    st.write(f"f(x*) real = {y_star_real:.7f}")
+                    st.write(f"P(x*) = {y_star_interp:.7f}")
+                    st.write(f"Error local |f(x*) - P(x*)| = {err_local:.7f}")
+                    st.write(f"Error global maximo = {err_global_max:.7f}")
+
+                    if np.isnan(razon):
+                        st.write("Comparacion local/global: no definida (error global ~ 0)")
+                    else:
+                        st.write(f"Relacion local/global = {razon:.7f}")
+                        st.write(f"Diferencia (global - local) = {diferencia:.7f}")
+
+                except Exception as exc:
+                    st.error(f"No se pudo calcular el error local en x*: {exc}")
+        else:
+            st.markdown("---")
+            st.info("Para calcular y comparar error local vs global, debes ingresar f(x) exacta.")
 
     except Exception as exc:
         st.error(f"Error al construir la interpolacion: {exc}")
