@@ -66,6 +66,44 @@ def _format_decimal(value, max_decimals=7):
     return "0" if txt in {"", "-0"} else txt
 
 
+def _is_terminating_denominator(den):
+    """Un racional termina en decimal solo si su denominador tiene factores 2 y/o 5."""
+    d = abs(int(den))
+    if d == 0:
+        return False
+    for p in (2, 5):
+        while d % p == 0:
+            d //= p
+    return d == 1
+
+
+def _format_number_hybrid(value_expr, max_decimals=7, latex=False):
+    """
+    Formato mixto:
+    - Fraccion para racionales pequenos o decimales periodicos/no terminantes.
+    - Decimal para enteros y racionales con decimal terminante "comodo".
+    """
+    v = sp.nsimplify(value_expr, rational=True)
+
+    if v.is_Rational:
+        v_rat = sp.Rational(v)
+        den = int(v_rat.q)
+        num = int(v_rat.p)
+
+        if den == 1:
+            return str(num)
+
+        use_fraction = (den <= 20) or (not _is_terminating_denominator(den))
+        if use_fraction:
+            if latex:
+                return f"\\frac{{{num}}}{{{den}}}"
+            return f"{num}/{den}"
+
+        return _format_decimal(float(v_rat), max_decimals)
+
+    return _format_decimal(float(sp.N(v)), max_decimals)
+
+
 def polynomial_to_decimal_text(expr, variable="x", max_decimals=7):
     x = sp.Symbol(variable)
     expr = sp.expand(expr)
@@ -73,25 +111,72 @@ def polynomial_to_decimal_text(expr, variable="x", max_decimals=7):
     try:
         poly = sp.Poly(expr, x)
     except sp.PolynomialError:
-        return _format_decimal(float(sp.N(expr)), max_decimals)
+        return _format_number_hybrid(expr, max_decimals=max_decimals, latex=False)
 
     terms = []
     eps = 10 ** (-(max_decimals + 2))
 
     for (power,), coef in sorted(poly.terms(), key=lambda t: t[0][0], reverse=True):
-        coef_val = float(sp.N(coef))
+        coef_expr = sp.nsimplify(coef, rational=True)
+        coef_val = float(sp.N(coef_expr))
         if abs(coef_val) < eps:
             continue
 
         sign = "-" if coef_val < 0 else "+"
-        coef_abs_txt = _format_decimal(abs(coef_val), max_decimals)
+        coef_abs_expr = abs(coef_expr)
+        coef_abs_txt = _format_number_hybrid(coef_abs_expr, max_decimals=max_decimals, latex=False)
+        is_one = sp.simplify(coef_abs_expr - 1) == 0
 
         if power == 0:
             body = coef_abs_txt
         elif power == 1:
-            body = variable if coef_abs_txt == "1" else f"{coef_abs_txt}{variable}"
+            body = variable if is_one else f"{coef_abs_txt}{variable}"
         else:
-            body = f"{variable}^{power}" if coef_abs_txt == "1" else f"{coef_abs_txt}{variable}^{power}"
+            body = f"{variable}^{power}" if is_one else f"{coef_abs_txt}{variable}^{power}"
+
+        terms.append((sign, body))
+
+    if not terms:
+        return "0"
+
+    first_sign, first_body = terms[0]
+    out = f"-{first_body}" if first_sign == "-" else first_body
+
+    for sign, body in terms[1:]:
+        out += f" {sign} {body}"
+
+    return out
+
+
+def polynomial_to_decimal_latex(expr, variable="x", max_decimals=7):
+    x = sp.Symbol(variable)
+    expr = sp.expand(expr)
+
+    try:
+        poly = sp.Poly(expr, x)
+    except sp.PolynomialError:
+        return _format_number_hybrid(expr, max_decimals=max_decimals, latex=True)
+
+    terms = []
+    eps = 10 ** (-(max_decimals + 2))
+
+    for (power,), coef in sorted(poly.terms(), key=lambda t: t[0][0], reverse=True):
+        coef_expr = sp.nsimplify(coef, rational=True)
+        coef_val = float(sp.N(coef_expr))
+        if abs(coef_val) < eps:
+            continue
+
+        sign = "-" if coef_val < 0 else "+"
+        coef_abs_expr = abs(coef_expr)
+        coef_abs_txt = _format_number_hybrid(coef_abs_expr, max_decimals=max_decimals, latex=True)
+        is_one = sp.simplify(coef_abs_expr - 1) == 0
+
+        if power == 0:
+            body = coef_abs_txt
+        elif power == 1:
+            body = variable if is_one else f"{coef_abs_txt}{variable}"
+        else:
+            body = f"{variable}^{{{power}}}" if is_one else f"{coef_abs_txt}{variable}^{{{power}}}"
 
         terms.append((sign, body))
 
@@ -536,10 +621,33 @@ def section_lagrange():
     f_exact_expr = st.session_state.get("lag_f_exact")
 
     try:
-        p_lagr, _ = polinomio_lagrange(x_vals, y_vals)
+        p_lagr, bases_lagr = polinomio_lagrange(x_vals, y_vals)
         p_lagr = sp.expand(p_lagr)
         st.write("Polinomio de Lagrange:")
-        st.code(f"P(x) = {polynomial_to_decimal_text(p_lagr, max_decimals=7)}")
+        st.latex(f"P(x) = {polynomial_to_decimal_latex(p_lagr, max_decimals=7)}")
+
+        st.write("Bases de Lagrange:")
+        with st.expander("Ver bases L_i(x)", expanded=True):
+            for i, li in enumerate(bases_lagr):
+                li_expandida = sp.expand(li)
+                st.latex(f"L_{{{i}}}(x) = {sp.latex(li_expandida)}")
+
+        c_eval_1, c_eval_2 = st.columns([2, 1])
+        x_eval_text = c_eval_1.text_input(
+            "Evaluar P(x) en x*",
+            value="1",
+            key="lag_eval_xstar",
+        )
+        eval_btn = c_eval_2.button("Evaluar polinomio", key="lag_eval_btn")
+
+        if eval_btn:
+            try:
+                x_eval = float(sp.N(sp.sympify(x_eval_text, locals=ALLOWED_LOCALS)))
+                x = sp.Symbol("x")
+                y_eval = float(sp.N(p_lagr.subs(x, x_eval)))
+                st.write(f"P({x_eval:.7f}) = {y_eval:.7f}")
+            except Exception as exc:
+                st.error(f"No se pudo evaluar el polinomio en x*: {exc}")
 
         x_num = to_float_array(x_vals)
         y_num = to_float_array(y_vals)
@@ -653,8 +761,17 @@ def section_lagrange():
             x_eval = float(result["x_evaluacion"])
             d_aprox = float(result["derivada"])
 
+            # Si el usuario ingresa x objetivo, evaluamos la derivada del polinomio local
+            # en ese punto para que el valor responda al input de la interfaz.
+            if x_obj is not None:
+                x = sp.Symbol("x")
+                d_poly_local = result["derivada_polinomio_local"]
+                d_aprox = float(sp.N(d_poly_local.subs(x, x_obj)))
+                x_eval = float(x_obj)
+
             st.write(f"Derivada aproximada en x = {x_eval:.12g}")
             st.write(f"f'(x) aprox = {d_aprox:.12g}")
+            st.write(f"Puntos usados para aproximar: {list(result['x_sub'])}")
 
             if f_exact_expr is not None:
                 x = sp.Symbol("x")
