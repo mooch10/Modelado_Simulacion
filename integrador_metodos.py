@@ -20,6 +20,11 @@ from Metodos.metodo_punto_fijo import (
     graficar_funcion as graficar_punto_fijo,
 )
 from Metodos.metodo_lagrange_derivacion import ejecutar_metodo_lagrange
+from Metodos.metodo_integracion_numerica import ejecutar_integracion_numerica
+from Metodos.metodo_ajuste_curvas import ejecutar_ajuste_curvas
+from Metodos.metodo_sistemas_lineales import ejecutar_sistemas_lineales
+from Metodos.metodo_edo import ejecutar_edo
+from Metodos.metodo_red_neuronal_descenso_gradiente import ejecutar_red_neuronal_descenso_gradiente
 
 
 def comparativa_metodos():
@@ -178,11 +183,16 @@ def main():
         print("4. Método de Punto Fijo")
         print("5. Comparativa de los 4 métodos")
         print("6. Interpolación Lagrange + Derivación + Diferencias Divididas")
-        print("7. Salir")
+        print("7. Integración numérica (Trapecio, Simpson 1/3 y 3/8)")
+        print("8. Ajuste de curvas (Regresión lineal y polinomial)")
+        print("9. Sistemas lineales (Gauss-Jordan y Gauss-Seidel)")
+        print("10. EDO (Euler y RK4)")
+        print("11. Red neuronal base (Descenso de gradiente)")
+        print("12. Salir")
         print("=" * 80)
 
         try:
-            opcion = int(input("Selecciona una opción (1-7): ").strip())
+            opcion = int(input("Selecciona una opción (1-12): ").strip())
         except ValueError:
             print("Error: Debe ingresar un número entero.")
             continue
@@ -319,6 +329,21 @@ def main():
             ejecutar_metodo_lagrange()
 
         elif opcion == 7:
+            ejecutar_integracion_numerica()
+
+        elif opcion == 8:
+            ejecutar_ajuste_curvas()
+
+        elif opcion == 9:
+            ejecutar_sistemas_lineales()
+
+        elif opcion == 10:
+            ejecutar_edo()
+
+        elif opcion == 11:
+            ejecutar_red_neuronal_descenso_gradiente()
+
+        elif opcion == 12:
             print("¡Hasta luego!")
             break
 

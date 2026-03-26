@@ -6,6 +6,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 import streamlit as st
+import streamlit.components.v1 as components
 import sympy as sp
 
 from Metodos.input_parser import build_numeric_function
@@ -19,6 +20,19 @@ from Metodos.metodo_lagrange_derivacion import (
 )
 from Metodos.metodo_newton_raphson import metodo_newton_raphson
 from Metodos.metodo_punto_fijo import metodo_punto_fijo
+from Metodos.metodo_integracion_numerica import (
+    regla_trapecio,
+    regla_simpson_13,
+    regla_simpson_38,
+)
+from Metodos.metodo_ajuste_curvas import regresion_lineal, regresion_polinomial
+from Metodos.metodo_sistemas_lineales import gauss_jordan, gauss_seidel
+from Metodos.metodo_edo import metodo_euler, metodo_rk4, construir_funcion_edo
+from Metodos.metodo_red_neuronal_descenso_gradiente import (
+    dataset_prueba_pequeno,
+    entrenar_descenso_gradiente_lineal,
+    figura_tres_subplots_descenso,
+)
 
 
 ALLOWED_LOCALS = {
@@ -59,6 +73,38 @@ def parse_expr_list(text):
 
 def to_float_array(values):
     return np.array([float(sp.N(v)) for v in values], dtype=float)
+
+
+def parse_matrix_text(text, n):
+    rows = [r.strip() for r in text.strip().splitlines() if r.strip()]
+    if len(rows) != n:
+        raise ValueError(f"La matriz debe tener exactamente {n} filas")
+
+    out = []
+    for i, row in enumerate(rows):
+        parts = [p.strip() for p in row.split(",") if p.strip()]
+        if len(parts) != n:
+            raise ValueError(f"La fila {i + 1} debe tener exactamente {n} coeficientes")
+        out.append([float(sp.N(sp.sympify(p, locals=ALLOWED_LOCALS))) for p in parts])
+
+    return np.array(out, dtype=float)
+
+
+def parse_vector_text(text, n):
+    rows = [r.strip() for r in text.strip().splitlines() if r.strip()]
+    if len(rows) != n:
+        raise ValueError(f"El vector b debe tener exactamente {n} valores")
+    vals = [float(sp.N(sp.sympify(p, locals=ALLOWED_LOCALS))) for p in rows]
+    return np.array(vals, dtype=float)
+
+
+def parse_optional_vector_csv(text, n):
+    if not text.strip():
+        return None
+    parts = [p.strip() for p in text.split(",") if p.strip()]
+    if len(parts) != n:
+        raise ValueError(f"x0 debe tener exactamente {n} valores")
+    return np.array([float(sp.N(sp.sympify(p, locals=ALLOWED_LOCALS))) for p in parts], dtype=float)
 
 
 def _format_decimal(value, max_decimals=7):
@@ -821,6 +867,575 @@ def section_lagrange():
             st.error(f"Error en diferencias divididas: {exc}")
 
 
+def section_integracion_numerica():
+    st.subheader("Integracion numerica")
+
+    with st.form("form_integracion"):
+        c1, c2, c3 = st.columns(3)
+        with c1:
+            func = st.text_input("f(x)", value="sin(x)")
+            a = st.number_input("Limite inferior a", value=0.0)
+            b = st.number_input("Limite superior b", value=np.pi)
+        with c2:
+            n = st.number_input("Cantidad de intervalos n", value=6, min_value=1, step=1)
+            metodo = st.selectbox("Metodo", ["Trapecio", "Simpson 1/3", "Simpson 3/8"])
+            comparar_metodos = st.checkbox("Comparar los 3 metodos", value=True)
+        with c3:
+            analizar_convergencia = st.checkbox("Mostrar convergencia (error vs n)", value=True)
+            n_max = st.number_input("n max para convergencia", value=30, min_value=6, step=2)
+            referencia_exacta = st.checkbox("Intentar integral exacta con Sympy", value=True)
+        run_btn = st.form_submit_button("Calcular integral")
+
+    if run_btn:
+        try:
+            if float(b) <= float(a):
+                st.error("Se requiere b > a.")
+                return
+
+            x_sym = sp.Symbol("x")
+            exact_val = None
+            if referencia_exacta:
+                try:
+                    expr = safe_eval_expr(func, "x")
+                    exact_expr = sp.integrate(expr, (x_sym, float(a), float(b)))
+                    exact_val = float(sp.N(exact_expr))
+                    if not np.isfinite(exact_val):
+                        exact_val = None
+                except Exception:
+                    exact_val = None
+
+            if metodo == "Trapecio":
+                valor, x_nodes, y_nodes = regla_trapecio(func, float(a), float(b), int(n))
+            elif metodo == "Simpson 1/3":
+                valor, x_nodes, y_nodes = regla_simpson_13(func, float(a), float(b), int(n))
+            else:
+                valor, x_nodes, y_nodes = regla_simpson_38(func, float(a), float(b), int(n))
+
+            c_m1, c_m2, c_m3 = st.columns(3)
+            c_m1.metric("Resultado", f"{valor:.12g}")
+            c_m2.metric("Metodo", metodo)
+            c_m3.metric("Intervalos n", int(n))
+
+            if exact_val is not None:
+                err_abs = abs(float(valor) - float(exact_val))
+                err_rel = err_abs / abs(exact_val) if abs(exact_val) > 1e-15 else np.nan
+                c_e1, c_e2, c_e3 = st.columns(3)
+                c_e1.metric("Integral exacta", f"{exact_val:.12g}")
+                c_e2.metric("Error absoluto", f"{err_abs:.3e}")
+                c_e3.metric("Error relativo", "no definido" if np.isnan(err_rel) else f"{err_rel:.3e}")
+
+            df_nodes = pd.DataFrame({"x_i": x_nodes, "f(x_i)": y_nodes})
+            st.dataframe(df_nodes, use_container_width=True)
+
+            _, f_num = build_numeric_function(func)
+            x_plot = np.linspace(float(a), float(b), 900)
+            y_plot = np.array(f_num(x_plot), dtype=float)
+
+            fig, ax = plt.subplots(figsize=(9, 4.8))
+            ax.plot(x_plot, y_plot, linewidth=2, label=f"f(x) = {func}")
+            ax.fill_between(x_plot, y_plot, 0, alpha=0.25, color="tab:blue", label="Area bajo la curva")
+            ax.scatter(x_nodes, y_nodes, color="tab:red", zorder=3, label="Nodos")
+            ax.plot(x_nodes, y_nodes, color="tab:red", alpha=0.7, linewidth=1.2)
+            ax.axhline(0, color="black", linewidth=0.8, alpha=0.6)
+            ax.set_title(f"Integracion por {metodo}")
+            ax.set_xlabel("x")
+            ax.set_ylabel("f(x)")
+            ax.grid(alpha=0.3)
+            ax.legend()
+            st.pyplot(fig)
+            plt.close(fig)
+
+            if comparar_metodos:
+                comp_rows = []
+                for nombre in ["Trapecio", "Simpson 1/3", "Simpson 3/8"]:
+                    try:
+                        if nombre == "Trapecio":
+                            v, _, _ = regla_trapecio(func, float(a), float(b), int(n))
+                        elif nombre == "Simpson 1/3":
+                            v, _, _ = regla_simpson_13(func, float(a), float(b), int(n))
+                        else:
+                            v, _, _ = regla_simpson_38(func, float(a), float(b), int(n))
+
+                        row = {"Metodo": nombre, "Integral": float(v)}
+                        if exact_val is not None:
+                            row["Error_abs"] = abs(float(v) - exact_val)
+                        comp_rows.append(row)
+                    except Exception as exc:
+                        comp_rows.append({"Metodo": nombre, "Integral": np.nan, "Estado": str(exc)})
+
+                df_comp = pd.DataFrame(comp_rows)
+                st.dataframe(df_comp, use_container_width=True)
+
+                fig_c, ax_c = plt.subplots(figsize=(8.5, 4.2))
+                ok_mask = df_comp["Integral"].notna()
+                ax_c.bar(df_comp.loc[ok_mask, "Metodo"], df_comp.loc[ok_mask, "Integral"].astype(float))
+                ax_c.set_title("Comparativa de integrales por metodo")
+                ax_c.set_ylabel("Valor de integral")
+                ax_c.grid(axis="y", alpha=0.3)
+                st.pyplot(fig_c)
+                plt.close(fig_c)
+
+            if analizar_convergencia:
+                n_vals = np.arange(2, int(n_max) + 1)
+                curves = {"Trapecio": [], "Simpson 1/3": [], "Simpson 3/8": []}
+
+                if exact_val is None:
+                    n_ref = max(800, int(n_max) * 20)
+                    ref_val, _, _ = regla_trapecio(func, float(a), float(b), n_ref)
+                else:
+                    ref_val = exact_val
+
+                for ni in n_vals:
+                    try:
+                        v_t, _, _ = regla_trapecio(func, float(a), float(b), int(ni))
+                        curves["Trapecio"].append(abs(float(v_t) - float(ref_val)))
+                    except Exception:
+                        curves["Trapecio"].append(np.nan)
+
+                    if ni % 2 == 0:
+                        try:
+                            v_s13, _, _ = regla_simpson_13(func, float(a), float(b), int(ni))
+                            curves["Simpson 1/3"].append(abs(float(v_s13) - float(ref_val)))
+                        except Exception:
+                            curves["Simpson 1/3"].append(np.nan)
+                    else:
+                        curves["Simpson 1/3"].append(np.nan)
+
+                    if ni % 3 == 0:
+                        try:
+                            v_s38, _, _ = regla_simpson_38(func, float(a), float(b), int(ni))
+                            curves["Simpson 3/8"].append(abs(float(v_s38) - float(ref_val)))
+                        except Exception:
+                            curves["Simpson 3/8"].append(np.nan)
+                    else:
+                        curves["Simpson 3/8"].append(np.nan)
+
+                fig_conv, ax_conv = plt.subplots(figsize=(8.8, 4.4))
+                for nombre, vals in curves.items():
+                    arr = np.array(vals, dtype=float)
+                    ok = np.isfinite(arr)
+                    if np.any(ok):
+                        ax_conv.semilogy(n_vals[ok], arr[ok], "o-", linewidth=1.8, label=nombre)
+                ax_conv.set_title("Convergencia del error vs n")
+                ax_conv.set_xlabel("Numero de intervalos n")
+                ax_conv.set_ylabel("Error absoluto")
+                ax_conv.grid(alpha=0.3, which="both")
+                ax_conv.legend()
+                st.pyplot(fig_conv)
+                plt.close(fig_conv)
+
+        except Exception as exc:
+            st.error(f"Error en integracion numerica: {exc}")
+
+
+def section_ajuste_curvas():
+    st.subheader("Ajuste de curvas (minimos cuadrados)")
+
+    with st.form("form_ajuste"):
+        c1, c2, c3 = st.columns(3)
+        with c1:
+            x_text = st.text_input("x (separados por coma)", value="0, 1, 2, 3, 4")
+            y_text = st.text_input("y (separados por coma)", value="1, 2.1, 2.9, 3.8, 5.2")
+        with c2:
+            tipo = st.selectbox("Tipo de regresion", ["Lineal", "Polinomial"])
+            grado = st.number_input("Grado (si es polinomial)", value=2, min_value=1, step=1)
+        with c3:
+            mostrar_residuos = st.checkbox("Mostrar analisis de residuos", value=True)
+            explorar_grados = st.checkbox("Explorar grados (polinomial)", value=True)
+        run_btn = st.form_submit_button("Calcular ajuste")
+
+    if run_btn:
+        try:
+            x_vals = to_float_array(parse_expr_list(x_text))
+            y_vals = to_float_array(parse_expr_list(y_text))
+
+            if tipo == "Lineal":
+                result = regresion_lineal(x_vals, y_vals)
+            else:
+                result = regresion_polinomial(x_vals, y_vals, int(grado))
+
+            y_fit = np.array(result["y_pred"], dtype=float)
+            resid = y_vals - y_fit
+            mae = float(np.mean(np.abs(resid)))
+            rmse = float(np.sqrt(np.mean(resid ** 2)))
+
+            st.write(f"Ecuacion de mejor ajuste: {result['ecuacion']}")
+            c_r1, c_r2, c_r3 = st.columns(3)
+            c_r1.metric("R^2", f"{result['r2']:.7f}")
+            c_r2.metric("MAE", f"{mae:.6g}")
+            c_r3.metric("RMSE", f"{rmse:.6g}")
+
+            df = pd.DataFrame(
+                {
+                    "x": x_vals,
+                    "y_real": y_vals,
+                    "y_ajustada": y_fit,
+                    "residuo": resid,
+                }
+            )
+            st.dataframe(df, use_container_width=True)
+
+            x_curve = np.linspace(float(np.min(x_vals)), float(np.max(x_vals)), 900)
+            coef = np.array(result["coeficientes"], dtype=float)
+            if result["tipo"] == "lineal":
+                y_curve = coef[0] * x_curve + coef[1]
+            else:
+                y_curve = np.polyval(coef, x_curve)
+
+            fig, ax = plt.subplots(figsize=(9, 4.8))
+            ax.scatter(x_vals, y_vals, color="tab:red", s=50, zorder=3, label="Datos")
+            ax.plot(x_curve, y_curve, color="tab:blue", linewidth=2, label="Curva de ajuste")
+            ax.set_title("Regresion por minimos cuadrados")
+            ax.set_xlabel("x")
+            ax.set_ylabel("y")
+            ax.grid(alpha=0.3)
+            ax.legend()
+            st.pyplot(fig)
+            plt.close(fig)
+
+            if mostrar_residuos:
+                fig_r, (ax_r1, ax_r2) = plt.subplots(1, 2, figsize=(11.2, 4.2))
+                ax_r1.axhline(0, color="black", linewidth=0.8)
+                ax_r1.scatter(x_vals, resid, color="tab:purple", s=45)
+                ax_r1.plot(x_vals, resid, color="tab:purple", alpha=0.5)
+                ax_r1.set_title("Residuos vs x")
+                ax_r1.set_xlabel("x")
+                ax_r1.set_ylabel("Residuo")
+                ax_r1.grid(alpha=0.3)
+
+                ax_r2.hist(resid, bins=min(10, max(4, len(resid))), color="tab:orange", edgecolor="black", alpha=0.8)
+                ax_r2.set_title("Distribucion de residuos")
+                ax_r2.set_xlabel("Residuo")
+                ax_r2.set_ylabel("Frecuencia")
+                ax_r2.grid(alpha=0.25, axis="y")
+                st.pyplot(fig_r)
+                plt.close(fig_r)
+
+            if tipo == "Polinomial" and explorar_grados:
+                max_deg = min(8, len(x_vals) - 1)
+                if max_deg >= 1:
+                    grados = np.arange(1, max_deg + 1)
+                    rmse_vals = []
+                    r2_vals = []
+                    for g in grados:
+                        res_g = regresion_polinomial(x_vals, y_vals, int(g))
+                        y_g = np.array(res_g["y_pred"], dtype=float)
+                        err_g = y_vals - y_g
+                        rmse_vals.append(float(np.sqrt(np.mean(err_g ** 2))))
+                        r2_vals.append(float(res_g["r2"]))
+
+                    fig_g, ax_g1 = plt.subplots(figsize=(8.8, 4.2))
+                    ax_g1.plot(grados, rmse_vals, "o-", color="tab:red", label="RMSE")
+                    ax_g1.set_xlabel("Grado polinomial")
+                    ax_g1.set_ylabel("RMSE", color="tab:red")
+                    ax_g1.tick_params(axis="y", labelcolor="tab:red")
+                    ax_g1.grid(alpha=0.3)
+
+                    ax_g2 = ax_g1.twinx()
+                    ax_g2.plot(grados, r2_vals, "s--", color="tab:blue", label="R^2")
+                    ax_g2.set_ylabel("R^2", color="tab:blue")
+                    ax_g2.tick_params(axis="y", labelcolor="tab:blue")
+
+                    ax_g1.set_title("Sensibilidad del ajuste al grado")
+                    st.pyplot(fig_g)
+                    plt.close(fig_g)
+
+        except Exception as exc:
+            st.error(f"Error en ajuste de curvas: {exc}")
+
+
+def section_sistemas_lineales():
+    st.subheader("Resolucion de sistemas lineales")
+
+    with st.form("form_sistemas"):
+        n = st.number_input("Dimension n", value=3, min_value=1, step=1)
+        mat_default = "4,1,2\n3,5,1\n1,1,3"
+        vec_default = "4\n7\n3"
+
+        c1, c2 = st.columns(2)
+        with c1:
+            A_text = st.text_area("Matriz A (una fila por linea, separada por comas)", value=mat_default, height=140)
+            b_text = st.text_area("Vector b (un valor por linea)", value=vec_default, height=140)
+        with c2:
+            metodo = st.selectbox("Metodo", ["Gauss-Jordan", "Gauss-Seidel"])
+            x0_text = st.text_input("x0 para Gauss-Seidel (opcional, csv)", value="")
+            tol = st.number_input("Tolerancia", value=1e-6, format="%.1e")
+            max_iter = st.number_input("Max iteraciones", value=100, min_value=1, step=1)
+            mostrar_pasos = st.checkbox("Mostrar pasos/iteraciones", value=True)
+
+        run_btn = st.form_submit_button("Resolver sistema")
+
+    if run_btn:
+        try:
+            A = parse_matrix_text(A_text, int(n))
+            b = parse_vector_text(b_text, int(n))
+
+            # Diagnostico visual de la matriz A
+            fig_hm, ax_hm = plt.subplots(figsize=(5.4, 4.4))
+            im = ax_hm.imshow(np.abs(A), cmap="YlOrRd", aspect="auto")
+            ax_hm.set_title("Heatmap |A|")
+            ax_hm.set_xlabel("Columna")
+            ax_hm.set_ylabel("Fila")
+            fig_hm.colorbar(im, ax=ax_hm, shrink=0.85)
+            st.pyplot(fig_hm)
+            plt.close(fig_hm)
+
+            diag = np.abs(np.diag(A))
+            off_sum = np.sum(np.abs(A), axis=1) - diag
+            dd_margin = diag - off_sum
+            dd_ok = bool(np.all(dd_margin > 0))
+            st.metric("Diagonal dominante estricta", "Si" if dd_ok else "No")
+
+            fig_dd, ax_dd = plt.subplots(figsize=(7.8, 3.8))
+            ax_dd.axhline(0, color="black", linewidth=0.8)
+            ax_dd.bar(np.arange(1, int(n) + 1), dd_margin, color=["tab:green" if m > 0 else "tab:red" for m in dd_margin])
+            ax_dd.set_title("Margen de dominancia diagonal por fila: |a_ii| - sum(|a_ij|)")
+            ax_dd.set_xlabel("Fila")
+            ax_dd.set_ylabel("Margen")
+            ax_dd.grid(axis="y", alpha=0.3)
+            st.pyplot(fig_dd)
+            plt.close(fig_dd)
+
+            if metodo == "Gauss-Jordan":
+                sol, pasos = gauss_jordan(A, b)
+                df_sol = pd.DataFrame([sol], columns=[f"x{i + 1}" for i in range(len(sol))])
+                st.dataframe(df_sol, use_container_width=True)
+
+                if mostrar_pasos:
+                    with st.expander("Ver pasos de Gauss-Jordan", expanded=False):
+                        for i, paso in enumerate(pasos, start=1):
+                            st.write(f"Paso {i}: {paso['paso']}")
+                            cols = [f"x{j + 1}" for j in range(int(n))] + ["b"]
+                            st.dataframe(pd.DataFrame(paso["matriz"], columns=cols), use_container_width=True)
+
+            else:
+                x0 = parse_optional_vector_csv(x0_text, int(n))
+                sol, iters, convergio = gauss_seidel(
+                    A,
+                    b,
+                    x0=x0,
+                    tol=float(tol),
+                    max_iter=int(max_iter),
+                )
+                df_sol = pd.DataFrame([sol], columns=[f"x{i + 1}" for i in range(len(sol))])
+                st.dataframe(df_sol, use_container_width=True)
+                st.metric("Convergencia", "Si" if convergio else "No")
+                st.metric("Iteraciones", len(iters))
+
+                if mostrar_pasos and iters:
+                    df_iters = pd.DataFrame(iters)
+                    st.dataframe(df_iters, use_container_width=True)
+
+                    fig_s1, ax_s1 = plt.subplots(figsize=(8.2, 4.0))
+                    ax_s1.semilogy(df_iters["Iteracion"].to_numpy(), df_iters["Error_inf"].to_numpy(), "o-", linewidth=2)
+                    ax_s1.set_title("Convergencia Gauss-Seidel (Error infinito)")
+                    ax_s1.set_xlabel("Iteracion")
+                    ax_s1.set_ylabel("Error_inf")
+                    ax_s1.grid(alpha=0.3, which="both")
+                    st.pyplot(fig_s1)
+                    plt.close(fig_s1)
+
+                    fig_s2, ax_s2 = plt.subplots(figsize=(8.6, 4.1))
+                    x_cols = [c for c in df_iters.columns if c.startswith("x")]
+                    for col in x_cols:
+                        ax_s2.plot(df_iters["Iteracion"], df_iters[col], "o-", linewidth=1.5, label=col)
+                    ax_s2.set_title("Evolucion de variables por iteracion")
+                    ax_s2.set_xlabel("Iteracion")
+                    ax_s2.set_ylabel("Valor")
+                    ax_s2.grid(alpha=0.3)
+                    ax_s2.legend()
+                    st.pyplot(fig_s2)
+                    plt.close(fig_s2)
+
+        except Exception as exc:
+            st.error(f"Error al resolver sistema lineal: {exc}")
+
+
+def section_edo():
+    st.subheader("EDO de valor inicial")
+
+    with st.form("form_edo"):
+        c1, c2, c3 = st.columns(3)
+        with c1:
+            fxy = st.text_input("y' = f(x, y)", value="x + y")
+            x0 = st.number_input("x0", value=0.0)
+            y0 = st.number_input("y0", value=1.0)
+        with c2:
+            h = st.number_input("Paso h", value=0.1)
+            n = st.number_input("Cantidad de pasos n", value=10, min_value=1, step=1)
+            metodo = st.selectbox("Metodo", ["Euler", "RK4"])
+        with c3:
+            comparar_euler_rk4 = st.checkbox("Comparar Euler vs RK4", value=True)
+            mostrar_campo = st.checkbox("Mostrar campo de pendientes", value=True)
+            y_exact_text = st.text_input("y(x) exacta opcional", value="")
+        run_btn = st.form_submit_button("Resolver EDO")
+
+    if run_btn:
+        try:
+            rows_euler = metodo_euler(fxy, float(x0), float(y0), float(h), int(n))
+            rows_rk4 = metodo_rk4(fxy, float(x0), float(y0), float(h), int(n))
+
+            if metodo == "Euler":
+                rows = rows_euler
+                df = pd.DataFrame(rows)
+                st.dataframe(df, use_container_width=True)
+            else:
+                rows = rows_rk4
+                df = pd.DataFrame(rows)
+                st.dataframe(df, use_container_width=True)
+
+            x_num_e = np.array([r["x"] for r in rows_euler], dtype=float)
+            y_num_e = np.array([r["y"] for r in rows_euler], dtype=float)
+            x_num_r = np.array([r["x"] for r in rows_rk4], dtype=float)
+            y_num_r = np.array([r["y"] for r in rows_rk4], dtype=float)
+
+            x_end = float(x_num_e[-1])
+            st.metric("Resultado Euler", f"y({x_end:.7g}) = {float(y_num_e[-1]):.12g}")
+            st.metric("Resultado RK4", f"y({x_end:.7g}) = {float(y_num_r[-1]):.12g}")
+
+            exact_vals = None
+            if y_exact_text.strip():
+                try:
+                    expr_exact = safe_eval_expr(y_exact_text, "x")
+                    exact_fun = sp.lambdify(sp.Symbol("x"), expr_exact, "numpy")
+                    exact_vals = np.array(exact_fun(x_num_r), dtype=float)
+                except Exception as exc:
+                    st.warning(f"No se pudo evaluar y(x) exacta: {exc}")
+
+            fig, ax = plt.subplots(figsize=(9.5, 4.8))
+            if comparar_euler_rk4:
+                ax.plot(x_num_e, y_num_e, "o-", linewidth=1.8, label="Euler")
+                ax.plot(x_num_r, y_num_r, "s-", linewidth=1.8, label="RK4")
+            else:
+                if metodo == "Euler":
+                    ax.plot(x_num_e, y_num_e, "o-", linewidth=2, label="Euler")
+                else:
+                    ax.plot(x_num_r, y_num_r, "s-", linewidth=2, label="RK4")
+
+            if exact_vals is not None:
+                ax.plot(x_num_r, exact_vals, "--", linewidth=2, label="Exacta")
+
+            ax.set_title("Trayectoria de solucion numérica")
+            ax.set_xlabel("x")
+            ax.set_ylabel("y")
+            ax.grid(alpha=0.3)
+            ax.legend()
+            st.pyplot(fig)
+            plt.close(fig)
+
+            if exact_vals is not None:
+                err_e = np.abs(y_num_e - exact_vals)
+                err_r = np.abs(y_num_r - exact_vals)
+                fig_er, ax_er = plt.subplots(figsize=(8.8, 4.2))
+                ax_er.semilogy(x_num_e, np.clip(err_e, 1e-16, None), "o-", label="Error Euler")
+                ax_er.semilogy(x_num_r, np.clip(err_r, 1e-16, None), "s-", label="Error RK4")
+                ax_er.set_title("Error absoluto vs x")
+                ax_er.set_xlabel("x")
+                ax_er.set_ylabel("|error|")
+                ax_er.grid(alpha=0.3, which="both")
+                ax_er.legend()
+                st.pyplot(fig_er)
+                plt.close(fig_er)
+
+            if mostrar_campo:
+                _, f_eval = construir_funcion_edo(fxy)
+                x_min = float(min(x_num_e.min(), x_num_r.min()))
+                x_max = float(max(x_num_e.max(), x_num_r.max()))
+                y_all = np.concatenate([y_num_e, y_num_r])
+                y_min = float(np.min(y_all))
+                y_max = float(np.max(y_all))
+                pad_y = max(0.5, 0.2 * (y_max - y_min + 1e-12))
+
+                xx = np.linspace(x_min, x_max, 20)
+                yy = np.linspace(y_min - pad_y, y_max + pad_y, 20)
+                Xg, Yg = np.meshgrid(xx, yy)
+                S = np.array(f_eval(Xg, Yg), dtype=float)
+                U = np.ones_like(S)
+                V = S
+                N = np.sqrt(U ** 2 + V ** 2)
+                U = U / np.where(N == 0, 1, N)
+                V = V / np.where(N == 0, 1, N)
+
+                fig_fld, ax_fld = plt.subplots(figsize=(9.2, 4.8))
+                ax_fld.quiver(Xg, Yg, U, V, N, cmap="viridis", alpha=0.75)
+                ax_fld.plot(x_num_e, y_num_e, "o-", linewidth=1.4, label="Euler")
+                ax_fld.plot(x_num_r, y_num_r, "s-", linewidth=1.4, label="RK4")
+                ax_fld.set_title("Campo de pendientes y trayectorias")
+                ax_fld.set_xlabel("x")
+                ax_fld.set_ylabel("y")
+                ax_fld.grid(alpha=0.25)
+                ax_fld.legend()
+                st.pyplot(fig_fld)
+                plt.close(fig_fld)
+
+        except Exception as exc:
+            st.error(f"Error en EDO: {exc}")
+
+
+def section_red_neuronal_descenso():
+    st.subheader("Red neuronal base con descenso de gradiente")
+
+    with st.form("form_red_descenso"):
+        c1, c2 = st.columns(2)
+        with c1:
+            alpha = st.number_input("Tasa de aprendizaje (alpha)", value=0.03, min_value=1e-6, format="%.4f")
+            epocas = st.number_input("Epocas", value=120, min_value=1, step=1)
+        with c2:
+            semilla = st.number_input("Semilla de pesos iniciales", value=7, step=1)
+            interval_ms = st.number_input("Intervalo animacion (ms)", value=110, min_value=20, step=10)
+
+        mostrar_anim = st.checkbox("Mostrar animacion en el dashboard", value=False)
+        run_btn = st.form_submit_button("Entrenar modelo")
+
+    if run_btn:
+        try:
+            x, y = dataset_prueba_pequeno()
+            train = entrenar_descenso_gradiente_lineal(
+                x,
+                y,
+                alpha=float(alpha),
+                epocas=int(epocas),
+                semilla=int(semilla),
+            )
+
+            st.metric("Costo final (MSE)", f"{float(train['hist_costo'][-1]):.8f}")
+
+            c1, c2, c3, c4 = st.columns(4)
+            c1.metric("w inicial", f"{train['w0']:.6f}")
+            c2.metric("b inicial", f"{train['b0']:.6f}")
+            c3.metric("w final", f"{train['w_final']:.6f}")
+            c4.metric("b final", f"{train['b_final']:.6f}")
+
+            df_hist = pd.DataFrame(
+                {
+                    "epoca": np.arange(1, len(train["hist_costo"]) + 1),
+                    "costo": train["hist_costo"],
+                    "w": train["hist_w"][1:],
+                    "b": train["hist_b"][1:],
+                }
+            )
+            st.dataframe(df_hist, use_container_width=True)
+
+            fig_static, _ = figura_tres_subplots_descenso(x, y, train, animar=False)
+            st.pyplot(fig_static)
+            plt.close(fig_static)
+
+            if mostrar_anim:
+                fig_anim, anim = figura_tres_subplots_descenso(
+                    x,
+                    y,
+                    train,
+                    animar=True,
+                    interval_ms=int(interval_ms),
+                )
+                if anim is not None:
+                    components.html(anim.to_jshtml(), height=540, scrolling=True)
+                plt.close(fig_anim)
+
+        except Exception as exc:
+            st.error(f"Error en la simulacion de red neuronal: {exc}")
+
+
 def main():
     st.set_page_config(page_title="Dashboard Integrador de Metodos", layout="wide")
 
@@ -835,6 +1450,11 @@ def main():
             "Punto Fijo",
             "Comparativa",
             "Lagrange + Derivacion",
+            "Integracion Numerica",
+            "Ajuste de Curvas",
+            "Sistemas Lineales",
+            "EDO",
+            "Red Neuronal GD",
         ]
     )
 
@@ -850,6 +1470,16 @@ def main():
         section_comparativa()
     with tabs[5]:
         section_lagrange()
+    with tabs[6]:
+        section_integracion_numerica()
+    with tabs[7]:
+        section_ajuste_curvas()
+    with tabs[8]:
+        section_sistemas_lineales()
+    with tabs[9]:
+        section_edo()
+    with tabs[10]:
+        section_red_neuronal_descenso()
 
 
 def _is_streamlit_context():
