@@ -280,6 +280,220 @@ def plot_error_curve(errors, title, y_label="Error absoluto"):
     return fig
 
 
+def render_chart(fig):
+    """Renderiza Matplotlib en modo interactivo (Plotly) cuando esta disponible."""
+    interactive = st.session_state.get("interactive_charts", True)
+
+    # Refuerza contraste en figuras Matplotlib antes de convertir/renderizar.
+    for ax in fig.get_axes():
+        ax.tick_params(axis="both", colors="black", labelcolor="black")
+        ax.xaxis.label.set_color("black")
+        ax.yaxis.label.set_color("black")
+        ax.title.set_color("black")
+        legend = ax.get_legend()
+        if legend is not None:
+            legend.get_frame().set_facecolor("white")
+            legend.get_frame().set_edgecolor("black")
+            legend.get_frame().set_alpha(1.0)
+            for txt in legend.get_texts():
+                txt.set_color("black")
+        for spine in ax.spines.values():
+            spine.set_color("black")
+
+    if interactive:
+        try:
+            mpl_to_plotly = __import__("plotly.tools", fromlist=["mpl_to_plotly"]).mpl_to_plotly
+
+            fig_plotly = mpl_to_plotly(fig)
+            fig_plotly.update_layout(
+                margin=dict(l=18, r=18, t=60, b=28),
+                paper_bgcolor="white",
+                plot_bgcolor="white",
+                font=dict(color="black"),
+                template="plotly_white",
+                legend=dict(font=dict(color="black"), title=dict(font=dict(color="black"))),
+            )
+            fig_plotly.update_xaxes(
+                color="black",
+                tickfont=dict(color="black"),
+                title_font=dict(color="black"),
+                showline=True,
+                linecolor="black",
+                zerolinecolor="black",
+                gridcolor="rgba(0,0,0,0.15)",
+            )
+            fig_plotly.update_yaxes(
+                color="black",
+                tickfont=dict(color="black"),
+                title_font=dict(color="black"),
+                showline=True,
+                linecolor="black",
+                zerolinecolor="black",
+                gridcolor="rgba(0,0,0,0.15)",
+            )
+            st.plotly_chart(fig_plotly, use_container_width=True)
+            return
+        except Exception:
+            if not st.session_state.get("_interactive_chart_warned", False):
+                st.info(
+                    "Algunos graficos no se pudieron convertir a interactivos. "
+                    "Se mostraran en modo estatico en esos casos."
+                )
+                st.session_state["_interactive_chart_warned"] = True
+
+    st.pyplot(fig)
+
+
+def _build_newton_plotly_function(func_text, root, xmin, xmax, title):
+    go = __import__("plotly.graph_objects", fromlist=["Figure"]) 
+
+    x = np.linspace(xmin, xmax, 800)
+    y = build_func_plot(func_text, x)
+
+    fig = go.Figure()
+    fig.add_trace(
+        go.Scatter(
+            x=x,
+            y=y,
+            mode="lines",
+            name=f"f(x) = {func_text}",
+            line=dict(width=2),
+        )
+    )
+    fig.add_trace(
+        go.Scatter(
+            x=[root],
+            y=[0],
+            mode="markers",
+            name=f"Raiz aprox: {root:.8g}",
+            marker=dict(color="red", size=10),
+        )
+    )
+
+    fig.add_hline(y=0, line_width=1, line_color="black", opacity=0.6)
+    fig.add_vline(x=0, line_width=1, line_color="black", opacity=0.6)
+    fig.update_layout(
+        title=title,
+        xaxis_title="x",
+        yaxis_title="f(x)",
+        margin=dict(l=18, r=18, t=60, b=28),
+        paper_bgcolor="white",
+        plot_bgcolor="white",
+        font=dict(color="black"),
+        template="plotly_white",
+        legend=dict(font=dict(color="black"), title=dict(font=dict(color="black"))),
+    )
+    fig.update_xaxes(
+        showgrid=True,
+        gridcolor="rgba(0,0,0,0.15)",
+        color="black",
+        tickfont=dict(color="black"),
+        title_font=dict(color="black"),
+        showline=True,
+        linecolor="black",
+    )
+    fig.update_yaxes(
+        showgrid=True,
+        gridcolor="rgba(0,0,0,0.15)",
+        color="black",
+        tickfont=dict(color="black"),
+        title_font=dict(color="black"),
+        showline=True,
+        linecolor="black",
+    )
+    return fig
+
+
+def _build_newton_plotly_error(errors, title, y_label="Error absoluto"):
+    go = __import__("plotly.graph_objects", fromlist=["Figure"]) 
+
+    errors = np.array(errors, dtype=float)
+    idx = np.arange(1, len(errors) + 1)
+
+    fig = go.Figure()
+    fig.add_trace(
+        go.Scatter(
+            x=idx,
+            y=errors,
+            mode="lines+markers",
+            name=y_label,
+            line=dict(width=2),
+        )
+    )
+
+    fig.update_layout(
+        title=title,
+        xaxis_title="Iteracion",
+        yaxis_title=y_label,
+        margin=dict(l=18, r=18, t=60, b=28),
+        paper_bgcolor="white",
+        plot_bgcolor="white",
+        font=dict(color="black"),
+        template="plotly_white",
+        legend=dict(font=dict(color="black"), title=dict(font=dict(color="black"))),
+    )
+    if np.all(errors > 0):
+        fig.update_yaxes(type="log")
+
+    fig.update_xaxes(
+        showgrid=True,
+        gridcolor="rgba(0,0,0,0.15)",
+        color="black",
+        tickfont=dict(color="black"),
+        title_font=dict(color="black"),
+        showline=True,
+        linecolor="black",
+    )
+    fig.update_yaxes(
+        showgrid=True,
+        gridcolor="rgba(0,0,0,0.15)",
+        color="black",
+        tickfont=dict(color="black"),
+        title_font=dict(color="black"),
+        showline=True,
+        linecolor="black",
+    )
+    return fig
+
+
+def render_newton_charts(func, root, x0, errors):
+    """Newton usa graficos Plotly nativos para asegurar interactividad."""
+    interactive = st.session_state.get("interactive_charts", True)
+
+    if interactive:
+        try:
+            margin = max(2.0, abs(float(root) - float(x0)) + 1.0)
+            fig_f = _build_newton_plotly_function(
+                func,
+                float(root),
+                float(root) - margin,
+                float(root) + margin,
+                "Funcion y raiz aproximada (Newton)",
+            )
+            st.plotly_chart(fig_f, use_container_width=True)
+
+            fig_e = _build_newton_plotly_error(errors, "Error por iteracion (Newton)")
+            st.plotly_chart(fig_e, use_container_width=True)
+            return
+        except Exception:
+            pass
+
+    margin = max(2.0, abs(float(root) - float(x0)) + 1.0)
+    fig_f = plot_function_with_root(
+        func,
+        float(root),
+        float(root) - margin,
+        float(root) + margin,
+        "Funcion y raiz aproximada (Newton)",
+    )
+    st.pyplot(fig_f)
+    plt.close(fig_f)
+
+    fig_e = plot_error_curve(errors, "Error por iteracion (Newton)")
+    st.pyplot(fig_e)
+    plt.close(fig_e)
+
+
 def section_newton():
     st.subheader("Metodo de Newton-Raphson")
 
@@ -312,20 +526,7 @@ def section_newton():
             err_col = "Error |x_(n+1) - x_n|"
             errors = df[err_col].astype(float).to_numpy()
 
-            margin = max(2.0, abs(float(root) - float(x0)) + 1.0)
-            fig_f = plot_function_with_root(
-                func,
-                float(root),
-                float(root) - margin,
-                float(root) + margin,
-                "Funcion y raiz aproximada (Newton)",
-            )
-            st.pyplot(fig_f)
-            plt.close(fig_f)
-
-            fig_e = plot_error_curve(errors, "Error por iteracion (Newton)")
-            st.pyplot(fig_e)
-            plt.close(fig_e)
+            render_newton_charts(func, root, x0, errors)
 
         except Exception as exc:
             st.error(f"Error al ejecutar Newton: {exc}")
@@ -362,7 +563,7 @@ def section_aitken():
 
             errors = df["Error"].astype(float).to_numpy()
             fig_e = plot_error_curve(errors, "Error por iteracion (Aitken)")
-            st.pyplot(fig_e)
+            render_chart(fig_e)
             plt.close(fig_e)
 
             margin = max(2.0, abs(float(root) - float(x0)) + 1.0)
@@ -378,7 +579,7 @@ def section_aitken():
             ax.set_ylabel("y")
             ax.grid(alpha=0.3)
             ax.legend()
-            st.pyplot(fig)
+            render_chart(fig)
             plt.close(fig)
 
         except Exception as exc:
@@ -424,11 +625,11 @@ def section_biseccion():
             st.metric("Error final |f(c)|", f"{float(df['Error_f(c)'].iloc[-1]):.3e}")
 
             fig_f = plot_function_with_root(func, float(root), float(a), float(b), "Funcion y raiz aproximada (Biseccion)")
-            st.pyplot(fig_f)
+            render_chart(fig_f)
             plt.close(fig_f)
 
             fig_e = plot_error_curve(df["Error_f(c)"].to_numpy(), "Error por iteracion (Biseccion)", "|f(c)|")
-            st.pyplot(fig_e)
+            render_chart(fig_e)
             plt.close(fig_e)
 
         except Exception as exc:
@@ -482,11 +683,11 @@ def section_punto_fijo():
                     float(xmax),
                     "Funcion y raiz aproximada (Punto Fijo)",
                 )
-                st.pyplot(fig_f)
+                render_chart(fig_f)
                 plt.close(fig_f)
 
             fig_e = plot_error_curve(df["Error"].to_numpy(), "Error por iteracion (Punto Fijo)")
-            st.pyplot(fig_e)
+            render_chart(fig_e)
             plt.close(fig_e)
 
             margin = max(2.0, abs(float(root) - float(x0)) + 1.0)
@@ -502,7 +703,7 @@ def section_punto_fijo():
             ax.set_ylabel("y")
             ax.grid(alpha=0.3)
             ax.legend()
-            st.pyplot(fig)
+            render_chart(fig)
             plt.close(fig)
 
         except Exception as exc:
@@ -600,7 +801,7 @@ def section_comparativa():
         ax1.set_title("Iteraciones por metodo")
         ax1.set_ylabel("Cantidad de iteraciones")
         ax1.grid(axis="y", alpha=0.3)
-        st.pyplot(fig1)
+        render_chart(fig1)
         plt.close(fig1)
 
         fig2, ax2 = plt.subplots(figsize=(8, 4.2))
@@ -610,7 +811,7 @@ def section_comparativa():
         ax2.set_title("Error final por metodo (escala log)")
         ax2.set_ylabel("Error final")
         ax2.grid(axis="y", alpha=0.3, which="both")
-        st.pyplot(fig2)
+        render_chart(fig2)
         plt.close(fig2)
 
 
@@ -721,7 +922,7 @@ def section_lagrange():
         ax.set_ylabel("y")
         ax.grid(alpha=0.3)
         ax.legend()
-        st.pyplot(fig)
+        render_chart(fig)
         plt.close(fig)
 
         if f_exact_expr is not None:
@@ -730,7 +931,7 @@ def section_lagrange():
             err = np.abs(y_real - y_plot)
 
             fig_e = plot_error_curve(err, "Error |f(x) - P(x)| en el intervalo")
-            st.pyplot(fig_e)
+            render_chart(fig_e)
             plt.close(fig_e)
 
             # Error global maximo en el intervalo de interpolacion [min(x_i), max(x_i)].
@@ -942,7 +1143,7 @@ def section_integracion_numerica():
             ax.set_ylabel("f(x)")
             ax.grid(alpha=0.3)
             ax.legend()
-            st.pyplot(fig)
+            render_chart(fig)
             plt.close(fig)
 
             if comparar_metodos:
@@ -972,7 +1173,7 @@ def section_integracion_numerica():
                 ax_c.set_title("Comparativa de integrales por metodo")
                 ax_c.set_ylabel("Valor de integral")
                 ax_c.grid(axis="y", alpha=0.3)
-                st.pyplot(fig_c)
+                render_chart(fig_c)
                 plt.close(fig_c)
 
             if analizar_convergencia:
@@ -1021,7 +1222,7 @@ def section_integracion_numerica():
                 ax_conv.set_ylabel("Error absoluto")
                 ax_conv.grid(alpha=0.3, which="both")
                 ax_conv.legend()
-                st.pyplot(fig_conv)
+                render_chart(fig_conv)
                 plt.close(fig_conv)
 
         except Exception as exc:
@@ -1090,7 +1291,7 @@ def section_ajuste_curvas():
             ax.set_ylabel("y")
             ax.grid(alpha=0.3)
             ax.legend()
-            st.pyplot(fig)
+            render_chart(fig)
             plt.close(fig)
 
             if mostrar_residuos:
@@ -1108,7 +1309,7 @@ def section_ajuste_curvas():
                 ax_r2.set_xlabel("Residuo")
                 ax_r2.set_ylabel("Frecuencia")
                 ax_r2.grid(alpha=0.25, axis="y")
-                st.pyplot(fig_r)
+                render_chart(fig_r)
                 plt.close(fig_r)
 
             if tipo == "Polinomial" and explorar_grados:
@@ -1137,7 +1338,7 @@ def section_ajuste_curvas():
                     ax_g2.tick_params(axis="y", labelcolor="tab:blue")
 
                     ax_g1.set_title("Sensibilidad del ajuste al grado")
-                    st.pyplot(fig_g)
+                    render_chart(fig_g)
                     plt.close(fig_g)
 
         except Exception as exc:
@@ -1177,7 +1378,7 @@ def section_sistemas_lineales():
             ax_hm.set_xlabel("Columna")
             ax_hm.set_ylabel("Fila")
             fig_hm.colorbar(im, ax=ax_hm, shrink=0.85)
-            st.pyplot(fig_hm)
+            render_chart(fig_hm)
             plt.close(fig_hm)
 
             diag = np.abs(np.diag(A))
@@ -1193,7 +1394,7 @@ def section_sistemas_lineales():
             ax_dd.set_xlabel("Fila")
             ax_dd.set_ylabel("Margen")
             ax_dd.grid(axis="y", alpha=0.3)
-            st.pyplot(fig_dd)
+            render_chart(fig_dd)
             plt.close(fig_dd)
 
             if metodo == "Gauss-Jordan":
@@ -1232,7 +1433,7 @@ def section_sistemas_lineales():
                     ax_s1.set_xlabel("Iteracion")
                     ax_s1.set_ylabel("Error_inf")
                     ax_s1.grid(alpha=0.3, which="both")
-                    st.pyplot(fig_s1)
+                    render_chart(fig_s1)
                     plt.close(fig_s1)
 
                     fig_s2, ax_s2 = plt.subplots(figsize=(8.6, 4.1))
@@ -1244,7 +1445,7 @@ def section_sistemas_lineales():
                     ax_s2.set_ylabel("Valor")
                     ax_s2.grid(alpha=0.3)
                     ax_s2.legend()
-                    st.pyplot(fig_s2)
+                    render_chart(fig_s2)
                     plt.close(fig_s2)
 
         except Exception as exc:
@@ -1320,7 +1521,7 @@ def section_edo():
             ax.set_ylabel("y")
             ax.grid(alpha=0.3)
             ax.legend()
-            st.pyplot(fig)
+            render_chart(fig)
             plt.close(fig)
 
             if exact_vals is not None:
@@ -1334,7 +1535,7 @@ def section_edo():
                 ax_er.set_ylabel("|error|")
                 ax_er.grid(alpha=0.3, which="both")
                 ax_er.legend()
-                st.pyplot(fig_er)
+                render_chart(fig_er)
                 plt.close(fig_er)
 
             if mostrar_campo:
@@ -1365,7 +1566,7 @@ def section_edo():
                 ax_fld.set_ylabel("y")
                 ax_fld.grid(alpha=0.25)
                 ax_fld.legend()
-                st.pyplot(fig_fld)
+                render_chart(fig_fld)
                 plt.close(fig_fld)
 
         except Exception as exc:
@@ -1417,7 +1618,7 @@ def section_red_neuronal_descenso():
             st.dataframe(df_hist, use_container_width=True)
 
             fig_static, _ = figura_tres_subplots_descenso(x, y, train, animar=False)
-            st.pyplot(fig_static)
+            render_chart(fig_static)
             plt.close(fig_static)
 
             if mostrar_anim:
@@ -1439,8 +1640,27 @@ def section_red_neuronal_descenso():
 def main():
     st.set_page_config(page_title="Dashboard Integrador de Metodos", layout="wide")
 
+    # Fondo blanco y alto contraste para todos los graficos de Matplotlib.
+    plt.rcParams["figure.facecolor"] = "white"
+    plt.rcParams["axes.facecolor"] = "white"
+    plt.rcParams["savefig.facecolor"] = "white"
+    plt.rcParams["text.color"] = "black"
+    plt.rcParams["axes.labelcolor"] = "black"
+    plt.rcParams["xtick.color"] = "black"
+    plt.rcParams["ytick.color"] = "black"
+    plt.rcParams["legend.facecolor"] = "white"
+    plt.rcParams["legend.edgecolor"] = "black"
+    plt.rcParams["legend.labelcolor"] = "black"
+
     st.title("Dashboard Integrador de Metodos Numericos")
     st.caption("Interfaz grafica con formularios, botones, tablas y graficos de funcion/error")
+
+    st.sidebar.toggle(
+        "Graficos interactivos",
+        value=True,
+        key="interactive_charts",
+        help="Convierte graficos de Matplotlib a Plotly para hacer zoom, paneo y hover.",
+    )
 
     tabs = st.tabs(
         [
