@@ -300,7 +300,13 @@ def render_chart(fig):
         for spine in ax.spines.values():
             spine.set_color("black")
 
-    if interactive:
+    # Evita que etiquetas y leyendas queden recortadas en el render final.
+    fig.tight_layout()
+
+    # mpl_to_plotly suele deformar heatmaps/imshow (ejes gigantes o imagen invisible).
+    has_image_axes = any(len(ax.images) > 0 for ax in fig.get_axes())
+
+    if interactive and not has_image_axes:
         try:
             mpl_to_plotly = __import__("plotly.tools", fromlist=["mpl_to_plotly"]).mpl_to_plotly
 
@@ -341,7 +347,7 @@ def render_chart(fig):
                 )
                 st.session_state["_interactive_chart_warned"] = True
 
-    st.pyplot(fig)
+    st.pyplot(fig, use_container_width=True)
 
 
 def _build_newton_plotly_function(func_text, root, xmin, xmax, title):
@@ -1428,7 +1434,14 @@ def section_sistemas_lineales():
                     st.dataframe(df_iters, use_container_width=True)
 
                     fig_s1, ax_s1 = plt.subplots(figsize=(8.2, 4.0))
-                    ax_s1.semilogy(df_iters["Iteracion"].to_numpy(), df_iters["Error_inf"].to_numpy(), "o-", linewidth=2)
+                    err_vals = df_iters["Error_inf"].to_numpy(dtype=float)
+                    iter_vals = df_iters["Iteracion"].to_numpy(dtype=float)
+
+                    # La escala logaritmica solo admite valores positivos.
+                    if np.all(err_vals > 0):
+                        ax_s1.semilogy(iter_vals, err_vals, "o-", linewidth=2)
+                    else:
+                        ax_s1.plot(iter_vals, err_vals, "o-", linewidth=2)
                     ax_s1.set_title("Convergencia Gauss-Seidel (Error infinito)")
                     ax_s1.set_xlabel("Iteracion")
                     ax_s1.set_ylabel("Error_inf")
