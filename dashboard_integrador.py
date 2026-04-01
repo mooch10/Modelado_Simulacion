@@ -65,6 +65,21 @@ def safe_eval_expr(expr_text, variable="x"):
     return expr
 
 
+def parse_numeric_expr(expr_text, field_name):
+    try:
+        expr = sp.sympify(expr_text, locals=ALLOWED_LOCALS)
+    except Exception as exc:
+        raise ValueError(f"{field_name} invalido: {exc}") from exc
+
+    if expr.free_symbols:
+        raise ValueError(f"{field_name} no debe contener variables")
+
+    value = float(sp.N(expr))
+    if not np.isfinite(value):
+        raise ValueError(f"{field_name} debe ser un numero finito")
+    return value
+
+
 def estimate_max_abs_derivative(expr, variable, order, a, b, points=2001):
     deriv = sp.diff(expr, variable, order)
     f_deriv = sp.lambdify(variable, deriv, modules=["numpy"])
@@ -667,7 +682,7 @@ def section_biseccion():
 
             st.metric("Raiz aproximada", f"{root:.12g}")
             st.metric("Iteraciones", len(df))
-            st.metric("Error final |f(c)|", f"{float(df['Error_f(c)'].iloc[-1]):.3e}")
+            st.metric("Error final |f(c)|", f"{float(df['Error_f(c)'].iloc[-1]):.7f}")
 
             fig_f = plot_function_with_root(func, float(root), float(a), float(b), "Funcion y raiz aproximada (Biseccion)")
             render_chart(fig_f)
@@ -716,7 +731,7 @@ def section_punto_fijo():
 
             st.metric("Raiz aproximada", f"{root:.12g}")
             st.metric("Iteraciones", len(df))
-            st.metric("Error final", f"{float(df['Error'].iloc[-1]):.3e}")
+            st.metric("Error final", f"{float(df['Error'].iloc[-1]):.7f}")
 
             if xmax <= xmin:
                 st.warning("Para graficar f(x), se requiere x max > x min.")
@@ -1073,11 +1088,11 @@ def section_lagrange():
                 err_rel = err_abs / abs(d_real) if abs(d_real) > 1e-15 else np.nan
 
                 st.write(f"f'(x) real = {d_real:.12g}")
-                st.write(f"Error absoluto = {err_abs:.12g}")
+                st.write(f"Error absoluto = {err_abs:.7f}")
                 if np.isnan(err_rel):
                     st.write("Error relativo = no definido (derivada real cercana a 0)")
                 else:
-                    st.write(f"Error relativo = {err_rel:.12g}")
+                    st.write(f"Error relativo = {err_rel:.7f}")
             else:
                 st.info("No hay f(x) exacta, por eso no se puede calcular el error con la derivada real.")
 
@@ -1120,8 +1135,8 @@ def section_integracion_numerica():
         c1, c2, c3 = st.columns(3)
         with c1:
             func = st.text_input("f(x)", value="sin(x)")
-            a = st.number_input("Limite inferior a", value=0.0)
-            b = st.number_input("Limite superior b", value=np.pi)
+            a_text = st.text_input("Limite inferior a", value="0")
+            b_text = st.text_input("Limite superior b", value="pi")
         with c2:
             n = st.number_input("Cantidad de intervalos n", value=6, min_value=1, step=1)
             metodo = st.selectbox("Metodo", ["Rectangulo", "Trapecio", "Simpson 1/3", "Simpson 3/8"])
@@ -1134,7 +1149,10 @@ def section_integracion_numerica():
 
     if run_btn:
         try:
-            if float(b) <= float(a):
+            a_val = parse_numeric_expr(a_text, "a")
+            b_val = parse_numeric_expr(b_text, "b")
+
+            if b_val <= a_val:
                 st.error("Se requiere b > a.")
                 return
 
@@ -1144,7 +1162,7 @@ def section_integracion_numerica():
             if referencia_exacta:
                 try:
                     expr = safe_eval_expr(func, "x")
-                    exact_expr = sp.integrate(expr, (x_sym, float(a), float(b)))
+                    exact_expr = sp.integrate(expr, (x_sym, a_val, b_val))
                     exact_val = float(sp.N(exact_expr))
                     if not np.isfinite(exact_val):
                         exact_val = None
@@ -1161,31 +1179,31 @@ def section_integracion_numerica():
             max_f4 = None
             if expr is not None:
                 try:
-                    max_f2 = estimate_max_abs_derivative(expr, x_sym, 2, float(a), float(b))
+                    max_f2 = estimate_max_abs_derivative(expr, x_sym, 2, a_val, b_val)
                 except Exception:
                     max_f2 = None
                 try:
-                    max_f4 = estimate_max_abs_derivative(expr, x_sym, 4, float(a), float(b))
+                    max_f4 = estimate_max_abs_derivative(expr, x_sym, 4, a_val, b_val)
                 except Exception:
                     max_f4 = None
 
             if metodo == "Rectangulo":
-                valor, x_nodes, y_nodes = regla_rectangulo(func, float(a), float(b), int(n))
+                valor, x_nodes, y_nodes = regla_rectangulo(func, a_val, b_val, int(n))
             elif metodo == "Trapecio":
-                valor, x_nodes, y_nodes = regla_trapecio(func, float(a), float(b), int(n))
+                valor, x_nodes, y_nodes = regla_trapecio(func, a_val, b_val, int(n))
             elif metodo == "Simpson 1/3":
-                valor, x_nodes, y_nodes = regla_simpson_13(func, float(a), float(b), int(n))
+                valor, x_nodes, y_nodes = regla_simpson_13(func, a_val, b_val, int(n))
             else:
-                valor, x_nodes, y_nodes = regla_simpson_38(func, float(a), float(b), int(n))
+                valor, x_nodes, y_nodes = regla_simpson_38(func, a_val, b_val, int(n))
 
             c_m1, c_m2, c_m3 = st.columns(3)
             c_m1.metric("Resultado", f"{valor:.12g}")
             c_m2.metric("Metodo", metodo)
             c_m3.metric("Intervalos n", int(n))
 
-            cota_sel = cota_truncamiento_integracion(metodo, float(a), float(b), int(n), max_f2=max_f2, max_f4=max_f4)
+            cota_sel = cota_truncamiento_integracion(metodo, a_val, b_val, int(n), max_f2=max_f2, max_f4=max_f4)
             if np.isfinite(cota_sel):
-                st.metric("Cota teorica de truncamiento", f"{float(cota_sel):.3e}")
+                st.metric("Cota teorica de truncamiento", f"{float(cota_sel):.7f}")
             else:
                 st.info("No se pudo estimar la cota teorica de truncamiento para este metodo.")
 
@@ -1194,14 +1212,21 @@ def section_integracion_numerica():
                 err_rel = err_abs / abs(exact_val) if abs(exact_val) > 1e-15 else np.nan
                 c_e1, c_e2, c_e3 = st.columns(3)
                 c_e1.metric("Integral exacta", f"{exact_val:.12g}")
-                c_e2.metric("Error absoluto", f"{err_abs:.3e}")
-                c_e3.metric("Error relativo", "no definido" if np.isnan(err_rel) else f"{err_rel:.3e}")
+                c_e2.metric("Error absoluto", f"{err_abs:.7f}")
+                c_e3.metric("Error relativo", "no definido" if np.isnan(err_rel) else f"{err_rel:.7f}")
 
             df_nodes = pd.DataFrame({"x_i": x_nodes, "f(x_i)": y_nodes})
-            st.dataframe(df_nodes, use_container_width=True)
+            st.dataframe(
+                df_nodes,
+                use_container_width=True,
+                column_config={
+                    "x_i": st.column_config.NumberColumn("x_i", format="%.7f"),
+                    "f(x_i)": st.column_config.NumberColumn("f(x_i)", format="%.7f"),
+                },
+            )
 
             _, f_num = build_numeric_function(func)
-            x_plot = np.linspace(float(a), float(b), 900)
+            x_plot = np.linspace(a_val, b_val, 900)
             y_plot = np.array(f_num(x_plot), dtype=float)
 
             fig, ax = plt.subplots(figsize=(9, 4.8))
@@ -1223,19 +1248,19 @@ def section_integracion_numerica():
                 for nombre in ["Rectangulo", "Trapecio", "Simpson 1/3", "Simpson 3/8"]:
                     try:
                         if nombre == "Rectangulo":
-                            v, _, _ = regla_rectangulo(func, float(a), float(b), int(n))
+                            v, _, _ = regla_rectangulo(func, a_val, b_val, int(n))
                         elif nombre == "Trapecio":
-                            v, _, _ = regla_trapecio(func, float(a), float(b), int(n))
+                            v, _, _ = regla_trapecio(func, a_val, b_val, int(n))
                         elif nombre == "Simpson 1/3":
-                            v, _, _ = regla_simpson_13(func, float(a), float(b), int(n))
+                            v, _, _ = regla_simpson_13(func, a_val, b_val, int(n))
                         else:
-                            v, _, _ = regla_simpson_38(func, float(a), float(b), int(n))
+                            v, _, _ = regla_simpson_38(func, a_val, b_val, int(n))
 
                         row = {"Metodo": nombre, "Integral": float(v)}
                         cota = cota_truncamiento_integracion(
                             nombre,
-                            float(a),
-                            float(b),
+                            a_val,
+                            b_val,
                             int(n),
                             max_f2=max_f2,
                             max_f4=max_f4,
@@ -1248,7 +1273,15 @@ def section_integracion_numerica():
                         comp_rows.append({"Metodo": nombre, "Integral": np.nan, "Cota_trunc": np.nan, "Estado": str(exc)})
 
                 df_comp = pd.DataFrame(comp_rows)
-                st.dataframe(df_comp, use_container_width=True)
+                st.dataframe(
+                    df_comp,
+                    use_container_width=True,
+                    column_config={
+                        "Integral": st.column_config.NumberColumn("Integral", format="%.7f"),
+                        "Error_abs": st.column_config.NumberColumn("Error_abs", format="%.7f"),
+                        "Cota_trunc": st.column_config.NumberColumn("Cota_trunc", format="%.7f"),
+                    },
+                )
 
                 fig_c, ax_c = plt.subplots(figsize=(8.5, 4.2))
                 ok_mask = df_comp["Integral"].notna()
@@ -1271,26 +1304,26 @@ def section_integracion_numerica():
 
                 if exact_val is None:
                     n_ref = max(800, int(n_max) * 20)
-                    ref_val, _, _ = regla_trapecio(func, float(a), float(b), n_ref)
+                    ref_val, _, _ = regla_trapecio(func, a_val, b_val, n_ref)
                 else:
                     ref_val = exact_val
 
                 for ni in n_vals:
                     try:
-                        v_r, _, _ = regla_rectangulo(func, float(a), float(b), int(ni))
+                        v_r, _, _ = regla_rectangulo(func, a_val, b_val, int(ni))
                         curves["Rectangulo"].append(abs(float(v_r) - float(ref_val)))
                     except Exception:
                         curves["Rectangulo"].append(np.nan)
 
                     try:
-                        v_t, _, _ = regla_trapecio(func, float(a), float(b), int(ni))
+                        v_t, _, _ = regla_trapecio(func, a_val, b_val, int(ni))
                         curves["Trapecio"].append(abs(float(v_t) - float(ref_val)))
                     except Exception:
                         curves["Trapecio"].append(np.nan)
 
                     if ni % 2 == 0:
                         try:
-                            v_s13, _, _ = regla_simpson_13(func, float(a), float(b), int(ni))
+                            v_s13, _, _ = regla_simpson_13(func, a_val, b_val, int(ni))
                             curves["Simpson 1/3"].append(abs(float(v_s13) - float(ref_val)))
                         except Exception:
                             curves["Simpson 1/3"].append(np.nan)
@@ -1299,7 +1332,7 @@ def section_integracion_numerica():
 
                     if ni % 3 == 0:
                         try:
-                            v_s38, _, _ = regla_simpson_38(func, float(a), float(b), int(ni))
+                            v_s38, _, _ = regla_simpson_38(func, a_val, b_val, int(ni))
                             curves["Simpson 3/8"].append(abs(float(v_s38) - float(ref_val)))
                         except Exception:
                             curves["Simpson 3/8"].append(np.nan)
