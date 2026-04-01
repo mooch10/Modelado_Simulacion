@@ -539,6 +539,14 @@ def render_chart(fig):
         for spine in ax.spines.values():
             spine.set_color("black")
 
+        # Resalta ejes en cero para mejorar visibilidad.
+        xlim = ax.get_xlim()
+        ylim = ax.get_ylim()
+        if ylim[0] <= 0 <= ylim[1]:
+            ax.axhline(0, color="black", linewidth=2.2, alpha=0.95, zorder=4)
+        if xlim[0] <= 0 <= xlim[1]:
+            ax.axvline(0, color="black", linewidth=2.2, alpha=0.95, zorder=4)
+
     # Evita que etiquetas y leyendas queden recortadas en el render final.
     fig.tight_layout()
 
@@ -564,6 +572,8 @@ def render_chart(fig):
                 title_font=dict(color="black"),
                 showline=True,
                 linecolor="black",
+                zeroline=True,
+                zerolinewidth=2.2,
                 zerolinecolor="black",
                 gridcolor="rgba(0,0,0,0.15)",
             )
@@ -573,6 +583,8 @@ def render_chart(fig):
                 title_font=dict(color="black"),
                 showline=True,
                 linecolor="black",
+                zeroline=True,
+                zerolinewidth=2.2,
                 zerolinecolor="black",
                 gridcolor="rgba(0,0,0,0.15)",
             )
@@ -615,8 +627,8 @@ def _build_newton_plotly_function(func_text, root, xmin, xmax, title):
         )
     )
 
-    fig.add_hline(y=0, line_width=1, line_color="black", opacity=0.6)
-    fig.add_vline(x=0, line_width=1, line_color="black", opacity=0.6)
+    fig.add_hline(y=0, line_width=2.4, line_color="black", opacity=0.95)
+    fig.add_vline(x=0, line_width=2.4, line_color="black", opacity=0.95)
     fig.update_layout(
         title=title,
         xaxis_title="x",
