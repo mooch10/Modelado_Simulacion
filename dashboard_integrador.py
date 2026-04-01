@@ -293,6 +293,113 @@ def detalle_cota_truncamiento_integracion(nombre_metodo, a, b, n, max_f2=None, m
     return detalle
 
 
+def integrar_numerica_soporte_infinito(funcion_str, a, b, n, metodo, eps=1e-6):
+    n = int(n)
+    a = float(a)
+    b = float(b)
+
+    if np.isfinite(a) and np.isfinite(b):
+        if metodo == "Rectangulo":
+            valor, x_nodes, y_nodes = regla_rectangulo(funcion_str, a, b, n)
+        elif metodo == "Trapecio":
+            valor, x_nodes, y_nodes = regla_trapecio(funcion_str, a, b, n)
+        elif metodo == "Simpson 1/3":
+            valor, x_nodes, y_nodes = regla_simpson_13(funcion_str, a, b, n)
+        elif metodo == "Simpson 3/8":
+            valor, x_nodes, y_nodes = regla_simpson_38(funcion_str, a, b, n)
+        else:
+            raise ValueError("Metodo no valido")
+
+        return {
+            "valor": float(valor),
+            "x_nodes": x_nodes,
+            "y_nodes": y_nodes,
+            "impropia": False,
+            "u_nodes": None,
+            "g_nodes": None,
+            "tipo": "finita",
+        }
+
+    if np.isfinite(a) and np.isposinf(b):
+        tipo = "[a, +infinito)"
+        u0, u1 = 0.0, 1.0 - eps
+        map_x = lambda u: a + (u / (1.0 - u))
+        jac = lambda u: 1.0 / ((1.0 - u) ** 2)
+    elif np.isneginf(a) and np.isfinite(b):
+        tipo = "(-infinito, b]"
+        u0, u1 = 0.0, 1.0 - eps
+        map_x = lambda u: b - (u / (1.0 - u))
+        jac = lambda u: 1.0 / ((1.0 - u) ** 2)
+    elif np.isneginf(a) and np.isposinf(b):
+        tipo = "(-infinito, +infinito)"
+        u0, u1 = eps, 1.0 - eps
+        map_x = lambda u: np.tan(np.pi * (u - 0.5))
+        jac = lambda u: np.pi / (np.cos(np.pi * (u - 0.5)) ** 2)
+    else:
+        raise ValueError("Combinacion de limites no soportada")
+
+    if metodo == "Simpson 1/3" and n % 2 != 0:
+        raise ValueError("Simpson 1/3 requiere n par")
+    if metodo == "Simpson 3/8" and n % 3 != 0:
+        raise ValueError("Simpson 3/8 requiere n multiplo de 3")
+
+    def _integrar_desde_valores(y_vals, h_local, nombre_metodo):
+        if nombre_metodo == "Rectangulo":
+            return h_local * np.sum(y_vals)
+        if nombre_metodo == "Trapecio":
+            return h_local * (0.5 * y_vals[0] + np.sum(y_vals[1:-1]) + 0.5 * y_vals[-1])
+        if nombre_metodo == "Simpson 1/3":
+            return (h_local / 3.0) * (
+                y_vals[0] + y_vals[-1] + 4.0 * np.sum(y_vals[1:-1:2]) + 2.0 * np.sum(y_vals[2:-1:2])
+            )
+        if nombre_metodo == "Simpson 3/8":
+            pesos = np.ones_like(y_vals)
+            pesos[1:-1] = 3
+            pesos[3:-1:3] = 2
+            return (3.0 * h_local / 8.0) * np.sum(pesos * y_vals)
+        raise ValueError("Metodo no valido")
+
+    u_nodes = np.linspace(u0, u1, n + 1)
+    x_nodes = map_x(u_nodes)
+    fx_nodes = np.array(evaluar_funcion_robusta(funcion_str, x_nodes), dtype=float)
+    g_nodes = fx_nodes * jac(u_nodes)
+
+    if not np.all(np.isfinite(g_nodes)):
+        raise ValueError("La transformacion impropia produjo valores no finitos")
+
+    h_u = (u1 - u0) / n
+    if metodo == "Rectangulo":
+        u_mid = u0 + (np.arange(n) + 0.5) * h_u
+        x_mid = map_x(u_mid)
+        fx_mid = np.array(evaluar_funcion_robusta(funcion_str, x_mid), dtype=float)
+        g_mid = fx_mid * jac(u_mid)
+        valor = _integrar_desde_valores(g_mid, h_u, metodo)
+    else:
+        valor = _integrar_desde_valores(g_nodes, h_u, metodo)
+
+    return {
+        "valor": float(valor),
+        "x_nodes": x_nodes,
+        "y_nodes": fx_nodes,
+        "impropia": True,
+        "u_nodes": u_nodes,
+        "g_nodes": g_nodes,
+        "tipo": tipo,
+    }
+
+
+def plot_integracion_impropia_transformada(u_nodes, g_nodes, metodo, tipo):
+    fig, ax = plt.subplots(figsize=(9, 4.8))
+    ax.plot(u_nodes, g_nodes, linewidth=2, label="Integrando transformado g(u)")
+    ax.fill_between(u_nodes, g_nodes, 0.0, alpha=0.2, label="Area en dominio transformado")
+    ax.set_title(f"Integracion impropia por {metodo} ({tipo})")
+    ax.set_xlabel("u (variable transformada)")
+    ax.set_ylabel("g(u)")
+    ax.grid(alpha=0.3)
+    ax.legend()
+    return fig
+
+
 def plot_integracion_visual(funcion_str, a, b, n, metodo):
     x_nodes = np.linspace(float(a), float(b), int(n) + 1)
     y_nodes = np.array(evaluar_funcion_robusta(funcion_str, x_nodes), dtype=float)
@@ -2088,8 +2195,8 @@ def section_integracion_numerica():
         c1, c2, c3 = st.columns(3)
         with c1:
             func = st.text_input("f(x)", value="sin(x)")
-            a_text = st.text_input("Limite inferior a", value="0")
-            b_text = st.text_input("Limite superior b", value="pi")
+            a_text = st.text_input("Limite inferior a", value="0", help="Admite: numero, pi, oo, -oo, inf, -inf")
+            b_text = st.text_input("Limite superior b", value="pi", help="Admite: numero, pi, oo, -oo, inf, -inf")
         with c2:
             n = st.number_input("Cantidad de intervalos n", value=6, min_value=1, step=1)
             metodo = st.selectbox("Metodo", ["Rectangulo", "Trapecio", "Simpson 1/3", "Simpson 3/8"])
@@ -2102,11 +2209,18 @@ def section_integracion_numerica():
 
     if run_btn:
         try:
-            a_val = parse_numeric_expr(a_text, "a")
-            b_val = parse_numeric_expr(b_text, "b")
+            a_val = parse_numeric_expr(a_text, "a", allow_infinite=True)
+            b_val = parse_numeric_expr(b_text, "b", allow_infinite=True)
 
-            if b_val <= a_val:
+            es_impropia = not (np.isfinite(a_val) and np.isfinite(b_val))
+            if np.isfinite(a_val) and np.isfinite(b_val) and b_val <= a_val:
                 st.error("Se requiere b > a.")
+                return
+            if np.isposinf(a_val):
+                st.error("El limite inferior no puede ser +infinito.")
+                return
+            if np.isneginf(b_val):
+                st.error("El limite superior no puede ser -infinito.")
                 return
 
             x_sym = sp.Symbol("x")
@@ -2116,7 +2230,9 @@ def section_integracion_numerica():
             if referencia_exacta:
                 try:
                     expr = safe_eval_expr(func, "x")
-                    exact_expr = sp.integrate(expr, (x_sym, a_val, b_val))
+                    a_sym = -sp.oo if np.isneginf(a_val) else (sp.oo if np.isposinf(a_val) else float(a_val))
+                    b_sym = -sp.oo if np.isneginf(b_val) else (sp.oo if np.isposinf(b_val) else float(b_val))
+                    exact_expr = sp.integrate(expr, (x_sym, a_sym, b_sym))
                     exact_eval = sp.N(exact_expr, 30)
                     exact_candidate = float(exact_eval)
                     if np.isfinite(exact_candidate):
@@ -2147,7 +2263,7 @@ def section_integracion_numerica():
 
             max_f2 = None
             max_f4 = None
-            if expr is not None:
+            if expr is not None and (not es_impropia):
                 try:
                     max_f2 = estimate_max_abs_derivative(expr, x_sym, 2, a_val, b_val)
                 except Exception:
@@ -2157,27 +2273,18 @@ def section_integracion_numerica():
                 except Exception:
                     max_f4 = None
 
-            if metodo == "Rectangulo":
-                valor, x_nodes, y_nodes = regla_rectangulo(func, a_val, b_val, int(n))
-            elif metodo == "Trapecio":
-                valor, x_nodes, y_nodes = regla_trapecio(func, a_val, b_val, int(n))
-            elif metodo == "Simpson 1/3":
-                valor, x_nodes, y_nodes = regla_simpson_13(func, a_val, b_val, int(n))
-            else:
-                valor, x_nodes, y_nodes = regla_simpson_38(func, a_val, b_val, int(n))
+            resultado_int = integrar_numerica_soporte_infinito(func, a_val, b_val, int(n), metodo)
+            valor = resultado_int["valor"]
+            x_nodes = resultado_int["x_nodes"]
+            y_nodes = resultado_int["y_nodes"]
+            es_impropia = resultado_int["impropia"]
 
             c_m1, c_m2, c_m3 = st.columns(3)
             c_m1.metric("Resultado", f"{valor:.12g}")
             c_m2.metric("Metodo", metodo)
             c_m3.metric("Intervalos n", int(n))
 
-            cota_sel = cota_truncamiento_integracion(metodo, a_val, b_val, int(n), max_f2=max_f2, max_f4=max_f4)
-            if np.isfinite(cota_sel):
-                st.metric("Cota teorica de truncamiento", f"{float(cota_sel):.7f}")
-            else:
-                st.info("No se pudo estimar la cota teorica de truncamiento para este metodo.")
-
-            detalle_cota = detalle_cota_truncamiento_integracion(
+            cota_sel = np.nan if es_impropia else cota_truncamiento_integracion(
                 metodo,
                 a_val,
                 b_val,
@@ -2185,15 +2292,34 @@ def section_integracion_numerica():
                 max_f2=max_f2,
                 max_f4=max_f4,
             )
-            with st.expander("Ver paso a paso del error de truncamiento"):
-                for paso in detalle_cota["pasos"]:
-                    st.write(paso)
-                if detalle_cota["latex_formula"]:
-                    st.latex(detalle_cota["latex_formula"])
-                if detalle_cota["latex_sustitucion"]:
-                    st.latex(detalle_cota["latex_sustitucion"])
-                if detalle_cota["ok"]:
-                    st.latex(rf"|E_T| \leq {float(detalle_cota['cota']):.7g}")
+            if np.isfinite(cota_sel):
+                st.metric("Cota teorica de truncamiento", f"{float(cota_sel):.7f}")
+            else:
+                if es_impropia:
+                    st.info("La cota teorica de truncamiento implementada aplica a intervalos finitos.")
+                else:
+                    st.info("No se pudo estimar la cota teorica de truncamiento para este metodo.")
+
+            if not es_impropia:
+                detalle_cota = detalle_cota_truncamiento_integracion(
+                    metodo,
+                    a_val,
+                    b_val,
+                    int(n),
+                    max_f2=max_f2,
+                    max_f4=max_f4,
+                )
+                with st.expander("Ver paso a paso del error de truncamiento"):
+                    for paso in detalle_cota["pasos"]:
+                        st.write(paso)
+                    if detalle_cota["latex_formula"]:
+                        st.latex(detalle_cota["latex_formula"])
+                    if detalle_cota["latex_sustitucion"]:
+                        st.latex(detalle_cota["latex_sustitucion"])
+                    if detalle_cota["ok"]:
+                        st.latex(rf"|E_T| \leq {float(detalle_cota['cota']):.7g}")
+            else:
+                st.info("Se utilizo transformacion de variable para resolver integral impropia.")
 
             if exact_val is not None:
                 err_abs = abs(float(valor) - float(exact_val))
@@ -2207,17 +2333,31 @@ def section_integracion_numerica():
                     "No se pudo obtener integral exacta ni referencia numerica de alta precision para esta funcion e intervalo."
                 )
 
-            df_nodes = pd.DataFrame({"x_i": x_nodes, "f(x_i)": y_nodes})
+            if es_impropia:
+                df_nodes = pd.DataFrame(
+                    {
+                        "u_i": resultado_int["u_nodes"],
+                        "x(u_i)": x_nodes,
+                        "g(u_i)": resultado_int["g_nodes"],
+                    }
+                )
+            else:
+                df_nodes = pd.DataFrame({"x_i": x_nodes, "f(x_i)": y_nodes})
             st.dataframe(
                 df_nodes,
                 use_container_width=True,
-                column_config={
-                    "x_i": st.column_config.NumberColumn("x_i", format="%.7f"),
-                    "f(x_i)": st.column_config.NumberColumn("f(x_i)", format="%.7f"),
-                },
+                column_config={k: st.column_config.NumberColumn(k, format="%.7f") for k in df_nodes.columns},
             )
 
-            fig = plot_integracion_visual(func, a_val, b_val, int(n), metodo)
+            if es_impropia:
+                fig = plot_integracion_impropia_transformada(
+                    resultado_int["u_nodes"],
+                    resultado_int["g_nodes"],
+                    metodo,
+                    resultado_int["tipo"],
+                )
+            else:
+                fig = plot_integracion_visual(func, a_val, b_val, int(n), metodo)
             render_chart(fig)
             plt.close(fig)
 
@@ -2225,17 +2365,10 @@ def section_integracion_numerica():
                 comp_rows = []
                 for nombre in ["Rectangulo", "Trapecio", "Simpson 1/3", "Simpson 3/8"]:
                     try:
-                        if nombre == "Rectangulo":
-                            v, _, _ = regla_rectangulo(func, a_val, b_val, int(n))
-                        elif nombre == "Trapecio":
-                            v, _, _ = regla_trapecio(func, a_val, b_val, int(n))
-                        elif nombre == "Simpson 1/3":
-                            v, _, _ = regla_simpson_13(func, a_val, b_val, int(n))
-                        else:
-                            v, _, _ = regla_simpson_38(func, a_val, b_val, int(n))
+                        v = integrar_numerica_soporte_infinito(func, a_val, b_val, int(n), nombre)["valor"]
 
                         row = {"Metodo": nombre, "Integral": float(v)}
-                        cota = cota_truncamiento_integracion(
+                        cota = np.nan if es_impropia else cota_truncamiento_integracion(
                             nombre,
                             a_val,
                             b_val,
@@ -2282,26 +2415,26 @@ def section_integracion_numerica():
 
                 if exact_val is None:
                     n_ref = max(800, int(n_max) * 20)
-                    ref_val, _, _ = regla_trapecio(func, a_val, b_val, n_ref)
+                    ref_val = integrar_numerica_soporte_infinito(func, a_val, b_val, n_ref, "Trapecio")["valor"]
                 else:
                     ref_val = exact_val
 
                 for ni in n_vals:
                     try:
-                        v_r, _, _ = regla_rectangulo(func, a_val, b_val, int(ni))
+                        v_r = integrar_numerica_soporte_infinito(func, a_val, b_val, int(ni), "Rectangulo")["valor"]
                         curves["Rectangulo"].append(abs(float(v_r) - float(ref_val)))
                     except Exception:
                         curves["Rectangulo"].append(np.nan)
 
                     try:
-                        v_t, _, _ = regla_trapecio(func, a_val, b_val, int(ni))
+                        v_t = integrar_numerica_soporte_infinito(func, a_val, b_val, int(ni), "Trapecio")["valor"]
                         curves["Trapecio"].append(abs(float(v_t) - float(ref_val)))
                     except Exception:
                         curves["Trapecio"].append(np.nan)
 
                     if ni % 2 == 0:
                         try:
-                            v_s13, _, _ = regla_simpson_13(func, a_val, b_val, int(ni))
+                            v_s13 = integrar_numerica_soporte_infinito(func, a_val, b_val, int(ni), "Simpson 1/3")["valor"]
                             curves["Simpson 1/3"].append(abs(float(v_s13) - float(ref_val)))
                         except Exception:
                             curves["Simpson 1/3"].append(np.nan)
@@ -2310,7 +2443,7 @@ def section_integracion_numerica():
 
                     if ni % 3 == 0:
                         try:
-                            v_s38, _, _ = regla_simpson_38(func, a_val, b_val, int(ni))
+                            v_s38 = integrar_numerica_soporte_infinito(func, a_val, b_val, int(ni), "Simpson 3/8")["valor"]
                             curves["Simpson 3/8"].append(abs(float(v_s38) - float(ref_val)))
                         except Exception:
                             curves["Simpson 3/8"].append(np.nan)
@@ -2331,11 +2464,12 @@ def section_integracion_numerica():
                 render_chart(fig_conv)
                 plt.close(fig_conv)
 
-            h_val = (float(b_val) - float(a_val)) / int(n)
-            cuentas = [
-                rf"h=\frac{{b-a}}{{n}}=\frac{{{_num(b_val)}-{_num(a_val)}}}{{{int(n)}}}={_num(h_val)}",
-                rf"I_{{aprox}}={_num(valor, 12)}",
-            ]
+            cuentas = [rf"I_{{aprox}}={_num(valor, 12)}"]
+            if np.isfinite(a_val) and np.isfinite(b_val):
+                h_val = (float(b_val) - float(a_val)) / int(n)
+                cuentas.insert(0, rf"h=\frac{{b-a}}{{n}}=\frac{{{_num(b_val)}-{_num(a_val)}}}{{{int(n)}}}={_num(h_val)}")
+            else:
+                cuentas.insert(0, rf"\text{{Integral impropia en }}{resultado_int['tipo']}\text{{, via transformacion de variable}}")
             if exact_val is not None:
                 cuentas.append(rf"I_{{ref}}={_num(exact_val, 12)}")
                 cuentas.append(rf"|E|=|I_{{aprox}}-I_{{ref}}|={_num(abs(float(valor)-float(exact_val)))}")
