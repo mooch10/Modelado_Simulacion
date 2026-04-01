@@ -21,6 +21,7 @@ from Metodos.metodo_lagrange_derivacion import (
 from Metodos.metodo_newton_raphson import metodo_newton_raphson
 from Metodos.metodo_punto_fijo import metodo_punto_fijo
 from Metodos.metodo_integracion_numerica import (
+    regla_rectangulo,
     regla_trapecio,
     regla_simpson_13,
     regla_simpson_38,
@@ -1085,8 +1086,8 @@ def section_integracion_numerica():
             b = st.number_input("Limite superior b", value=np.pi)
         with c2:
             n = st.number_input("Cantidad de intervalos n", value=6, min_value=1, step=1)
-            metodo = st.selectbox("Metodo", ["Trapecio", "Simpson 1/3", "Simpson 3/8"])
-            comparar_metodos = st.checkbox("Comparar los 3 metodos", value=True)
+            metodo = st.selectbox("Metodo", ["Rectangulo", "Trapecio", "Simpson 1/3", "Simpson 3/8"])
+            comparar_metodos = st.checkbox("Comparar los 4 metodos", value=True)
         with c3:
             analizar_convergencia = st.checkbox("Mostrar convergencia (error vs n)", value=True)
             n_max = st.number_input("n max para convergencia", value=30, min_value=6, step=2)
@@ -1111,7 +1112,9 @@ def section_integracion_numerica():
                 except Exception:
                     exact_val = None
 
-            if metodo == "Trapecio":
+            if metodo == "Rectangulo":
+                valor, x_nodes, y_nodes = regla_rectangulo(func, float(a), float(b), int(n))
+            elif metodo == "Trapecio":
                 valor, x_nodes, y_nodes = regla_trapecio(func, float(a), float(b), int(n))
             elif metodo == "Simpson 1/3":
                 valor, x_nodes, y_nodes = regla_simpson_13(func, float(a), float(b), int(n))
@@ -1154,9 +1157,11 @@ def section_integracion_numerica():
 
             if comparar_metodos:
                 comp_rows = []
-                for nombre in ["Trapecio", "Simpson 1/3", "Simpson 3/8"]:
+                for nombre in ["Rectangulo", "Trapecio", "Simpson 1/3", "Simpson 3/8"]:
                     try:
-                        if nombre == "Trapecio":
+                        if nombre == "Rectangulo":
+                            v, _, _ = regla_rectangulo(func, float(a), float(b), int(n))
+                        elif nombre == "Trapecio":
                             v, _, _ = regla_trapecio(func, float(a), float(b), int(n))
                         elif nombre == "Simpson 1/3":
                             v, _, _ = regla_simpson_13(func, float(a), float(b), int(n))
@@ -1175,16 +1180,22 @@ def section_integracion_numerica():
 
                 fig_c, ax_c = plt.subplots(figsize=(8.5, 4.2))
                 ok_mask = df_comp["Integral"].notna()
-                ax_c.bar(df_comp.loc[ok_mask, "Metodo"], df_comp.loc[ok_mask, "Integral"].astype(float))
+                df_ok = df_comp.loc[ok_mask, ["Metodo", "Integral"]].copy()
+                posiciones = np.arange(len(df_ok))
+                ax_c.bar(posiciones, df_ok["Integral"].astype(float), width=0.6)
+                ax_c.set_xticks(posiciones)
+                ax_c.set_xticklabels(df_ok["Metodo"], rotation=20, ha="right")
                 ax_c.set_title("Comparativa de integrales por metodo")
+                ax_c.set_xlabel("Metodo")
                 ax_c.set_ylabel("Valor de integral")
                 ax_c.grid(axis="y", alpha=0.3)
+                fig_c.tight_layout()
                 render_chart(fig_c)
                 plt.close(fig_c)
 
             if analizar_convergencia:
                 n_vals = np.arange(2, int(n_max) + 1)
-                curves = {"Trapecio": [], "Simpson 1/3": [], "Simpson 3/8": []}
+                curves = {"Rectangulo": [], "Trapecio": [], "Simpson 1/3": [], "Simpson 3/8": []}
 
                 if exact_val is None:
                     n_ref = max(800, int(n_max) * 20)
@@ -1193,6 +1204,12 @@ def section_integracion_numerica():
                     ref_val = exact_val
 
                 for ni in n_vals:
+                    try:
+                        v_r, _, _ = regla_rectangulo(func, float(a), float(b), int(ni))
+                        curves["Rectangulo"].append(abs(float(v_r) - float(ref_val)))
+                    except Exception:
+                        curves["Rectangulo"].append(np.nan)
+
                     try:
                         v_t, _, _ = regla_trapecio(func, float(a), float(b), int(ni))
                         curves["Trapecio"].append(abs(float(v_t) - float(ref_val)))

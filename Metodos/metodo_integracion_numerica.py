@@ -32,6 +32,28 @@ def regla_trapecio(funcion_str, a, b, n):
     return float(integral), x, y
 
 
+def regla_rectangulo(funcion_str, a, b, n):
+    if n <= 0:
+        raise ValueError("n debe ser un entero positivo")
+    if b <= a:
+        raise ValueError("Se requiere que b > a")
+
+    _, f = build_numeric_function(funcion_str)
+    h = (b - a) / n
+    x_mid = a + (np.arange(n) + 0.5) * h
+    y_mid = np.array(f(x_mid), dtype=float)
+
+    if not np.all(np.isfinite(y_mid)):
+        raise ValueError("La funcion produjo valores no finitos en el intervalo")
+
+    integral = h * np.sum(y_mid)
+
+    # Nodos de extremos para visualizar el intervalo en el dashboard.
+    x_nodes = np.linspace(a, b, n + 1)
+    y_nodes = np.array(f(x_nodes), dtype=float)
+    return float(integral), x_nodes, y_nodes
+
+
 def regla_simpson_13(funcion_str, a, b, n):
     if n % 2 != 0:
         raise ValueError("Simpson 1/3 requiere n par")
@@ -74,12 +96,13 @@ def ejecutar_integracion_numerica():
     print("INTEGRACION NUMERICA")
     print("=" * 80)
     print("Metodos disponibles:")
-    print("1. Trapecio")
-    print("2. Simpson 1/3")
-    print("3. Simpson 3/8")
+    print("1. Rectangulo (punto medio)")
+    print("2. Trapecio")
+    print("3. Simpson 1/3")
+    print("4. Simpson 3/8")
 
-    opcion = input("Seleccione metodo (1-3): ").strip()
-    if opcion not in {"1", "2", "3"}:
+    opcion = input("Seleccione metodo (1-4): ").strip()
+    if opcion not in {"1", "2", "3", "4"}:
         print("Opcion no valida")
         return
 
@@ -94,9 +117,12 @@ def ejecutar_integracion_numerica():
         n = parse_int_or_default(input("Cantidad de intervalos n (default 6): "), 6, "n")
 
         if opcion == "1":
+            valor, x, y = regla_rectangulo(funcion, a, b, n)
+            nombre = "Rectangulo (punto medio)"
+        elif opcion == "2":
             valor, x, y = regla_trapecio(funcion, a, b, n)
             nombre = "Trapecio"
-        elif opcion == "2":
+        elif opcion == "3":
             valor, x, y = regla_simpson_13(funcion, a, b, n)
             nombre = "Simpson 1/3"
         else:
