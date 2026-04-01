@@ -51,6 +51,97 @@ ALLOWED_LOCALS = {
 }
 
 
+PALETAS_DASHBOARD = {
+    "Viva": {
+        "accent_1": "#00E5FF",
+        "accent_2": "#FF6B35",
+        "accent_3": "#9BFF00",
+        "series": [
+            "#00E5FF",
+            "#FF6B35",
+            "#9BFF00",
+            "#FFD400",
+            "#FF3D81",
+            "#7A7CFF",
+            "#00C16E",
+            "#FF8A00",
+        ],
+    },
+    "Pastel oscuro": {
+        "accent_1": "#7AD3FF",
+        "accent_2": "#FFAE8A",
+        "accent_3": "#C9F7A5",
+        "series": [
+            "#7AD3FF",
+            "#FFAE8A",
+            "#C9F7A5",
+            "#FFE59A",
+            "#F6A5C0",
+            "#B8B7FF",
+            "#9EE7C9",
+            "#FFD3A8",
+        ],
+    },
+}
+
+
+def paleta_activa():
+    preset = st.session_state.get("palette_preset", "Viva")
+    return PALETAS_DASHBOARD.get(preset, PALETAS_DASHBOARD["Viva"])
+
+
+def aplicar_tema_visual_dashboard(paleta):
+    """Mejora contraste y distincion de colores sin modificar el fondo negro general."""
+    css = """
+        <style>
+        :root {
+            --accent-1: __ACCENT1__;
+            --accent-2: __ACCENT2__;
+            --accent-3: __ACCENT3__;
+            --line-soft: rgba(255,255,255,0.22);
+        }
+
+        .stTabs [data-baseweb="tab-list"] button[role="tab"] {
+            border: 1px solid var(--line-soft);
+            border-radius: 10px;
+            margin-right: 6px;
+            padding: 8px 12px;
+        }
+
+        .stTabs [data-baseweb="tab-list"] button[aria-selected="true"] {
+            border-color: var(--accent-1);
+            box-shadow: 0 0 0 1px var(--accent-1) inset;
+            color: #FFFFFF;
+            background: rgba(255,255,255,0.08);
+        }
+
+        .stButton > button {
+            border: 1px solid var(--accent-1);
+            color: #FFFFFF;
+        }
+
+        .stButton > button:hover {
+            border-color: var(--accent-2);
+            box-shadow: 0 0 0 1px var(--accent-2) inset;
+        }
+
+        [data-testid="stMetric"] {
+            border: 1px solid var(--line-soft);
+            border-radius: 12px;
+            padding: 8px 10px;
+            background: rgba(255,255,255,0.02);
+        }
+        </style>
+    """
+    css = css.replace("__ACCENT1__", paleta["accent_1"])
+    css = css.replace("__ACCENT2__", paleta["accent_2"])
+    css = css.replace("__ACCENT3__", paleta["accent_3"])
+    st.markdown(
+        css,
+        unsafe_allow_html=True,
+    )
+
+
 def run_silent(func, *args, **kwargs):
     """Ejecuta funciones de metodos que imprimen en consola, silenciando su salida."""
     with contextlib.redirect_stdout(io.StringIO()):
@@ -67,7 +158,7 @@ def safe_eval_expr(expr_text, variable="x"):
     return expr
 
 
-def parse_numeric_expr(expr_text, field_name):
+def parse_numeric_expr(expr_text, field_name, allow_infinite=False):
     try:
         expr = sp.sympify(expr_text, locals=ALLOWED_LOCALS)
     except Exception as exc:
@@ -76,8 +167,16 @@ def parse_numeric_expr(expr_text, field_name):
     if expr.free_symbols:
         raise ValueError(f"{field_name} no debe contener variables")
 
+    if allow_infinite:
+        if expr in {sp.oo, sp.zoo}:
+            return np.inf
+        if expr == -sp.oo:
+            return -np.inf
+
     value = float(sp.N(expr))
     if not np.isfinite(value):
+        if allow_infinite and np.isinf(value):
+            return value
         raise ValueError(f"{field_name} debe ser un numero finito")
     return value
 
@@ -522,6 +621,7 @@ def sugerir_x0_primera_raiz_positiva(func_text, x0_usuario, muestras=4000):
 def render_chart(fig):
     """Renderiza Matplotlib en modo interactivo (Plotly) cuando esta disponible."""
     interactive = st.session_state.get("interactive_charts", True)
+    paleta_series = paleta_activa()["series"]
 
     # Refuerza contraste en figuras Matplotlib antes de convertir/renderizar.
     for ax in fig.get_axes():
@@ -564,6 +664,7 @@ def render_chart(fig):
                 plot_bgcolor="white",
                 font=dict(color="black"),
                 template="plotly_white",
+                colorway=paleta_series,
                 legend=dict(font=dict(color="black"), title=dict(font=dict(color="black"))),
             )
             fig_plotly.update_xaxes(
@@ -603,6 +704,7 @@ def render_chart(fig):
 
 def _build_newton_plotly_function(func_text, root, xmin, xmax, title):
     go = __import__("plotly.graph_objects", fromlist=["Figure"]) 
+    paleta_series = paleta_activa()["series"]
 
     x = np.linspace(xmin, xmax, 800)
     y = build_func_plot(func_text, x)
@@ -623,7 +725,7 @@ def _build_newton_plotly_function(func_text, root, xmin, xmax, title):
             y=[0],
             mode="markers",
             name=f"Raiz aprox: {root:.8g}",
-            marker=dict(color="red", size=10),
+            marker=dict(color="#FF3D81", size=10),
         )
     )
 
@@ -638,6 +740,7 @@ def _build_newton_plotly_function(func_text, root, xmin, xmax, title):
         plot_bgcolor="white",
         font=dict(color="black"),
         template="plotly_white",
+        colorway=paleta_series,
         legend=dict(font=dict(color="black"), title=dict(font=dict(color="black"))),
     )
     fig.update_xaxes(
@@ -663,6 +766,7 @@ def _build_newton_plotly_function(func_text, root, xmin, xmax, title):
 
 def _build_newton_plotly_error(errors, title, y_label="Error absoluto"):
     go = __import__("plotly.graph_objects", fromlist=["Figure"]) 
+    paleta_series = paleta_activa()["series"]
 
     errors = np.array(errors, dtype=float)
     idx = np.arange(1, len(errors) + 1)
@@ -687,6 +791,7 @@ def _build_newton_plotly_error(errors, title, y_label="Error absoluto"):
         plot_bgcolor="white",
         font=dict(color="black"),
         template="plotly_white",
+        colorway=paleta_series,
         legend=dict(font=dict(color="black"), title=dict(font=dict(color="black"))),
     )
     if np.all(errors > 0):
@@ -767,6 +872,579 @@ def mostrar_imagen_encabezado(nombre_archivo, ancho=120, texto_alternativo="Imag
         )
 
 
+def render_panel_formulas(
+    titulo,
+    formulas,
+    simbolos=None,
+    condiciones=None,
+    pasos=None,
+    mostrar_pasos=False,
+    desglose_completo=None,
+    apartado_clave=None,
+):
+    """Muestra un panel estético con formulas, leyenda, condiciones y paso a paso opcional."""
+    def _latex_expr(expr):
+        if expr is None:
+            return ""
+        txt = str(expr).strip()
+        if txt.startswith("$") and txt.endswith("$") and len(txt) >= 2:
+            txt = txt[1:-1].strip()
+        return txt
+
+    def _latex_text(texto):
+        txt = str(texto)
+        txt = txt.replace("\\", r"\\")
+        txt = txt.replace("{", r"\{").replace("}", r"\}")
+        txt = txt.replace("_", r"\_")
+        return r"\text{" + txt + "}"
+
+    st.markdown("---")
+    with st.container(border=True):
+        st.markdown(f"### {titulo}")
+        st.caption("Desarrollo matematico y condiciones del metodo")
+
+        if simbolos:
+            st.markdown("**Leyenda de simbolos**")
+            for item in simbolos:
+                st.markdown(f"- {item}")
+
+        if condiciones:
+            st.markdown("**Condiciones de aplicacion / convergencia**")
+            for item in condiciones:
+                st.markdown(f"- {item}")
+
+        st.markdown("**Formulas**")
+        for formula in formulas:
+            st.latex(formula)
+
+        if mostrar_pasos and pasos:
+            st.markdown("**Paso a paso completo (letras y numeros)**")
+            for i, paso in enumerate(pasos, start=1):
+                st.markdown(f"**Paso {i}: {paso['titulo']}**")
+                st.latex(_latex_expr(paso["simbolico"]))
+                st.latex(_latex_text(paso["numerico"]))
+
+            if desglose_completo:
+                st.markdown("**Secuencia completa del procedimiento**")
+                for i, linea in enumerate(desglose_completo, start=1):
+                    st.latex(_latex_text(f"{i}) {linea}"))
+
+        if mostrar_pasos and apartado_clave:
+            cuentas = st.session_state.get("cuentas_paso_a_paso", {}).get(apartado_clave, [])
+            st.markdown("**Cuentas realizadas (con tus datos)**")
+            if cuentas:
+                for linea in cuentas:
+                    st.latex(linea)
+            else:
+                st.info("Ejecuta este metodo para ver aqui el paso a paso numerico real de las cuentas.")
+
+
+def _num(v, dec=8):
+    try:
+        return f"{float(v):.{dec}g}"
+    except Exception:
+        return str(v)
+
+
+def guardar_cuentas(apartado_clave, lineas):
+    if "cuentas_paso_a_paso" not in st.session_state:
+        st.session_state["cuentas_paso_a_paso"] = {}
+    st.session_state["cuentas_paso_a_paso"][apartado_clave] = list(lineas)
+
+
+FORMULAS_POR_APARTADO = {
+    "Newton-Raphson": [
+        r"x_{n+1}=x_n-\frac{f(x_n)}{f'(x_n)}",
+        r"e_n=|x_{n+1}-x_n|",
+        r"\text{criterio: }e_n<\varepsilon",
+    ],
+    "Aitken": [
+        r"x_{n+1}=g(x_n)",
+        r"\hat{x}_n=x_n-\frac{(x_{n+1}-x_n)^2}{x_{n+2}-2x_{n+1}+x_n}",
+        r"e_n=|\hat{x}_n-\hat{x}_{n-1}|",
+    ],
+    "Biseccion": [
+        r"c_n=\frac{a_n+b_n}{2}",
+        r"\text{si }f(a_n)f(c_n)<0\Rightarrow b_{n+1}=c_n,\ a_{n+1}=a_n",
+        r"\text{si }f(a_n)f(c_n)>0\Rightarrow a_{n+1}=c_n,\ b_{n+1}=b_n",
+        r"e_n\approx\frac{b_n-a_n}{2}",
+    ],
+    "Punto Fijo": [
+        r"x_{n+1}=g(x_n)",
+        r"e_n=|x_{n+1}-x_n|",
+        r"\text{condicion local: }|g'(x^*)|<1",
+    ],
+    "Comparativa": [
+        r"\text{Error relativo}=\frac{|x_{aprox}-x_{ref}|}{|x_{ref}|}",
+        r"\text{Metrica de iteraciones: }N_{iter}",
+        r"\text{Convergencia} \Rightarrow e_n<\varepsilon",
+    ],
+    "Lagrange + Derivacion": [
+        r"P_n(x)=\sum_{i=0}^{n} y_i L_i(x)",
+        r"L_i(x)=\prod_{j\neq i}\frac{x-x_j}{x_i-x_j}",
+        r"f'(x)\approx\frac{f(x+h)-f(x)}{h},\ \frac{f(x)-f(x-h)}{h},\ \frac{f(x+h)-f(x-h)}{2h}",
+        r"E(x)=|f(x)-P_n(x)|",
+    ],
+    "Integracion Numerica": [
+        r"I\approx h\sum_{i=1}^{n} f\!\left(a+\left(i-\frac12\right)h\right)\ \text{(Rectangulo)}",
+        r"I\approx h\left[\frac{f(a)+f(b)}{2}+\sum_{i=1}^{n-1}f(x_i)\right]\ \text{(Trapecio)}",
+        r"I\approx\frac{h}{3}\left[f(x_0)+f(x_n)+4\sum f(x_{impar})+2\sum f(x_{par})\right]\ \text{(Simpson 1/3)}",
+        r"I\approx\frac{3h}{8}\left[f(x_0)+f(x_n)+3\sum f(x_{i\not\equiv0\ (3)})+2\sum f(x_{i\equiv0\ (3)})\right]\ \text{(Simpson 3/8)}",
+    ],
+    "Ajuste de Curvas": [
+        r"\hat{y}=a x+b\ \text{(lineal)}",
+        r"\hat{y}=\sum_{k=0}^{m} a_k x^k\ \text{(polinomial)}",
+        r"\text{MSE}=\frac{1}{n}\sum_{i=1}^n(y_i-\hat{y}_i)^2",
+        r"R^2=1-\frac{\sum (y_i-\hat{y}_i)^2}{\sum (y_i-\bar{y})^2}",
+    ],
+    "Sistemas Lineales": [
+        r"A\mathbf{x}=\mathbf{b}",
+        r"\mathbf{x}^{(k+1)}=D^{-1}(\mathbf{b}-(L+U)\mathbf{x}^{(k)})\ \text{(iterativa base)}",
+        r"x_i^{(k+1)}=\frac{1}{a_{ii}}\left(b_i-\sum_{j<i}a_{ij}x_j^{(k+1)}-\sum_{j>i}a_{ij}x_j^{(k)}\right)\ \text{(Gauss-Seidel)}",
+        r"\|e^{(k)}\|_{\infty}=\|x^{(k)}-x^{(k-1)}\|_{\infty}",
+    ],
+    "EDO": [
+        r"y_{n+1}=y_n+h f(x_n,y_n)\ \text{(Euler)}",
+        r"k_1=f(x_n,y_n),\ k_2=f\!\left(x_n+\frac h2,y_n+\frac h2k_1\right)",
+        r"k_3=f\!\left(x_n+\frac h2,y_n+\frac h2k_2\right),\ k_4=f(x_n+h,y_n+hk_3)",
+        r"y_{n+1}=y_n+\frac h6(k_1+2k_2+2k_3+k_4)\ \text{(RK4)}",
+    ],
+    "Red Neuronal GD": [
+        r"\hat{y}=wx+b",
+        r"J(w,b)=\frac{1}{m}\sum_{i=1}^{m}(\hat{y}_i-y_i)^2",
+        r"w\leftarrow w-\alpha\frac{\partial J}{\partial w},\quad b\leftarrow b-\alpha\frac{\partial J}{\partial b}",
+        r"\frac{\partial J}{\partial w}=\frac{2}{m}\sum x_i(\hat{y}_i-y_i),\quad \frac{\partial J}{\partial b}=\frac{2}{m}\sum(\hat{y}_i-y_i)",
+    ],
+}
+
+
+SIMBOLOS_POR_APARTADO = {
+    "Newton-Raphson": [
+        r"$x_n$: aproximacion en iteracion $n$",
+        r"$f(x)$: funcion objetivo",
+        r"$f'(x)$: derivada de $f$",
+        r"$\varepsilon$: tolerancia",
+        r"$e_n$: error iterativo",
+    ],
+    "Aitken": [
+        r"$g(x)$: funcion de punto fijo",
+        r"$x_n$: iteracion base",
+        r"$\hat{x}_n$: aceleracion de Aitken",
+        r"$e_n$: error entre aceleraciones consecutivas",
+    ],
+    "Biseccion": [
+        r"$a_n,b_n$: extremos del intervalo",
+        r"$c_n$: punto medio",
+        r"$f(c_n)$: evaluacion en el punto medio",
+        r"$e_n$: semiancho del intervalo",
+    ],
+    "Punto Fijo": [
+        r"$x_n$: iteracion actual",
+        r"$g(x)$: funcion iterativa",
+        r"$x^*$: punto fijo (raiz)",
+        r"$e_n$: error iterativo",
+    ],
+    "Comparativa": [
+        r"$x_{aprox}$: raiz aproximada por metodo",
+        r"$x_{ref}$: raiz de referencia",
+        r"$N_{iter}$: numero de iteraciones",
+        r"$e_n$: error de parada",
+    ],
+    "Lagrange + Derivacion": [
+        r"$P_n(x)$: polinomio interpolante de grado $n$",
+        r"$L_i(x)$: base de Lagrange",
+        r"$x_i,y_i$: nodos de interpolacion",
+        r"$h$: paso para diferencias finitas",
+        r"$E(x)$: error de interpolacion",
+    ],
+    "Integracion Numerica": [
+        r"$I$: integral aproximada",
+        r"$a,b$: limites de integracion",
+        r"$n$: numero de subintervalos",
+        r"$h=(b-a)/n$: paso",
+        r"$x_i=a+ih$: nodos",
+    ],
+    "Ajuste de Curvas": [
+        r"$y_i$: valor observado",
+        r"$\hat{y}_i$: valor ajustado",
+        r"$a,b,a_k$: parametros del modelo",
+        r"$m$: grado del polinomio",
+        r"$R^2$, MSE: metricas de ajuste",
+    ],
+    "Sistemas Lineales": [
+        r"$A$: matriz de coeficientes",
+        r"$\mathbf{x}$: vector desconocido",
+        r"$\mathbf{b}$: vector termino independiente",
+        r"$D,L,U$: descomposicion diagonal, inferior y superior",
+        r"$\|\cdot\|_\infty$: norma infinito",
+    ],
+    "EDO": [
+        r"$y'=f(x,y)$: ecuacion diferencial",
+        r"$(x_0,y_0)$: condicion inicial",
+        r"$h$: paso",
+        r"$k_1,k_2,k_3,k_4$: pendientes de RK4",
+        r"$y_n$: aproximacion en el nodo $x_n$",
+    ],
+    "Red Neuronal GD": [
+        r"$x,y$: datos de entrada y salida",
+        r"$w,b$: peso y sesgo",
+        r"$\hat{y}$: prediccion del modelo",
+        r"$J(w,b)$: funcion de costo",
+        r"$\alpha$: tasa de aprendizaje",
+    ],
+}
+
+
+CONDICIONES_POR_APARTADO = {
+    "Newton-Raphson": [
+        "f debe ser derivable cerca de la raiz.",
+        "f'(x_n) no debe ser cero (o casi cero).",
+        "x0 debe elegirse cerca de la raiz buscada.",
+    ],
+    "Aitken": [
+        "La sucesion base x_{n+1}=g(x_n) debe converger.",
+        "El denominador x_{n+2}-2x_{n+1}+x_n no debe anularse.",
+        "Idealmente |g'(x*)|<1 en torno al punto fijo.",
+    ],
+    "Biseccion": [
+        "Requiere intervalo inicial [a,b] con f(a)f(b)<0.",
+        "f debe ser continua en [a,b].",
+        "Garantiza convergencia si se cumplen las dos condiciones anteriores.",
+    ],
+    "Punto Fijo": [
+        "Se debe reescribir como x=g(x).",
+        "Condicion local de convergencia: |g'(x*)|<1.",
+        "x0 debe estar en una zona de atraccion del punto fijo.",
+    ],
+    "Comparativa": [
+        "Usar la misma tolerancia y max_iter para comparar metodos de forma justa.",
+        "Interpretar errores con la misma referencia (exacta o numerica).",
+    ],
+    "Lagrange + Derivacion": [
+        "Los nodos x_i deben ser distintos.",
+        "Para error exacto se requiere disponer de f(x) real.",
+        "En diferencias finitas, h no debe ser demasiado grande ni demasiado pequeño.",
+    ],
+    "Integracion Numerica": [
+        "Rectangulo/Trapecio: n entero positivo.",
+        "Simpson 1/3: n par.",
+        "Simpson 3/8: n multiplo de 3.",
+        "f(x) debe ser integrable en [a,b] (singularidades removibles se tratan con limite).",
+    ],
+    "Ajuste de Curvas": [
+        "x e y deben tener la misma cantidad de datos.",
+        "En ajuste polinomial, grado <= numero de datos - 1.",
+        "Evitar extrapolaciones amplias fuera del rango de datos.",
+    ],
+    "Sistemas Lineales": [
+        "A debe ser cuadrada y compatible con b.",
+        "Gauss-Jordan requiere pivotes no nulos (o pivoteo).",
+        "Gauss-Seidel converge mejor con diagonal dominante o matriz SPD.",
+    ],
+    "EDO": [
+        "f(x,y) debe estar bien definida en el dominio de integracion.",
+        "El paso h debe ser positivo y acorde a la estabilidad del metodo.",
+        "RK4 suele ofrecer mayor precision que Euler con el mismo h.",
+    ],
+    "Red Neuronal GD": [
+        "Elegir una tasa de aprendizaje alpha estable (ni muy grande ni muy chica).",
+        "Escalar datos puede mejorar la convergencia.",
+        "Requiere epocas suficientes para estabilizar el costo.",
+    ],
+}
+
+
+PASOS_POR_APARTADO = {
+    "Newton-Raphson": [
+        {
+            "titulo": "Iteracion principal",
+            "simbolico": r"$x_{n+1}=x_n-\frac{f(x_n)}{f'(x_n)}$",
+            "numerico": "Si x_n=2, f(x_n)=1 y f'(x_n)=5, entonces x_{n+1}=2-1/5=1.8.",
+        },
+        {
+            "titulo": "Error iterativo",
+            "simbolico": r"$e_n=|x_{n+1}-x_n|$",
+            "numerico": "Con x_{n+1}=1.8 y x_n=2, e_n=0.2.",
+        },
+        {
+            "titulo": "Criterio de parada",
+            "simbolico": r"$e_n<\varepsilon$",
+            "numerico": "Si eps=1e-6, se detiene cuando e_n sea menor que 0.000001.",
+        },
+    ],
+    "Aitken": [
+        {
+            "titulo": "Secuencia base",
+            "simbolico": r"$x_{n+1}=g(x_n)$",
+            "numerico": "Si g(x)=cos(x) y x0=0.5, se calcula x1=cos(0.5).",
+        },
+        {
+            "titulo": "Aceleracion Delta-cuadrado",
+            "simbolico": r"$\hat{x}_n=x_n-\frac{(x_{n+1}-x_n)^2}{x_{n+2}-2x_{n+1}+x_n}$",
+            "numerico": "Se usan tres iteraciones consecutivas para estimar una raiz mejorada.",
+        },
+        {
+            "titulo": "Error",
+            "simbolico": r"$e_n=|\hat{x}_n-\hat{x}_{n-1}|$",
+            "numerico": "Si xhat_n=0.7391 y xhat_{n-1}=0.7390, entonces e_n=0.0001.",
+        },
+    ],
+    "Biseccion": [
+        {
+            "titulo": "Punto medio",
+            "simbolico": r"$c_n=\frac{a_n+b_n}{2}$",
+            "numerico": "Si a=1 y b=2, c=1.5.",
+        },
+        {
+            "titulo": "Seleccion de subintervalo",
+            "simbolico": r"$f(a_n)f(c_n)<0\Rightarrow[a_n,c_n]$, si no $[c_n,b_n]$",
+            "numerico": "Si f(1)=-1 y f(1.5)=0.2, hay cambio de signo en [1,1.5].",
+        },
+        {
+            "titulo": "Error por intervalo",
+            "simbolico": r"$e_n\approx\frac{b_n-a_n}{2}$",
+            "numerico": "Si b-a=0.01, error aprox=0.005.",
+        },
+    ],
+    "Punto Fijo": [
+        {
+            "titulo": "Iterar g(x)",
+            "simbolico": r"$x_{n+1}=g(x_n)$",
+            "numerico": "Con x0=1 y g(x)=(x+2/x)/2, se obtiene x1=1.5.",
+        },
+        {
+            "titulo": "Error",
+            "simbolico": r"$e_n=|x_{n+1}-x_n|$",
+            "numerico": "Si x2=1.4167 y x1=1.5, e=0.0833.",
+        },
+        {
+            "titulo": "Convergencia local",
+            "simbolico": r"$|g'(x^*)|<1$",
+            "numerico": "Si |g'(x*)|=0.3, normalmente converge.",
+        },
+    ],
+    "Comparativa": [
+        {
+            "titulo": "Error relativo",
+            "simbolico": r"$e_r=\frac{|x_{aprox}-x_{ref}|}{|x_{ref}|}$",
+            "numerico": "Si x_aprox=1.41 y x_ref=1.4142, e_r aprox=0.00297.",
+        },
+        {
+            "titulo": "Costo iterativo",
+            "simbolico": r"$N_{iter}$ por metodo",
+            "numerico": "Newton puede requerir menos iteraciones que Biseccion.",
+        },
+    ],
+    "Lagrange + Derivacion": [
+        {
+            "titulo": "Interpolacion",
+            "simbolico": r"$P_n(x)=\sum_{i=0}^{n}y_iL_i(x)$",
+            "numerico": "Con 3 puntos se construye P2(x) que pasa por todos los nodos.",
+        },
+        {
+            "titulo": "Base de Lagrange",
+            "simbolico": r"$L_i(x)=\prod_{j\neq i}\frac{x-x_j}{x_i-x_j}$",
+            "numerico": "Cada L_i vale 1 en x_i y 0 en el resto de nodos.",
+        },
+        {
+            "titulo": "Derivada numerica",
+            "simbolico": r"$f'(x)\approx\frac{f(x+h)-f(x-h)}{2h}$",
+            "numerico": "Si h=0.1, usar valores en x+0.1 y x-0.1.",
+        },
+    ],
+    "Integracion Numerica": [
+        {
+            "titulo": "Paso",
+            "simbolico": r"$h=(b-a)/n$",
+            "numerico": "Si a=0, b=1, n=4, entonces h=0.25.",
+        },
+        {
+            "titulo": "Trapecio compuesto",
+            "simbolico": r"$I\approx h[\frac{f(a)+f(b)}{2}+\sum f(x_i)]$",
+            "numerico": "Se evalua f en nodos y se suman con pesos 1/2 en extremos.",
+        },
+        {
+            "titulo": "Cota de truncamiento",
+            "simbolico": r"$|E_T|\le C\,h^p\max|f^{(k)}(x)|$",
+            "numerico": "Se reemplaza h y la derivada maxima estimada en el intervalo.",
+        },
+    ],
+    "Ajuste de Curvas": [
+        {
+            "titulo": "Modelo",
+            "simbolico": r"$\hat y=ax+b$ o $\hat y=\sum a_kx^k$",
+            "numerico": "Con datos (x,y), se obtienen coeficientes por minimos cuadrados.",
+        },
+        {
+            "titulo": "Residuo",
+            "simbolico": r"$r_i=y_i-\hat y_i$",
+            "numerico": "Si y=5 y yhat=4.7, residuo=0.3.",
+        },
+        {
+            "titulo": "Metricas",
+            "simbolico": r"$MSE, RMSE, R^2$",
+            "numerico": "MSE promedio de errores cuadrados y R^2 cercano a 1 indica mejor ajuste.",
+        },
+    ],
+    "Sistemas Lineales": [
+        {
+            "titulo": "Planteo",
+            "simbolico": r"$A\mathbf{x}=\mathbf{b}$",
+            "numerico": "Ejemplo 3x3: A por vector x igual a vector b.",
+        },
+        {
+            "titulo": "Gauss-Jordan",
+            "simbolico": r"$[A|b]\to[I|x]$",
+            "numerico": "Se aplican operaciones elementales hasta matriz identidad.",
+        },
+        {
+            "titulo": "Gauss-Seidel",
+            "simbolico": r"$x_i^{k+1}=\frac{1}{a_{ii}}(b_i-\sum_{j<i}a_{ij}x_j^{k+1}-\sum_{j>i}a_{ij}x_j^k)$",
+            "numerico": "Cada variable se actualiza usando valores nuevos y viejos en cada iteracion.",
+        },
+    ],
+    "EDO": [
+        {
+            "titulo": "Euler",
+            "simbolico": r"$y_{n+1}=y_n+h f(x_n,y_n)$",
+            "numerico": "Con h=0.1, x0=0, y0=1 se avanza paso a paso.",
+        },
+        {
+            "titulo": "RK4",
+            "simbolico": r"$y_{n+1}=y_n+\frac{h}{6}(k_1+2k_2+2k_3+k_4)$",
+            "numerico": "Se calculan cuatro pendientes intermedias por cada paso.",
+        },
+        {
+            "titulo": "Error",
+            "simbolico": r"$e_n=|y_{num}(x_n)-y_{exacta}(x_n)|$",
+            "numerico": "Si hay solucion exacta, se compara punto a punto.",
+        },
+    ],
+    "Red Neuronal GD": [
+        {
+            "titulo": "Prediccion lineal",
+            "simbolico": r"$\hat y=wx+b$",
+            "numerico": "Si w=1.2, b=0.3, x=2 => yhat=2.7.",
+        },
+        {
+            "titulo": "Costo",
+            "simbolico": r"$J=\frac{1}{m}\sum(\hat y_i-y_i)^2$",
+            "numerico": "Promedio de errores cuadrados sobre el dataset.",
+        },
+        {
+            "titulo": "Actualizacion",
+            "simbolico": r"$w\leftarrow w-\alpha\partial J/\partial w,\ b\leftarrow b-\alpha\partial J/\partial b$",
+            "numerico": "Con alpha=0.03, se corrigen w y b en cada epoca.",
+        },
+    ],
+}
+
+
+DESGLOSE_COMPLETO_POR_APARTADO = {
+    "Newton-Raphson": [
+        "Definir f(x), tolerancia eps, max_iter y valor inicial x0.",
+        "Derivar simbolicamente f'(x).",
+        "Evaluar f(x_n) y f'(x_n) en cada iteracion.",
+        "Verificar que f'(x_n) no sea cercano a cero.",
+        "Actualizar con x_(n+1)=x_n-f(x_n)/f'(x_n).",
+        "Calcular error e_n=|x_(n+1)-x_n|.",
+        "Guardar fila completa de iteracion (x_n, f, f', x_(n+1), error).",
+        "Repetir hasta e_n<eps o alcanzar max_iter.",
+        "Reportar raiz, convergencia e historial completo.",
+    ],
+    "Aitken": [
+        "Definir g(x), eps, max_iter y x0.",
+        "Generar la secuencia base x1=g(x0), x2=g(x1), ...",
+        "Aplicar aceleracion Delta-cuadrado en cada bloque de tres puntos.",
+        "Verificar que el denominador no sea cero.",
+        "Calcular estimado acelerado xhat_n.",
+        "Calcular error entre aceleraciones sucesivas.",
+        "Guardar todas las iteraciones y errores.",
+        "Detener por tolerancia o maximo de iteraciones.",
+    ],
+    "Biseccion": [
+        "Definir f(x), intervalo [a,b], eps y max_iter.",
+        "Verificar continuidad y cambio de signo f(a)f(b)<0.",
+        "Calcular c=(a+b)/2.",
+        "Evaluar f(a), f(b), f(c).",
+        "Seleccionar nuevo subintervalo segun signo de f(a)f(c).",
+        "Actualizar error con semiancho (b-a)/2.",
+        "Registrar cada iteracion en tabla.",
+        "Repetir hasta cumplir tolerancia.",
+    ],
+    "Punto Fijo": [
+        "Definir g(x), x0, eps y max_iter.",
+        "Iterar x_(n+1)=g(x_n).",
+        "Calcular error e_n=|x_(n+1)-x_n|.",
+        "Registrar cada iteracion (x_n, x_(n+1), error).",
+        "Verificar criterio de paro por tolerancia.",
+        "Concluir con raiz aproximada y tabla completa.",
+    ],
+    "Comparativa": [
+        "Ejecutar Newton con los parametros comunes.",
+        "Ejecutar Aitken con los parametros comunes.",
+        "Ejecutar Biseccion con intervalo [a,b].",
+        "Ejecutar Punto Fijo con g(x).",
+        "Recolectar para cada metodo: raiz, iteraciones, error final.",
+        "Construir tabla comparativa y graficos de rendimiento.",
+    ],
+    "Lagrange + Derivacion": [
+        "Ingresar nodos x_i e y_i (manual o desde f exacta).",
+        "Construir bases L_i(x) y luego el polinomio P_n(x).",
+        "Expandir y mostrar P_n(x).",
+        "Evaluar P_n en x* si se solicita.",
+        "Graficar datos, interpolante y f exacta (si existe).",
+        "Calcular error puntual y error global en intervalo.",
+        "Para derivacion: aplicar formula adelante/atras/centrada.",
+        "Comparar con derivada exacta cuando este disponible.",
+    ],
+    "Integracion Numerica": [
+        "Definir f(x), a, b, n y metodo.",
+        "Calcular paso h=(b-a)/n.",
+        "Evaluar nodos requeridos por el metodo.",
+        "Aplicar suma ponderada segun Rectangulo/Trapecio/Simpson.",
+        "Obtener integral aproximada.",
+        "Si hay referencia, calcular error absoluto y relativo.",
+        "Estimar cota de truncamiento y mostrar sustitucion numerica.",
+        "Graficar aproximacion geometrica del metodo elegido.",
+    ],
+    "Ajuste de Curvas": [
+        "Ingresar pares (x_i,y_i) y elegir tipo de regresion.",
+        "Construir modelo lineal o polinomial por minimos cuadrados.",
+        "Calcular y ajustada y residuos r_i=y_i-yhat_i.",
+        "Calcular metricas MSE, RMSE y R^2.",
+        "Mostrar ecuacion final y tabla completa.",
+        "Graficar puntos, curva ajustada y analisis de residuos.",
+    ],
+    "Sistemas Lineales": [
+        "Ingresar A y b del sistema A x = b.",
+        "Analizar estructura (heatmap y dominancia diagonal).",
+        "Si es Gauss-Jordan: aplicar operaciones hasta [I|x].",
+        "Si es Gauss-Seidel: actualizar variables por iteracion.",
+        "Calcular error infinito por iteracion en Seidel.",
+        "Mostrar solucion final y pasos/iteraciones completas.",
+    ],
+    "EDO": [
+        "Definir y'=f(x,y), condicion inicial (x0,y0), h y n.",
+        "Euler: avanzar con y_(n+1)=y_n+h f(x_n,y_n).",
+        "RK4: calcular k1,k2,k3,k4 y combinar.",
+        "Construir tabla de nodos (x_n,y_n).",
+        "Si hay solucion exacta, calcular errores por nodo.",
+        "Graficar trayectorias y campo de pendientes opcional.",
+    ],
+    "Red Neuronal GD": [
+        "Definir dataset, alpha, epocas y semilla.",
+        "Inicializar parametros w y b.",
+        "Por epoca: calcular predicciones yhat=wx+b.",
+        "Calcular costo MSE.",
+        "Calcular gradientes dJ/dw y dJ/db.",
+        "Actualizar parametros con descenso de gradiente.",
+        "Guardar historial completo de costo y parametros.",
+        "Mostrar resultados finales y evolucion en graficos.",
+    ],
+}
+
+
 def section_newton():
     st.subheader("Metodo de Newton-Raphson")
 
@@ -812,6 +1490,15 @@ def section_newton():
             errors = df[err_col].astype(float).to_numpy()
 
             render_newton_charts(func, root, x0_run, errors)
+
+            cuentas = []
+            for i, fila in enumerate(iterations[:5], start=1):
+                cuentas.append(
+                    rf"x_{{{i}}} = x_{{{i-1}}} - \frac{{f(x_{{{i-1}}})}}{{f'(x_{{{i-1}}})}} = {_num(fila['x_n'])} - \frac{{{_num(fila['f(x_n)'])}}}{{{_num(fila["f'(x_n)"])}}} = {_num(fila['x_(n+1)'])}"
+                )
+                cuentas.append(rf"e_{{{i}}}=|x_{{{i}}}-x_{{{i-1}}}|={_num(fila['Error |x_(n+1) - x_n|'])}")
+            cuentas.append(rf"x^* \approx {_num(root, 12)}")
+            guardar_cuentas("Newton-Raphson", cuentas)
 
         except Exception as exc:
             st.error(f"Error al ejecutar Newton: {exc}")
@@ -867,6 +1554,16 @@ def section_aitken():
             render_chart(fig)
             plt.close(fig)
 
+            cuentas = []
+            for i, fila in enumerate(iterations[:5], start=1):
+                x_n = fila.get("x_n", np.nan)
+                x_n1 = fila.get("x_n1", fila.get("x_(n+1)", np.nan))
+                err = fila.get("Error", np.nan)
+                cuentas.append(rf"x_{{{i}}}=g(x_{{{i-1}}})={_num(x_n1)}")
+                cuentas.append(rf"e_{{{i}}}=|x_{{{i}}}-x_{{{i-1}}}|={_num(err)}")
+            cuentas.append(rf"x^* \approx {_num(root, 12)}")
+            guardar_cuentas("Aitken", cuentas)
+
         except Exception as exc:
             st.error(f"Error al ejecutar Aitken: {exc}")
 
@@ -916,6 +1613,17 @@ def section_biseccion():
             fig_e = plot_error_curve(df["Error_f(c)"].to_numpy(), "Error por iteracion (Biseccion)", "|f(c)|")
             render_chart(fig_e)
             plt.close(fig_e)
+
+            cuentas = []
+            for i, (_, fila) in enumerate(df.head(5).iterrows(), start=1):
+                a_i = _num(fila["a"])
+                b_i = _num(fila["b"])
+                cuentas.append(
+                    rf"c_{{{i}}}=\frac{{a_{{{i}}}+b_{{{i}}}}}{{2}}=\frac{{{a_i}+{b_i}}}{{2}}={_num(fila['c'])}"
+                )
+                cuentas.append(rf"|f(c_{{{i}}})|={_num(abs(fila['f(c)']))}")
+            cuentas.append(rf"x^* \approx {_num(root, 12)}")
+            guardar_cuentas("Biseccion", cuentas)
 
         except Exception as exc:
             st.error(f"Error al ejecutar Biseccion: {exc}")
@@ -990,6 +1698,13 @@ def section_punto_fijo():
             ax.legend()
             render_chart(fig)
             plt.close(fig)
+
+            cuentas = []
+            for i, (_, fila) in enumerate(df.head(5).iterrows(), start=1):
+                cuentas.append(rf"x_{{{i}}}=g(x_{{{i-1}}})={_num(fila['x_n1'])}")
+                cuentas.append(rf"e_{{{i}}}=|x_{{{i}}}-x_{{{i-1}}}|={_num(fila['Error'])}")
+            cuentas.append(rf"x^* \approx {_num(root, 12)}")
+            guardar_cuentas("Punto Fijo", cuentas)
 
         except Exception as exc:
             st.error(f"Error al ejecutar Punto Fijo: {exc}")
@@ -1098,6 +1813,13 @@ def section_comparativa():
         ax2.grid(axis="y", alpha=0.3, which="both")
         render_chart(fig2)
         plt.close(fig2)
+
+        cuentas = []
+        for _, row in df.iterrows():
+            cuentas.append(
+                rf"\text{{{row['Metodo']}}}:\ x^*={_num(row['Raiz'], 10)},\ N_{{iter}}={int(row['Iteraciones'])},\ e_f={_num(row['Error_final'])}"
+            )
+        guardar_cuentas("Comparativa", cuentas)
 
 
 def section_lagrange():
@@ -1348,6 +2070,12 @@ def section_lagrange():
 
             p_newton = sp.expand(polinomio_newton_desde_dd(x_dd, table))
             st.code(f"P_N(x) = {polynomial_to_decimal_text(p_newton, max_decimals=7)}")
+
+            cuentas = [
+                rf"P_n(x) = {sp.latex(p_lagr)}",
+                rf"P_n(x^*)\ \text{{evaluado en datos del usuario}}",
+            ]
+            guardar_cuentas("Lagrange + Derivacion", cuentas)
 
         except Exception as exc:
             st.error(f"Error en diferencias divididas: {exc}")
@@ -1603,6 +2331,18 @@ def section_integracion_numerica():
                 render_chart(fig_conv)
                 plt.close(fig_conv)
 
+            h_val = (float(b_val) - float(a_val)) / int(n)
+            cuentas = [
+                rf"h=\frac{{b-a}}{{n}}=\frac{{{_num(b_val)}-{_num(a_val)}}}{{{int(n)}}}={_num(h_val)}",
+                rf"I_{{aprox}}={_num(valor, 12)}",
+            ]
+            if exact_val is not None:
+                cuentas.append(rf"I_{{ref}}={_num(exact_val, 12)}")
+                cuentas.append(rf"|E|=|I_{{aprox}}-I_{{ref}}|={_num(abs(float(valor)-float(exact_val)))}")
+            if np.isfinite(cota_sel):
+                cuentas.append(rf"|E_T|\le {_num(cota_sel)}")
+            guardar_cuentas("Integracion Numerica", cuentas)
+
         except Exception as exc:
             st.error(f"Error en integracion numerica: {exc}")
 
@@ -1719,6 +2459,13 @@ def section_ajuste_curvas():
                     render_chart(fig_g)
                     plt.close(fig_g)
 
+            cuentas = [
+                rf"\text{{Ecuacion ajustada}}: {result['ecuacion']}",
+                rf"RMSE={_num(rmse)},\ MAE={_num(mae)},\ R^2={_num(result['r2'])}",
+                rf"r_1=y_1-\hat y_1={_num(resid[0])}",
+            ]
+            guardar_cuentas("Ajuste de Curvas", cuentas)
+
         except Exception as exc:
             st.error(f"Error en ajuste de curvas: {exc}")
 
@@ -1832,6 +2579,16 @@ def section_sistemas_lineales():
                     ax_s2.legend()
                     render_chart(fig_s2)
                     plt.close(fig_s2)
+
+            cuentas = [rf"A\,x=b\ \text{{con }}n={int(n)}"]
+            if metodo == "Gauss-Jordan":
+                cuentas.append(r"[A|b]\rightarrow[I|x]")
+                cuentas.append(rf"x_1={_num(sol[0])}")
+            else:
+                cuentas.append(rf"\text{{Iteraciones Seidel}}={len(iters)}")
+                if iters:
+                    cuentas.append(rf"\|e\|_\infty^{{(final)}}={_num(iters[-1]['Error_inf'])}")
+            guardar_cuentas("Sistemas Lineales", cuentas)
 
         except Exception as exc:
             st.error(f"Error al resolver sistema lineal: {exc}")
@@ -1954,6 +2711,15 @@ def section_edo():
                 render_chart(fig_fld)
                 plt.close(fig_fld)
 
+            cuentas = [
+                rf"x_0={_num(x0)},\ y_0={_num(y0)},\ h={_num(h)},\ n={int(n)}",
+                rf"y_{{Euler}}(x_f)={_num(y_num_e[-1], 12)}",
+                rf"y_{{RK4}}(x_f)={_num(y_num_r[-1], 12)}",
+            ]
+            if exact_vals is not None:
+                cuentas.append(rf"|e_{{RK4}}(x_f)|={_num(abs(y_num_r[-1]-exact_vals[-1]))}")
+            guardar_cuentas("EDO", cuentas)
+
         except Exception as exc:
             st.error(f"Error en EDO: {exc}")
 
@@ -2018,12 +2784,36 @@ def section_red_neuronal_descenso():
                     components.html(anim.to_jshtml(), height=540, scrolling=True)
                 plt.close(fig_anim)
 
+            cuentas = [
+                rf"\hat y = wx+b",
+                rf"w_0={_num(train['w0'])},\ b_0={_num(train['b0'])}",
+                rf"w_f={_num(train['w_final'])},\ b_f={_num(train['b_final'])}",
+                rf"J_f={_num(train['hist_costo'][-1])}",
+            ]
+            guardar_cuentas("Red Neuronal GD", cuentas)
+
         except Exception as exc:
             st.error(f"Error en la simulacion de red neuronal: {exc}")
 
 
 def main():
     st.set_page_config(page_title="Dashboard Integrador de Metodos", layout="wide")
+    st.sidebar.selectbox(
+        "Preset de color",
+        ["Viva", "Pastel oscuro"],
+        index=0,
+        key="palette_preset",
+        help="Cambia colores de acentos y series manteniendo fondo negro.",
+    )
+    st.sidebar.toggle(
+        "Ver paso a paso en todos los metodos",
+        value=False,
+        key="show_step_by_step_all",
+        help="Muestra desglose simbolico y numerico en cada apartado.",
+    )
+
+    paleta = paleta_activa()
+    aplicar_tema_visual_dashboard(paleta)
 
     # Fondo blanco y alto contraste para todos los graficos de Matplotlib.
     plt.rcParams["figure.facecolor"] = "white"
@@ -2036,6 +2826,7 @@ def main():
     plt.rcParams["legend.facecolor"] = "white"
     plt.rcParams["legend.edgecolor"] = "black"
     plt.rcParams["legend.labelcolor"] = "black"
+    plt.rcParams["axes.prop_cycle"] = plt.cycler(color=paleta["series"])
 
     header_left, header_right = st.columns([8, 2], vertical_alignment="center")
     with header_left:
@@ -2075,26 +2866,136 @@ def main():
 
     with tabs[0]:
         section_newton()
+        render_panel_formulas(
+            "Formulario de Newton-Raphson",
+            FORMULAS_POR_APARTADO["Newton-Raphson"],
+            SIMBOLOS_POR_APARTADO["Newton-Raphson"],
+            CONDICIONES_POR_APARTADO["Newton-Raphson"],
+            PASOS_POR_APARTADO["Newton-Raphson"],
+            st.session_state.get("show_step_by_step_all", False),
+            DESGLOSE_COMPLETO_POR_APARTADO["Newton-Raphson"],
+            "Newton-Raphson",
+        )
     with tabs[1]:
         section_aitken()
+        render_panel_formulas(
+            "Formulario de Aitken",
+            FORMULAS_POR_APARTADO["Aitken"],
+            SIMBOLOS_POR_APARTADO["Aitken"],
+            CONDICIONES_POR_APARTADO["Aitken"],
+            PASOS_POR_APARTADO["Aitken"],
+            st.session_state.get("show_step_by_step_all", False),
+            DESGLOSE_COMPLETO_POR_APARTADO["Aitken"],
+            "Aitken",
+        )
     with tabs[2]:
         section_biseccion()
+        render_panel_formulas(
+            "Formulario de Biseccion",
+            FORMULAS_POR_APARTADO["Biseccion"],
+            SIMBOLOS_POR_APARTADO["Biseccion"],
+            CONDICIONES_POR_APARTADO["Biseccion"],
+            PASOS_POR_APARTADO["Biseccion"],
+            st.session_state.get("show_step_by_step_all", False),
+            DESGLOSE_COMPLETO_POR_APARTADO["Biseccion"],
+            "Biseccion",
+        )
     with tabs[3]:
         section_punto_fijo()
+        render_panel_formulas(
+            "Formulario de Punto Fijo",
+            FORMULAS_POR_APARTADO["Punto Fijo"],
+            SIMBOLOS_POR_APARTADO["Punto Fijo"],
+            CONDICIONES_POR_APARTADO["Punto Fijo"],
+            PASOS_POR_APARTADO["Punto Fijo"],
+            st.session_state.get("show_step_by_step_all", False),
+            DESGLOSE_COMPLETO_POR_APARTADO["Punto Fijo"],
+            "Punto Fijo",
+        )
     with tabs[4]:
         section_comparativa()
+        render_panel_formulas(
+            "Formulario de Comparativa",
+            FORMULAS_POR_APARTADO["Comparativa"],
+            SIMBOLOS_POR_APARTADO["Comparativa"],
+            CONDICIONES_POR_APARTADO["Comparativa"],
+            PASOS_POR_APARTADO["Comparativa"],
+            st.session_state.get("show_step_by_step_all", False),
+            DESGLOSE_COMPLETO_POR_APARTADO["Comparativa"],
+            "Comparativa",
+        )
     with tabs[5]:
         section_lagrange()
+        render_panel_formulas(
+            "Formulario de Lagrange y Derivacion",
+            FORMULAS_POR_APARTADO["Lagrange + Derivacion"],
+            SIMBOLOS_POR_APARTADO["Lagrange + Derivacion"],
+            CONDICIONES_POR_APARTADO["Lagrange + Derivacion"],
+            PASOS_POR_APARTADO["Lagrange + Derivacion"],
+            st.session_state.get("show_step_by_step_all", False),
+            DESGLOSE_COMPLETO_POR_APARTADO["Lagrange + Derivacion"],
+            "Lagrange + Derivacion",
+        )
     with tabs[6]:
         section_integracion_numerica()
+        render_panel_formulas(
+            "Formulario de Integracion Numerica",
+            FORMULAS_POR_APARTADO["Integracion Numerica"],
+            SIMBOLOS_POR_APARTADO["Integracion Numerica"],
+            CONDICIONES_POR_APARTADO["Integracion Numerica"],
+            PASOS_POR_APARTADO["Integracion Numerica"],
+            st.session_state.get("show_step_by_step_all", False),
+            DESGLOSE_COMPLETO_POR_APARTADO["Integracion Numerica"],
+            "Integracion Numerica",
+        )
     with tabs[7]:
         section_ajuste_curvas()
+        render_panel_formulas(
+            "Formulario de Ajuste de Curvas",
+            FORMULAS_POR_APARTADO["Ajuste de Curvas"],
+            SIMBOLOS_POR_APARTADO["Ajuste de Curvas"],
+            CONDICIONES_POR_APARTADO["Ajuste de Curvas"],
+            PASOS_POR_APARTADO["Ajuste de Curvas"],
+            st.session_state.get("show_step_by_step_all", False),
+            DESGLOSE_COMPLETO_POR_APARTADO["Ajuste de Curvas"],
+            "Ajuste de Curvas",
+        )
     with tabs[8]:
         section_sistemas_lineales()
+        render_panel_formulas(
+            "Formulario de Sistemas Lineales",
+            FORMULAS_POR_APARTADO["Sistemas Lineales"],
+            SIMBOLOS_POR_APARTADO["Sistemas Lineales"],
+            CONDICIONES_POR_APARTADO["Sistemas Lineales"],
+            PASOS_POR_APARTADO["Sistemas Lineales"],
+            st.session_state.get("show_step_by_step_all", False),
+            DESGLOSE_COMPLETO_POR_APARTADO["Sistemas Lineales"],
+            "Sistemas Lineales",
+        )
     with tabs[9]:
         section_edo()
+        render_panel_formulas(
+            "Formulario de EDO",
+            FORMULAS_POR_APARTADO["EDO"],
+            SIMBOLOS_POR_APARTADO["EDO"],
+            CONDICIONES_POR_APARTADO["EDO"],
+            PASOS_POR_APARTADO["EDO"],
+            st.session_state.get("show_step_by_step_all", False),
+            DESGLOSE_COMPLETO_POR_APARTADO["EDO"],
+            "EDO",
+        )
     with tabs[10]:
         section_red_neuronal_descenso()
+        render_panel_formulas(
+            "Formulario de Red Neuronal GD",
+            FORMULAS_POR_APARTADO["Red Neuronal GD"],
+            SIMBOLOS_POR_APARTADO["Red Neuronal GD"],
+            CONDICIONES_POR_APARTADO["Red Neuronal GD"],
+            PASOS_POR_APARTADO["Red Neuronal GD"],
+            st.session_state.get("show_step_by_step_all", False),
+            DESGLOSE_COMPLETO_POR_APARTADO["Red Neuronal GD"],
+            "Red Neuronal GD",
+        )
 
 
 def _is_streamlit_context():
