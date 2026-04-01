@@ -1,5 +1,6 @@
 import numpy as np
 import matplotlib.pyplot as plt
+import sympy as sp
 
 from Metodos.input_parser import (
     parse_real,
@@ -9,18 +10,60 @@ from Metodos.input_parser import (
 )
 
 
+def evaluar_funcion_robusta(funcion_str, x_values, variable="x"):
+    """Evalua una funcion numérica y reemplaza no-finitos por el límite simbólico cuando exista."""
+    expr, f = build_numeric_function(funcion_str, variable)
+    x_sym = sp.Symbol(variable)
+
+    x_array = np.asarray(x_values, dtype=float)
+    scalar_input = x_array.ndim == 0
+    x_flat = x_array.reshape(-1)
+
+    try:
+        y_flat = np.array(f(x_flat), dtype=float).reshape(-1)
+    except Exception:
+        y_flat = np.array([float(f(float(xi))) for xi in x_flat], dtype=float)
+
+    for idx, valor in enumerate(y_flat):
+        if np.isfinite(valor):
+            continue
+
+        xi = float(x_flat[idx])
+        limite_valor = np.nan
+
+        try:
+            limite = sp.limit(expr, x_sym, xi)
+            limite_valor = float(sp.N(limite))
+        except Exception:
+            pass
+
+        if not np.isfinite(limite_valor):
+            try:
+                limite_valor = float(f(float(xi)))
+            except Exception:
+                limite_valor = np.nan
+
+        if not np.isfinite(limite_valor):
+            raise ValueError(
+                f"La funcion produjo valores no finitos en x={xi} y no se pudo obtener un limite finito"
+            )
+
+        y_flat[idx] = limite_valor
+
+    if scalar_input:
+        return float(y_flat[0])
+
+    return y_flat.reshape(x_array.shape)
+
+
 def _evaluar_malla(funcion_str, a, b, n):
     if n <= 0:
         raise ValueError("n debe ser un entero positivo")
     if b <= a:
         raise ValueError("Se requiere que b > a")
 
-    _, f = build_numeric_function(funcion_str)
     x = np.linspace(a, b, n + 1)
-    y = np.array(f(x), dtype=float)
-
-    if not np.all(np.isfinite(y)):
-        raise ValueError("La funcion produjo valores no finitos en el intervalo")
+    y = np.array(evaluar_funcion_robusta(funcion_str, x), dtype=float)
 
     h = (b - a) / n
     return x, y, h
@@ -38,19 +81,15 @@ def regla_rectangulo(funcion_str, a, b, n):
     if b <= a:
         raise ValueError("Se requiere que b > a")
 
-    _, f = build_numeric_function(funcion_str)
     h = (b - a) / n
     x_mid = a + (np.arange(n) + 0.5) * h
-    y_mid = np.array(f(x_mid), dtype=float)
-
-    if not np.all(np.isfinite(y_mid)):
-        raise ValueError("La funcion produjo valores no finitos en el intervalo")
+    y_mid = np.array(evaluar_funcion_robusta(funcion_str, x_mid), dtype=float)
 
     integral = h * np.sum(y_mid)
 
     # Nodos de extremos para visualizar el intervalo en el dashboard.
     x_nodes = np.linspace(a, b, n + 1)
-    y_nodes = np.array(f(x_nodes), dtype=float)
+    y_nodes = np.array(evaluar_funcion_robusta(funcion_str, x_nodes), dtype=float)
     return float(integral), x_nodes, y_nodes
 
 

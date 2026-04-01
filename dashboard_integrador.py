@@ -1,6 +1,7 @@
 import io
 import contextlib
 import sys
+from pathlib import Path
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -21,6 +22,7 @@ from Metodos.metodo_lagrange_derivacion import (
 from Metodos.metodo_newton_raphson import metodo_newton_raphson
 from Metodos.metodo_punto_fijo import metodo_punto_fijo
 from Metodos.metodo_integracion_numerica import (
+    evaluar_funcion_robusta,
     regla_rectangulo,
     regla_trapecio,
     regla_simpson_13,
@@ -116,6 +118,160 @@ def cota_truncamiento_integracion(nombre_metodo, a, b, n, max_f2=None, max_f4=No
         return (longitud / 80.0) * (h ** 4) * float(max_f4)
 
     return np.nan
+
+
+def detalle_cota_truncamiento_integracion(nombre_metodo, a, b, n, max_f2=None, max_f4=None):
+    a = float(a)
+    b = float(b)
+    n = int(n)
+    h = (b - a) / n
+    longitud = b - a
+
+    detalle = {
+        "ok": False,
+        "cota": np.nan,
+        "pasos": [
+            f"1) h = (b-a)/n = ({b:.7g} - {a:.7g})/{n} = {h:.7g}",
+            f"2) Longitud del intervalo: (b-a) = {longitud:.7g}",
+        ],
+        "latex_formula": None,
+        "latex_sustitucion": None,
+    }
+
+    if nombre_metodo == "Rectangulo":
+        if max_f2 is None:
+            detalle["pasos"].append("3) No se pudo estimar max|f''(x)| en el intervalo.")
+            return detalle
+        detalle["pasos"].append(f"3) max|f''(x)| ≈ {float(max_f2):.7g}")
+        detalle["latex_formula"] = r"|E_T| \leq \frac{(b-a)}{24}h^2\max_{x\in[a,b]}|f''(x)|"
+        detalle[
+            "latex_sustitucion"
+        ] = rf"|E_T| \leq \frac{{{longitud:.7g}}}{{24}}({h:.7g})^2({float(max_f2):.7g})"
+
+    elif nombre_metodo == "Trapecio":
+        if max_f2 is None:
+            detalle["pasos"].append("3) No se pudo estimar max|f''(x)| en el intervalo.")
+            return detalle
+        detalle["pasos"].append(f"3) max|f''(x)| ≈ {float(max_f2):.7g}")
+        detalle["latex_formula"] = r"|E_T| \leq \frac{(b-a)}{12}h^2\max_{x\in[a,b]}|f''(x)|"
+        detalle[
+            "latex_sustitucion"
+        ] = rf"|E_T| \leq \frac{{{longitud:.7g}}}{{12}}({h:.7g})^2({float(max_f2):.7g})"
+
+    elif nombre_metodo == "Simpson 1/3":
+        if n % 2 != 0:
+            detalle["pasos"].append("3) Simpson 1/3 requiere n par.")
+            return detalle
+        if max_f4 is None:
+            detalle["pasos"].append("3) No se pudo estimar max|f^(4)(x)| en el intervalo.")
+            return detalle
+        detalle["pasos"].append(f"3) max|f^(4)(x)| ≈ {float(max_f4):.7g}")
+        detalle["latex_formula"] = r"|E_T| \leq \frac{(b-a)}{180}h^4\max_{x\in[a,b]}|f^{(4)}(x)|"
+        detalle[
+            "latex_sustitucion"
+        ] = rf"|E_T| \leq \frac{{{longitud:.7g}}}{{180}}({h:.7g})^4({float(max_f4):.7g})"
+
+    elif nombre_metodo == "Simpson 3/8":
+        if n % 3 != 0:
+            detalle["pasos"].append("3) Simpson 3/8 requiere n multiplo de 3.")
+            return detalle
+        if max_f4 is None:
+            detalle["pasos"].append("3) No se pudo estimar max|f^(4)(x)| en el intervalo.")
+            return detalle
+        detalle["pasos"].append(f"3) max|f^(4)(x)| ≈ {float(max_f4):.7g}")
+        detalle["latex_formula"] = r"|E_T| \leq \frac{(b-a)}{80}h^4\max_{x\in[a,b]}|f^{(4)}(x)|"
+        detalle[
+            "latex_sustitucion"
+        ] = rf"|E_T| \leq \frac{{{longitud:.7g}}}{{80}}({h:.7g})^4({float(max_f4):.7g})"
+    else:
+        detalle["pasos"].append("3) Metodo no reconocido para cota de truncamiento.")
+        return detalle
+
+    cota = cota_truncamiento_integracion(nombre_metodo, a, b, n, max_f2=max_f2, max_f4=max_f4)
+    detalle["cota"] = cota
+    detalle["ok"] = bool(np.isfinite(cota))
+    detalle["pasos"].append(f"4) Cota final: |E_T| <= {float(cota):.7g}" if np.isfinite(cota) else "4) No se pudo calcular la cota final.")
+    return detalle
+
+
+def plot_integracion_visual(funcion_str, a, b, n, metodo):
+    x_nodes = np.linspace(float(a), float(b), int(n) + 1)
+    y_nodes = np.array(evaluar_funcion_robusta(funcion_str, x_nodes), dtype=float)
+
+    x_plot = np.linspace(float(a), float(b), 1200)
+    y_plot = np.array(evaluar_funcion_robusta(funcion_str, x_plot), dtype=float)
+
+    h = (float(b) - float(a)) / int(n)
+
+    fig, ax = plt.subplots(figsize=(9, 4.8))
+    ax.plot(x_plot, y_plot, linewidth=2, color="tab:blue", label=f"f(x) = {funcion_str}")
+
+    if metodo == "Rectangulo":
+        x_left = x_nodes[:-1]
+        x_mid = x_left + 0.5 * h
+        y_mid = np.array(evaluar_funcion_robusta(funcion_str, x_mid), dtype=float)
+
+        ax.bar(
+            x_left,
+            y_mid,
+            width=h,
+            align="edge",
+            alpha=0.25,
+            color="tab:orange",
+            edgecolor="tab:orange",
+            linewidth=1.0,
+            label="Rectangulos de aproximacion",
+        )
+        ax.scatter(x_mid, y_mid, color="tab:orange", s=20, zorder=3, label="Puntos medios")
+
+    elif metodo == "Trapecio":
+        for i in range(int(n)):
+            xi = x_nodes[i]
+            xi1 = x_nodes[i + 1]
+            yi = y_nodes[i]
+            yi1 = y_nodes[i + 1]
+            label = "Trapecios de aproximacion" if i == 0 else None
+            ax.fill([xi, xi, xi1, xi1], [0.0, yi, yi1, 0.0], alpha=0.2, color="tab:green", edgecolor="tab:green", label=label)
+        ax.plot(x_nodes, y_nodes, "o-", color="tab:green", linewidth=1.2, markersize=4, label="Nodos")
+
+    elif metodo == "Simpson 1/3":
+        if int(n) % 2 != 0:
+            raise ValueError("Simpson 1/3 requiere n par")
+        for i in range(0, int(n), 2):
+            x_block = x_nodes[i : i + 3]
+            y_block = y_nodes[i : i + 3]
+            coef = np.polyfit(x_block, y_block, 2)
+            x_local = np.linspace(x_block[0], x_block[-1], 120)
+            y_local = np.polyval(coef, x_local)
+            label = "Parabolas de Simpson 1/3" if i == 0 else None
+            ax.plot(x_local, y_local, color="tab:purple", linewidth=1.3, alpha=0.95, label=label)
+            ax.fill_between(x_local, y_local, 0.0, color="tab:purple", alpha=0.18)
+        ax.scatter(x_nodes, y_nodes, color="tab:purple", s=22, zorder=3, label="Nodos")
+
+    elif metodo == "Simpson 3/8":
+        if int(n) % 3 != 0:
+            raise ValueError("Simpson 3/8 requiere n multiplo de 3")
+        for i in range(0, int(n), 3):
+            x_block = x_nodes[i : i + 4]
+            y_block = y_nodes[i : i + 4]
+            coef = np.polyfit(x_block, y_block, 3)
+            x_local = np.linspace(x_block[0], x_block[-1], 140)
+            y_local = np.polyval(coef, x_local)
+            label = "Cubicas de Simpson 3/8" if i == 0 else None
+            ax.plot(x_local, y_local, color="tab:brown", linewidth=1.3, alpha=0.95, label=label)
+            ax.fill_between(x_local, y_local, 0.0, color="tab:brown", alpha=0.18)
+        ax.scatter(x_nodes, y_nodes, color="tab:brown", s=22, zorder=3, label="Nodos")
+
+    else:
+        raise ValueError("Metodo no valido")
+
+    ax.axhline(0, color="black", linewidth=0.8, alpha=0.6)
+    ax.set_title(f"Integracion por {metodo}")
+    ax.set_xlabel("x")
+    ax.set_ylabel("f(x)")
+    ax.grid(alpha=0.3)
+    ax.legend()
+    return fig
 
 
 def parse_expr_list(text):
@@ -332,6 +488,35 @@ def plot_error_curve(errors, title, y_label="Error absoluto"):
     ax.set_ylabel(y_label)
     ax.grid(alpha=0.3, which="both")
     return fig
+
+
+def sugerir_x0_primera_raiz_positiva(func_text, x0_usuario, muestras=4000):
+    """Busca un cambio de signo en x>0 para proponer un x0 cercano a la primera raiz positiva."""
+    _, f_num = build_numeric_function(func_text)
+
+    x_min = 1e-6
+    x_max = max(10.0, abs(float(x0_usuario)) * 2.0)
+    x_grid = np.linspace(x_min, x_max, int(muestras))
+
+    try:
+        y_grid = np.array(f_num(x_grid), dtype=float)
+    except Exception:
+        return None
+
+    for i in range(len(x_grid) - 1):
+        yi = y_grid[i]
+        yj = y_grid[i + 1]
+        if not (np.isfinite(yi) and np.isfinite(yj)):
+            continue
+
+        if abs(yi) < 1e-8:
+            if x_grid[i] > x_min:
+                return float(x_grid[i])
+
+        if yi * yj < 0:
+            return float(0.5 * (x_grid[i] + x_grid[i + 1]))
+
+    return None
 
 
 def render_chart(fig):
@@ -554,6 +739,22 @@ def render_newton_charts(func, root, x0, errors):
     plt.close(fig_e)
 
 
+def mostrar_imagen_encabezado(nombre_archivo, ancho=120, texto_alternativo="Imagen no cargada"):
+    """Muestra una imagen del encabezado si existe dentro de Metodos/."""
+    shield_path = Path(__file__).resolve().parent / "Metodos" / nombre_archivo
+
+    if shield_path.exists():
+        st.image(str(shield_path), width=ancho)
+    else:
+        st.markdown(
+            f"<div style='width:{ancho}px;height:{ancho}px;border:1px dashed rgba(255,255,255,0.35);"
+            "border-radius:10px;display:flex;align-items:center;justify-content:center;"
+            "color:rgba(255,255,255,0.65);font-size:12px;text-align:center;padding:8px;'>"
+            f"{texto_alternativo}</div>",
+            unsafe_allow_html=True,
+        )
+
+
 def section_newton():
     st.subheader("Metodo de Newton-Raphson")
 
@@ -565,12 +766,24 @@ def section_newton():
         with c2:
             tol = st.number_input("Tolerancia", value=1e-6, format="%.1e")
             max_iter = st.number_input("Max iteraciones", value=100, min_value=1, step=1)
+        buscar_primera_positiva = st.checkbox(
+            "Priorizar primera raiz positiva automaticamente",
+            value=True,
+            help="Si hay multiples raices para x>0, ajusta x0 para intentar converger a la primera.",
+        )
         run_btn = st.form_submit_button("Ejecutar Newton")
 
     if run_btn:
         try:
+            x0_run = float(x0)
+            if buscar_primera_positiva:
+                x0_sugerido = sugerir_x0_primera_raiz_positiva(func, x0_run)
+                if x0_sugerido is not None and abs(x0_sugerido - x0_run) > 1e-7:
+                    x0_run = float(x0_sugerido)
+                    st.info(f"Se ajusto x0 automaticamente a {x0_run:.7g} para priorizar la primera raiz positiva.")
+
             root, iterations, converged = run_silent(
-                metodo_newton_raphson, func, float(x0), float(tol), int(max_iter)
+                metodo_newton_raphson, func, x0_run, float(tol), int(max_iter)
             )
             if not iterations:
                 st.error("No se generaron iteraciones.")
@@ -586,7 +799,7 @@ def section_newton():
             err_col = "Error |x_(n+1) - x_n|"
             errors = df[err_col].astype(float).to_numpy()
 
-            render_newton_charts(func, root, x0, errors)
+            render_newton_charts(func, root, x0_run, errors)
 
         except Exception as exc:
             st.error(f"Error al ejecutar Newton: {exc}")
@@ -1158,16 +1371,33 @@ def section_integracion_numerica():
 
             x_sym = sp.Symbol("x")
             exact_val = None
+            exact_label = "Integral exacta"
             expr = None
             if referencia_exacta:
                 try:
                     expr = safe_eval_expr(func, "x")
                     exact_expr = sp.integrate(expr, (x_sym, a_val, b_val))
-                    exact_val = float(sp.N(exact_expr))
-                    if not np.isfinite(exact_val):
-                        exact_val = None
+                    exact_eval = sp.N(exact_expr, 30)
+                    exact_candidate = float(exact_eval)
+                    if np.isfinite(exact_candidate):
+                        exact_val = exact_candidate
+                        exact_label = "Integral exacta (Sympy)"
                 except Exception:
                     exact_val = None
+
+                # Si no hay forma cerrada o falla Sympy, usa una referencia numerica robusta.
+                if exact_val is None and expr is not None:
+                    try:
+                        mp = __import__("mpmath")
+                        mp.mp.dps = 50
+                        f_mp = sp.lambdify(x_sym, expr, modules=["mpmath"])
+                        exact_num = mp.quad(lambda t: f_mp(t), [a_val, b_val])
+                        exact_candidate = float(exact_num)
+                        if np.isfinite(exact_candidate):
+                            exact_val = exact_candidate
+                            exact_label = "Integral de referencia (alta precision)"
+                    except Exception:
+                        exact_val = None
 
             if expr is None:
                 try:
@@ -1207,13 +1437,35 @@ def section_integracion_numerica():
             else:
                 st.info("No se pudo estimar la cota teorica de truncamiento para este metodo.")
 
+            detalle_cota = detalle_cota_truncamiento_integracion(
+                metodo,
+                a_val,
+                b_val,
+                int(n),
+                max_f2=max_f2,
+                max_f4=max_f4,
+            )
+            with st.expander("Ver paso a paso del error de truncamiento"):
+                for paso in detalle_cota["pasos"]:
+                    st.write(paso)
+                if detalle_cota["latex_formula"]:
+                    st.latex(detalle_cota["latex_formula"])
+                if detalle_cota["latex_sustitucion"]:
+                    st.latex(detalle_cota["latex_sustitucion"])
+                if detalle_cota["ok"]:
+                    st.latex(rf"|E_T| \leq {float(detalle_cota['cota']):.7g}")
+
             if exact_val is not None:
                 err_abs = abs(float(valor) - float(exact_val))
                 err_rel = err_abs / abs(exact_val) if abs(exact_val) > 1e-15 else np.nan
                 c_e1, c_e2, c_e3 = st.columns(3)
-                c_e1.metric("Integral exacta", f"{exact_val:.12g}")
+                c_e1.metric(exact_label, f"{exact_val:.12g}")
                 c_e2.metric("Error absoluto", f"{err_abs:.7f}")
                 c_e3.metric("Error relativo", "no definido" if np.isnan(err_rel) else f"{err_rel:.7f}")
+            elif referencia_exacta:
+                st.warning(
+                    "No se pudo obtener integral exacta ni referencia numerica de alta precision para esta funcion e intervalo."
+                )
 
             df_nodes = pd.DataFrame({"x_i": x_nodes, "f(x_i)": y_nodes})
             st.dataframe(
@@ -1225,21 +1477,7 @@ def section_integracion_numerica():
                 },
             )
 
-            _, f_num = build_numeric_function(func)
-            x_plot = np.linspace(a_val, b_val, 900)
-            y_plot = np.array(f_num(x_plot), dtype=float)
-
-            fig, ax = plt.subplots(figsize=(9, 4.8))
-            ax.plot(x_plot, y_plot, linewidth=2, label=f"f(x) = {func}")
-            ax.fill_between(x_plot, y_plot, 0, alpha=0.25, color="tab:blue", label="Area bajo la curva")
-            ax.scatter(x_nodes, y_nodes, color="tab:red", zorder=3, label="Nodos")
-            ax.plot(x_nodes, y_nodes, color="tab:red", alpha=0.7, linewidth=1.2)
-            ax.axhline(0, color="black", linewidth=0.8, alpha=0.6)
-            ax.set_title(f"Integracion por {metodo}")
-            ax.set_xlabel("x")
-            ax.set_ylabel("f(x)")
-            ax.grid(alpha=0.3)
-            ax.legend()
+            fig = plot_integracion_visual(func, a_val, b_val, int(n), metodo)
             render_chart(fig)
             plt.close(fig)
 
@@ -1787,8 +2025,18 @@ def main():
     plt.rcParams["legend.edgecolor"] = "black"
     plt.rcParams["legend.labelcolor"] = "black"
 
-    st.title("Dashboard Integrador de Metodos Numericos")
-    st.caption("Interfaz grafica con formularios, botones, tablas y graficos de funcion/error")
+    header_left, header_right = st.columns([8, 2], vertical_alignment="center")
+    with header_left:
+        st.title("Dashboard Integrador de Metodos Numericos")
+        st.caption("Interfaz grafica con formularios, botones, tablas y graficos de funcion/error")
+    with header_right:
+        logo_ferro, logo_estudiantes, logo_nuevo = st.columns(3)
+        with logo_ferro:
+            mostrar_imagen_encabezado("ferro.webp", ancho=110, texto_alternativo="Ferro")
+        with logo_estudiantes:
+            mostrar_imagen_encabezado("estudiantes.webp", ancho=110, texto_alternativo="Estudiantes")
+        with logo_nuevo:
+            mostrar_imagen_encabezado("uni.webp", ancho=110, texto_alternativo="Nuevo escudo")
 
     st.sidebar.toggle(
         "Graficos interactivos",
