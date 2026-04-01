@@ -65,6 +65,44 @@ def safe_eval_expr(expr_text, variable="x"):
     return expr
 
 
+def estimate_max_abs_derivative(expr, variable, order, a, b, points=2001):
+    deriv = sp.diff(expr, variable, order)
+    f_deriv = sp.lambdify(variable, deriv, modules=["numpy"])
+    x_grid = np.linspace(float(a), float(b), int(points))
+    vals = np.array(f_deriv(x_grid), dtype=float)
+    finite_mask = np.isfinite(vals)
+    if not np.any(finite_mask):
+        return None
+    return float(np.max(np.abs(vals[finite_mask])))
+
+
+def cota_truncamiento_integracion(nombre_metodo, a, b, n, max_f2=None, max_f4=None):
+    h = (float(b) - float(a)) / int(n)
+    longitud = float(b) - float(a)
+
+    if nombre_metodo == "Rectangulo":
+        if max_f2 is None:
+            return np.nan
+        return (longitud / 24.0) * (h ** 2) * float(max_f2)
+
+    if nombre_metodo == "Trapecio":
+        if max_f2 is None:
+            return np.nan
+        return (longitud / 12.0) * (h ** 2) * float(max_f2)
+
+    if nombre_metodo == "Simpson 1/3":
+        if max_f4 is None or int(n) % 2 != 0:
+            return np.nan
+        return (longitud / 180.0) * (h ** 4) * float(max_f4)
+
+    if nombre_metodo == "Simpson 3/8":
+        if max_f4 is None or int(n) % 3 != 0:
+            return np.nan
+        return (longitud / 80.0) * (h ** 4) * float(max_f4)
+
+    return np.nan
+
+
 def parse_expr_list(text):
     parts = [p.strip() for p in text.split(",") if p.strip()]
     if not parts:
@@ -1102,6 +1140,7 @@ def section_integracion_numerica():
 
             x_sym = sp.Symbol("x")
             exact_val = None
+            expr = None
             if referencia_exacta:
                 try:
                     expr = safe_eval_expr(func, "x")
@@ -1111,6 +1150,24 @@ def section_integracion_numerica():
                         exact_val = None
                 except Exception:
                     exact_val = None
+
+            if expr is None:
+                try:
+                    expr = safe_eval_expr(func, "x")
+                except Exception:
+                    expr = None
+
+            max_f2 = None
+            max_f4 = None
+            if expr is not None:
+                try:
+                    max_f2 = estimate_max_abs_derivative(expr, x_sym, 2, float(a), float(b))
+                except Exception:
+                    max_f2 = None
+                try:
+                    max_f4 = estimate_max_abs_derivative(expr, x_sym, 4, float(a), float(b))
+                except Exception:
+                    max_f4 = None
 
             if metodo == "Rectangulo":
                 valor, x_nodes, y_nodes = regla_rectangulo(func, float(a), float(b), int(n))
@@ -1125,6 +1182,12 @@ def section_integracion_numerica():
             c_m1.metric("Resultado", f"{valor:.12g}")
             c_m2.metric("Metodo", metodo)
             c_m3.metric("Intervalos n", int(n))
+
+            cota_sel = cota_truncamiento_integracion(metodo, float(a), float(b), int(n), max_f2=max_f2, max_f4=max_f4)
+            if np.isfinite(cota_sel):
+                st.metric("Cota teorica de truncamiento", f"{float(cota_sel):.3e}")
+            else:
+                st.info("No se pudo estimar la cota teorica de truncamiento para este metodo.")
 
             if exact_val is not None:
                 err_abs = abs(float(valor) - float(exact_val))
@@ -1169,11 +1232,20 @@ def section_integracion_numerica():
                             v, _, _ = regla_simpson_38(func, float(a), float(b), int(n))
 
                         row = {"Metodo": nombre, "Integral": float(v)}
+                        cota = cota_truncamiento_integracion(
+                            nombre,
+                            float(a),
+                            float(b),
+                            int(n),
+                            max_f2=max_f2,
+                            max_f4=max_f4,
+                        )
+                        row["Cota_trunc"] = cota if np.isfinite(cota) else np.nan
                         if exact_val is not None:
                             row["Error_abs"] = abs(float(v) - exact_val)
                         comp_rows.append(row)
                     except Exception as exc:
-                        comp_rows.append({"Metodo": nombre, "Integral": np.nan, "Estado": str(exc)})
+                        comp_rows.append({"Metodo": nombre, "Integral": np.nan, "Cota_trunc": np.nan, "Estado": str(exc)})
 
                 df_comp = pd.DataFrame(comp_rows)
                 st.dataframe(df_comp, use_container_width=True)
