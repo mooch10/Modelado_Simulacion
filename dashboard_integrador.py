@@ -27,6 +27,7 @@ from Metodos.metodo_integracion_numerica import (
     regla_trapecio,
     regla_simpson_13,
     regla_simpson_38,
+    regla_montecarlo,
 )
 from Metodos.metodo_ajuste_curvas import regresion_lineal, regresion_polinomial
 from Metodos.metodo_sistemas_lineales import gauss_jordan, gauss_seidel
@@ -216,6 +217,10 @@ def cota_truncamiento_integracion(nombre_metodo, a, b, n, max_f2=None, max_f4=No
             return np.nan
         return (longitud / 80.0) * (h ** 4) * float(max_f4)
 
+    if nombre_metodo == "Monte Carlo":
+        # Monte Carlo no tiene error de truncamiento determinista
+        return np.nan
+
     return np.nan
 
 
@@ -282,6 +287,11 @@ def detalle_cota_truncamiento_integracion(nombre_metodo, a, b, n, max_f2=None, m
         detalle[
             "latex_sustitucion"
         ] = rf"|E_T| \leq \frac{{{longitud:.7g}}}{{80}}({h:.7g})^4({float(max_f4):.7g})"
+
+    elif nombre_metodo == "Monte Carlo":
+        detalle["pasos"].append("3) Monte Carlo es un metodo estocastico; no aplica cota de truncamiento determinista.")
+        return detalle
+
     else:
         detalle["pasos"].append("3) Metodo no reconocido para cota de truncamiento.")
         return detalle
@@ -2481,6 +2491,88 @@ def section_integracion_numerica():
             st.error(f"Error en integracion numerica: {exc}")
 
 
+def section_montecarlo():
+    st.subheader("Integracion por Monte Carlo")
+
+    with st.form("form_montecarlo"):
+        c1, c2, c3 = st.columns(3)
+        with c1:
+            func = st.text_input("f(x)", value="x**2")
+            a_text = st.text_input("Limite inferior a", value="0")
+            b_text = st.text_input("Limite superior b", value="1")
+        with c2:
+            n = st.number_input("Cantidad de puntos n", value=1000, min_value=10, step=10)
+            confianza = st.number_input("Intervalo de confianza (%)", value=95.0, min_value=80.0, max_value=99.9, step=0.1)
+            usar_seed = st.checkbox("Usar semilla personalizada", value=False)
+            seed = st.number_input("Semilla (seed)", value=42, min_value=0, step=1) if usar_seed else None
+        with c3:
+            run_btn = st.form_submit_button("Calcular integral")
+
+    if run_btn:
+        try:
+            a_val = parse_numeric_expr(a_text, "a")
+            b_val = parse_numeric_expr(b_text, "b")
+
+            if b_val <= a_val:
+                st.error("Se requiere b > a.")
+                return
+
+            # Calcular integral por Monte Carlo
+            integral, std, x_nodes, y_nodes = regla_montecarlo(func, a_val, b_val, int(n), seed=seed if usar_seed else None)
+
+            # Calcular intervalo de confianza
+            # Usando distribución normal, z para el nivel de confianza
+            alpha = (100 - confianza) / 100
+            # Aproximación simple para z
+            if abs(confianza - 95) < 0.1:
+                z = 1.96
+            elif abs(confianza - 99) < 0.1:
+                z = 2.576
+            elif abs(confianza - 90) < 0.1:
+                z = 1.645
+            else:
+                # Aproximación general: z ≈ sqrt(2) * erfinv(1 - alpha)
+                # Pero usar numpy
+                from math import erfinv, sqrt
+                z = sqrt(2) * erfinv(1 - alpha)
+            margin = z * std
+            lower = integral - margin
+            upper = integral + margin
+
+            c_m1, c_m2, c_m3 = st.columns(3)
+            c_m1.metric("Integral aproximada", f"{integral:.7g}")
+            c_m2.metric("Desviacion estandar", f"{std:.7g}")
+            c_m3.metric(f"IC {confianza}%", f"[{lower:.7g}, {upper:.7g}]")
+
+            # Mostrar puntos
+            df_puntos = pd.DataFrame({"x": x_nodes, "f(x)": y_nodes})
+            st.dataframe(
+                df_puntos.head(50),  # Mostrar solo primeros 50 para no sobrecargar
+                use_container_width=True,
+                column_config={k: st.column_config.NumberColumn(k, format="%.7f") for k in df_puntos.columns},
+            )
+            if len(x_nodes) > 50:
+                st.info(f"Mostrando 50 de {len(x_nodes)} puntos. Todos los puntos se usaron en el calculo.")
+
+            # Graficar
+            fig, ax = plt.subplots(figsize=(9, 4.8))
+            x_plot = np.linspace(float(a_val), float(b_val), 1000)
+            y_plot = build_func_plot(func, x_plot)
+            ax.plot(x_plot, y_plot, linewidth=2, label=f"f(x) = {func}")
+            ax.scatter(x_nodes, y_nodes, color="red", s=10, alpha=0.5, label="Puntos aleatorios")
+            ax.axhline(np.mean(y_nodes), color="blue", linestyle="--", label=f"Promedio f(x) ≈ {np.mean(y_nodes):.4f}")
+            ax.set_title("Integracion por Monte Carlo")
+            ax.set_xlabel("x")
+            ax.set_ylabel("f(x)")
+            ax.grid(alpha=0.3)
+            ax.legend()
+            render_chart(fig)
+            plt.close(fig)
+
+        except Exception as exc:
+            st.error(f"Error en Monte Carlo: {exc}")
+
+
 def section_ajuste_curvas():
     st.subheader("Ajuste de curvas (minimos cuadrados)")
 
@@ -2991,6 +3083,7 @@ def main():
             "Comparativa",
             "Lagrange + Derivacion",
             "Integracion Numerica",
+            "Monte Carlo",
             "Ajuste de Curvas",
             "Sistemas Lineales",
             "EDO",
@@ -3083,6 +3176,8 @@ def main():
             "Integracion Numerica",
         )
     with tabs[7]:
+        section_montecarlo()
+    with tabs[8]:
         section_ajuste_curvas()
         render_panel_formulas(
             "Formulario de Ajuste de Curvas",
@@ -3094,7 +3189,7 @@ def main():
             DESGLOSE_COMPLETO_POR_APARTADO["Ajuste de Curvas"],
             "Ajuste de Curvas",
         )
-    with tabs[8]:
+    with tabs[9]:
         section_sistemas_lineales()
         render_panel_formulas(
             "Formulario de Sistemas Lineales",
@@ -3106,7 +3201,7 @@ def main():
             DESGLOSE_COMPLETO_POR_APARTADO["Sistemas Lineales"],
             "Sistemas Lineales",
         )
-    with tabs[9]:
+    with tabs[10]:
         section_edo()
         render_panel_formulas(
             "Formulario de EDO",
@@ -3118,7 +3213,7 @@ def main():
             DESGLOSE_COMPLETO_POR_APARTADO["EDO"],
             "EDO",
         )
-    with tabs[10]:
+    with tabs[11]:
         section_red_neuronal_descenso()
         render_panel_formulas(
             "Formulario de Red Neuronal GD",

@@ -116,6 +116,35 @@ def regla_simpson_38(funcion_str, a, b, n):
     return float(integral), x, y
 
 
+def regla_montecarlo(funcion_str, a, b, n, seed=None):
+    if n <= 0:
+        raise ValueError("n debe ser un entero positivo")
+    if b <= a:
+        raise ValueError("Se requiere que b > a")
+
+    # Generar n puntos aleatorios uniformemente en [a, b]
+    if seed is not None:
+        np.random.seed(seed)
+    x_random = np.random.uniform(a, b, n)
+    y_random = np.array(evaluar_funcion_robusta(funcion_str, x_random), dtype=float)
+
+    # Integral aproximada: (b-a) * promedio de f(x_i)
+    integral = (b - a) * np.mean(y_random)
+
+    # Desviación estándar de la estimación
+    # Var(I) ≈ ((b-a)^2 / n) * Var(f(x_i))
+    var_f = np.var(y_random, ddof=1)  # ddof=1 para muestra
+    var_integral = ((b - a) ** 2 / n) * var_f
+    std_integral = np.sqrt(var_integral)
+
+    # Para visualización, ordenar los puntos
+    sort_idx = np.argsort(x_random)
+    x_nodes = x_random[sort_idx]
+    y_nodes = y_random[sort_idx]
+
+    return float(integral), float(std_integral), x_nodes, y_nodes
+
+
 def graficar_area(funcion_str, x, y, titulo):
     fig, ax = plt.subplots(figsize=(9, 4.8))
     ax.plot(x, y, linewidth=2, label=f"f(x) = {funcion_str}")
@@ -139,8 +168,9 @@ def ejecutar_integracion_numerica():
     print("2. Trapecio")
     print("3. Simpson 1/3")
     print("4. Simpson 3/8")
+    print("5. Monte Carlo")
 
-    opcion = input("Seleccione metodo (1-4): ").strip()
+    opcion = input("Seleccione metodo (1-5): ").strip()
     if opcion not in {"1", "2", "3", "4"}:
         print("Opcion no valida")
         return
@@ -164,11 +194,21 @@ def ejecutar_integracion_numerica():
         elif opcion == "3":
             valor, x, y = regla_simpson_13(funcion, a, b, n)
             nombre = "Simpson 1/3"
-        else:
+        elif opcion == "4":
             valor, x, y = regla_simpson_38(funcion, a, b, n)
             nombre = "Simpson 3/8"
+        elif opcion == "5":
+            seed_input = input("Semilla (opcional, enter para aleatorio): ").strip()
+            seed = int(seed_input) if seed_input else None
+            valor, std, x, y = regla_montecarlo(funcion, a, b, n, seed=seed)
+            nombre = "Monte Carlo"
+        else:
+            print("Opcion no valida")
+            return
 
         print(f"\nResultado ({nombre}): {valor:.12g}")
+        if nombre == "Monte Carlo":
+            print(f"Desviacion estandar: {std:.7g}")
 
         mostrar_grafico = input("¿Desea ver el grafico del area? (s/n): ").strip().lower()
         if mostrar_grafico in {"s", "si", "sí"}:
