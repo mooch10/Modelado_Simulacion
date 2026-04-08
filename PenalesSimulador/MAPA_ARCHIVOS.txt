@@ -1,0 +1,466 @@
+╔════════════════════════════════════════════════════════════════════════════╗
+║               MAPA COMPLETO DE ARCHIVOS - PenalesSimulador                 ║
+║                          Proyecto v2.0 - 2024                              ║
+╚════════════════════════════════════════════════════════════════════════════╝
+
+📋 ÍNDICE RÁPIDO
+═══════════════════════════════════════════════════════════════════════════════
+
+SI QUIERES...                          LEE PRIMERO...
+─────────────────────────────────────────────────────────────────────────────
+Empezar en 5 minutos                   👉 COMIENZA_AQUI.txt
+Entender qué hace todo                 👉 RESUMEN_FINAL.md
+Usar la interfaz web                   👉 README.md (sección "Cómo Usar")
+Entender la matemática                 👉 ANALISIS_DETALLADO.md
+Encontrar un archivo específico        👉 Este archivo (MAPA_ARCHIVOS.txt)
+Navegar por el proyecto                👉 ESTRUCTURA_PROYECTO.md
+Ver ejemplos de código                 👉 ejemplos.py (ejecutar)
+Validar instalación                    👉 validar.py (ejecutar)
+
+
+═══════════════════════════════════════════════════════════════════════════════
+📚 DOCUMENTACIÓN (5 ARCHIVOS)
+═══════════════════════════════════════════════════════════════════════════════
+
+🔹 COMIENZA_AQUI.txt (200 líneas) ⭐ EMPEZAR AQUÍ
+   └─ Contenido:
+      • Qué es este software
+      • Instalación en 2 pasos
+      • Cómo ejecutar la primera vez
+      • Qué esperar de cada pantalla
+      • 6 problemas comunes y soluciones
+      • Primeras pasos con la interfaz
+   
+   📌 PARA QUIÉN: Usuarios nuevos, principiantes
+
+
+🔹 RESUMEN_FINAL.md (400 líneas) ✨ VISIÓN GENERAL
+   └─ Contenido:
+      • Qué se logró (7 logros principales)
+      • Estructura de carpetas
+      • Características implementadas (por módulo)
+      • Mejoras vs versión anterior
+      • Métricas del proyecto
+      • Cómo empezar (rápido)
+      • Validación realizada
+      • Aplicaciones posibles
+   
+   📌 PARA QUIÉN: Usuarios que quieren visión general
+
+
+🔹 README.md (400+ líneas) 📖 MANUAL COMPLETO
+   └─ Contenido:
+      • Descripción del proyecto
+      • Instalación detallada (pip)
+      • 3 formas de usar:
+        ├─ Interfaz web (Streamlit)
+        ├─ Python directo
+        ├─ Importar módulos
+      • Documentación de cada Tab
+      • Explicación de parámetros
+      • Ejemplos de código
+      • Troubleshooting
+      • Preguntas frecuentes
+   
+   📌 PARA QUIÉN: Usuarios que quieren comprender profundamente
+
+
+🔹 ANALISIS_DETALLADO.md (350+ líneas) 🔬 TÉCNICO
+   └─ Contenido:
+      • Fundamentos de Monte Carlo (teoría)
+      • Fórmulas matemáticas completas
+      • Cómo se calibran los pesos
+      • Interpretación de resultados
+      • 3 casos de uso reales:
+        ├─ Equipo fuerte vs portero débil
+        ├─ Equipo balanceado vs portero promedio
+        ├─ Equipo débil vs portero extraordinario
+      • Limitaciones científicas
+      • Posibles extensiones
+      • Referencias recomendadas
+   
+   📌 PARA QUIÉN: Desarrolladores, científicos, estudiantes
+
+
+🔹 ESTRUCTURA_PROYECTO.md (200+ líneas) 🗺️ NAVEGACIÓN
+   └─ Contenido:
+      • Árbol de carpetas (visual)
+      • Descripción de cada archivo
+      • Relaciones entre módulos (diagrama)
+      • Flujo de datos
+      • Tabla de búsqueda rápida ("¿Dónde está X?")
+      • Comandos útiles
+   
+   📌 PARA QUIÉN: Desarrolladores que modificarán código
+
+
+═══════════════════════════════════════════════════════════════════════════════
+🎯 APLICACIÓN WEB (1 ARCHIVO)
+═══════════════════════════════════════════════════════════════════════════════
+
+🔹 app_penales.py (550+ líneas) 💻 INTERFAZ INTERACTIVA
+   └─ Executable: streamlit run app_penales.py
+   
+   Funcionalidad:
+   ├─ Tab 1: ⚽ Equipos
+   │  ├─ Botón "🎲 Cargar Equipo" (randomizador con agrupación por país)
+   │  ├─ 11 campos para jugadores
+   │  ├─ 1 campo para portero
+   │  ├─ Opciones: cantidad jugadores, cantidad simulaciones, semilla
+   │  └─ Botón "▶️ EJECUTAR SIMULACIÓN"
+   │
+   ├─ Tab 2: 📊 Resultados
+   │  ├─ 4 tarjetas de métricas (Goles, Desv.Std, Prob.Ganar, IC95%)
+   │  ├─ Gráfico interactivo: Distribución de goles
+   │  ├─ Tabla: Probabilidades (Ganar/Empate/Perder)
+   │  └─ Gráfico: Probabilidad por jugador
+   │
+   ├─ Tab 3: 📈 Análisis Detallado
+   │  ├─ Explicaciones de cada métrica
+   │  ├─ Tabla comparativa de jugadores
+   │  └─ Recomendaciones automáticas
+   │
+   └─ Tab 4: ℹ️ Instrucciones
+      ├─ Guía paso a paso
+      ├─ Definición de parámetros
+      └─ Interpretación de resultados
+   
+   Características técnicas:
+   • Diseño oscuro con tema futbolístico
+   • Colores: Azul marino (#0f3460) + Naranja (#f39c12)
+   • Gráficos interactivos con Plotly
+   • Componentes personalizados con CSS
+   • Responsive (funciona en móvil y desktop)
+   
+   📌 PARA QUIÉN: Usuarios finales
+
+
+═══════════════════════════════════════════════════════════════════════════════
+🔧 MÓDULOS PRINCIPALES (2 ARCHIVOS)
+═══════════════════════════════════════════════════════════════════════════════
+
+🔹 penales_montecarlo.py (250+ líneas) ⚙️ MOTOR DE SIMULACIÓN
+   └─ Contenido:
+      • Clase JugadorPenal (dataclass)
+        └─ Atributos: nombre, peso, altura, precisión, velocidad, experiencia
+      
+      • Clase PorteroPenal (dataclass)
+        └─ Atributos: nombre, peso, altura, reflejos, experiencia
+      
+      • Clase SimuladorPenales
+        ├─ __init__(semilla=None)
+        ├─ calcular_probabilidad_gol(jugador, portero) → float [0-1]
+        ├─ simular_penal(jugador, portero) → bool (gol/no gol)
+        ├─ simular_tanda(jugadores, portero, n_simulaciones) → dict
+        │  └─ Retorna: {
+        │       'goles_totales_esperado': float,
+        │       'goles_std': float,
+        │       'ic_lower': float,
+        │       'ic_upper': float,
+        │       'probabilidad_ganar': float,
+        │       'probabilidad_empatar': float,
+        │       'probabilidad_perder': float,
+        │       'prob_por_jugador': {nombre: prob, ...}
+        │     }
+        └─ FÓRMULA: P(gol) = w1*precisión + w2*velocidad + ...
+   
+   Independencias:
+   • NumPy (cálculos)
+   • dataclasses (estructuras)
+   
+   📌 PARA QUIÉN: Desarrolladores, usuarios Python
+
+
+🔹 utilidades_penales.py (400+ líneas) 📊 BASE DE DATOS + HERRAMIENTAS
+   └─ Contenido:
+      • JUGADORES_CONOCIDOS: Dict[str, tuple]
+        └─ 54 jugadores reales con: peso, altura, precisión, velocidad, 
+           experiencia, país, emoji
+        └─ Países: Argentina, Portugal, Brasil, Alemania, Francia, España, 
+           Italia, etc.
+      
+      • PORTEROS_CONOCIDOS: Dict[str, tuple]
+        └─ 20 porteros reales con: peso, altura, reflejos, experiencia, 
+           país, emoji
+      
+      • Clase GeneradorDatos (métodos estáticos)
+        ├─ obtener_jugador_conocido(nombre) → JugadorPenal
+        ├─ obtener_portero_conocido(nombre) → PorteroPenal
+        ├─ obtener_jugadores_aleatorios(cantidad=11, por_equipo=True) 
+        │  └─ ⭐ NUEVO: Agrupa por país si por_equipo=True
+        ├─ obtener_portero_aleatorio() → PorteroPenal
+        ├─ listar_jugadores() → List[str]
+        ├─ listar_porteros() → List[str]
+        └─ obtener_jugadores_por_pais() → Dict[str, List[str]]
+      
+      • Clase ExportadorResultados (herramienta auxiliar)
+        ├─ exportar_json(resultados, archivo) → json file
+        ├─ exportar_csv(resultados, archivo) → csv file
+        └─ exportar_html(resultados, archivo) → html file
+   
+   📌 PARA QUIÉN: Desarrolladores, usuarios avanzados
+
+
+═══════════════════════════════════════════════════════════════════════════════
+🎓 EJEMPLOS Y VALIDACIÓN (2 ARCHIVOS)
+═══════════════════════════════════════════════════════════════════════════════
+
+🔹 ejemplos.py (250+ líneas) 🎮 EJEMPLOS EJECUTABLES
+   └─ Executable: python ejemplos.py
+   
+   5 Ejemplos incluidos:
+   
+   1️⃣ Ejemplo 1: Equipo Aleatorio Agrupado
+      └─ Simula tanda de 11 jugadores aleatorios (agrupados por país)
+         vs portero aleatorio (10,000 simulaciones)
+      
+   2️⃣ Ejemplo 2: Argentina vs Brasil (Clásico)
+      └─ Equipo argentino vs equipo brasileño
+         Messi, Di María, Agüero vs Ronaldinho, Pelé, Neymar
+      
+   3️⃣ Ejemplo 3: Cristiano Ronaldo vs Buffon
+      └─ Análisis individual: CR7 en 5 penales vs Buffon
+      
+   4️⃣ Ejemplo 4: Comparación de Porteros
+      └─ Mismo equipo contra 3 porteros diferentes
+         Neuer vs Buffon vs Casillas
+      
+   5️⃣ Ejemplo 5: Reproducibilidad
+      └─ Demuestra que con semilla fija se obtienen mismos resultados
+   
+   Cada ejemplo:
+   • Muestra código Python
+   • Ejecuta simulación
+   • Imprime resultados
+   • Explica el significado
+   
+   📌 PARA QUIÉN: Usuarios que quieren aprender y experimentar
+
+
+🔹 validar.py (120 líneas) ✅ SCRIPT DE VALIDACIÓN
+   └─ Executable: python validar.py
+   
+   5 Validaciones incluidas:
+   
+   1️⃣ Validar carga de datos
+      └─ ¿Se cargan 54 jugadores y 20 porteros?
+   
+   2️⃣ Validar randomizador
+      └─ ¿Selecciona 5 jugadores y 1 portero sin duplicados?
+   
+   3️⃣ Validar simulación
+      └─ ¿Se ejecutan 10,000 simulaciones correctamente?
+      └─ ¿Calcula media, desv.std, IC, probabilidades?
+   
+   4️⃣ Validar casos especiales
+      └─ ¿Cristiano vs Buffon ≈ 70%?
+      └─ ¿Messi vs Buffon ≈ 70%?
+   
+   5️⃣ Validar reproducibilidad
+      └─ ¿Con semilla fija se obtienen mismos resultados?
+   
+   Salida: ✅ VALIDACION COMPLETADA - TODO OK
+   
+   📌 PARA QUIÉN: Verificar que todo funciona
+
+
+═══════════════════════════════════════════════════════════════════════════════
+⚙️ CONFIGURACIÓN (1 ARCHIVO)
+═══════════════════════════════════════════════════════════════════════════════
+
+🔹 requirements.txt (7 líneas) 📦 DEPENDENCIAS
+   └─ Contiene:
+      • streamlit>=1.28.0       (interfaz web)
+      • numpy>=1.24.0           (cálculos)
+      • pandas>=2.0.0           (datos)
+      • plotly>=5.14.0          (gráficos interactivos)
+      • scipy>=1.10.0           (estadística)
+      • matplotlib>=3.7.0       (gráficos estáticos)
+      • python>=3.10            (requisito Python)
+   
+   Instalación: pip install -r requirements.txt
+   
+   📌 PARA QUIÉN: Usuarios instalando dependencias
+
+
+═══════════════════════════════════════════════════════════════════════════════
+📊 RESUMEN ESTADÍSTICO
+═══════════════════════════════════════════════════════════════════════════════
+
+CONTEO DE ARCHIVOS:
+├─ Documentación: 5 archivos (1,450+ líneas)
+├─ Código Python: 5 archivos (1,450+ líneas)
+├─ Total: 10 archivos (2,900+ líneas)
+
+CONTEO POR TIPO:
+├─ .py (Python): 5 archivos
+│  ├─ app_penales.py: 550+ líneas
+│  ├─ penales_montecarlo.py: 250+ líneas
+│  ├─ utilidades_penales.py: 400+ líneas
+│  ├─ ejemplos.py: 250+ líneas
+│  └─ validar.py: 120 líneas
+├─ .md (Markdown): 4 archivos
+│  ├─ README.md: 400+ líneas
+│  ├─ ANALISIS_DETALLADO.md: 350+ líneas
+│  ├─ ESTRUCTURA_PROYECTO.md: 200+ líneas
+│  └─ RESUMEN_FINAL.md: 400+ líneas
+├─ .txt (Texto): 2 archivos
+│  ├─ COMIENZA_AQUI.txt: 200+ líneas
+│  └─ MAPA_ARCHIVOS.txt: este archivo
+└─ requirements.txt: 1 archivo
+
+BASE DE DATOS:
+├─ Jugadores reales: 54
+├─ Porteros reales: 20
+├─ Países representados: 15+
+├─ Combinaciones posibles: >10^17
+
+
+═══════════════════════════════════════════════════════════════════════════════
+🎯 GUÍA RÁPIDA: ¿DÓNDE ENCONTRAR...?
+═══════════════════════════════════════════════════════════════════════════════
+
+¿CÓMO EMPIEZO?
+  👉 Lee COMIENZA_AQUI.txt (5 minutos)
+
+¿CÓMO INSTALO?
+  👉 Lee README.md § "Instalación"
+  👉 O ejecuta: pip install -r requirements.txt
+
+¿CÓMO CORRO LA APLICACIÓN?
+  👉 streamlit run app_penales.py
+  👉 (Se abre en http://localhost:8501)
+
+¿QUÉ ARCHIVOS CREO?
+  👉 Todos están aquí en PenalesSimulador/
+
+¿CÓMO USO LA INTERFAZ WEB?
+  👉 Lee README.md § "Uso de la Interfaz"
+  👉 O ve Tab 4: "ℹ️ Instrucciones" en la web
+
+¿CÓMO ENTIENDO LA MATEMÁTICA?
+  👉 Lee ANALISIS_DETALLADO.md
+
+¿CÓMO VERÍA EJEMPLOS?
+  👉 Abre ejemplos.py y léelo or corre: python ejemplos.py
+
+¿CÓMO VERIFICO QUE TODO FUNCIONA?
+  👉 Corre: python validar.py
+
+¿CÓMO SÉ QUÉ JUGADORES HAY?
+  👉 Corre en Python:
+     from utilidades_penales import GeneradorDatos
+     GeneradorDatos.listar_jugadores()
+
+¿CÓMO USO DATOS PROPIOS?
+  👉 Lee README.md § "Usar Datos Personalizados"
+
+¿CÓMO EXPORTO RESULTADOS?
+  👉 Lee README.md § "Exportación de Datos"
+  👉 Usa ExportadorResultados en utilidades_penales.py
+
+¿CÓMO BUSCO INFORMACIÓN ESPECÍFICA?
+  👉 Este archivo (MAPA_ARCHIVOS.txt)
+  👉 O ver ESTRUCTURA_PROYECTO.md
+
+¿TENGO UN PROBLEMA?
+  👉 Lee COMIENZA_AQUI.txt § "Solución de Problemas"
+  👉 O README.md § "Troubleshooting"
+
+
+═══════════════════════════════════════════════════════════════════════════════
+🌳 ÁRBOL DE ESTRUCTURA
+═══════════════════════════════════════════════════════════════════════════════
+
+PenalesSimulador/
+│
+├─ 📚 DOCUMENTACIÓN
+│  ├─ COMIENZA_AQUI.txt           ⭐ EMPEZAR AQUÍ
+│  ├─ README.md                   📖 Manual Completo
+│  ├─ ANALISIS_DETALLADO.md       🔬 Técnico Profundo
+│  ├─ ESTRUCTURA_PROYECTO.md      🗺️ Navegación
+│  ├─ RESUMEN_FINAL.md            ✨ Visión General
+│  └─ MAPA_ARCHIVOS.txt           📋 Este Documento
+│
+├─ 🎯 APLICACIÓN
+│  └─ app_penales.py              💻 Interfaz Web (Streamlit)
+│
+├─ 🔧 MÓDULOS
+│  ├─ penales_montecarlo.py       ⚙️ Motor Simulación
+│  └─ utilidades_penales.py       📊 Base Datos + Herramientas
+│
+├─ 🎓 EJEMPLOS
+│  ├─ ejemplos.py                 🎮 5 Ejemplos Ejecutables
+│  └─ validar.py                  ✅ Script Validación
+│
+└─ ⚙️ CONFIGURACIÓN
+   └─ requirements.txt             📦 Dependencias
+
+
+═══════════════════════════════════════════════════════════════════════════════
+✨ TIPS ÚTILES
+═══════════════════════════════════════════════════════════════════════════════
+
+💡 TIP 1: Vista Rápida
+   Si tienes prisa, lee en este orden:
+   1. COMIENZA_AQUI.txt (5 min)
+   2. RESUMEN_FINAL.md (10 min)
+   3. Ejecuta: streamlit run app_penales.py
+
+💡 TIP 2: Aprender Profundamente
+   Para entender todo:
+   1. README.md (30 min)
+   2. ejemplos.py (20 min)
+   3. ANALISIS_DETALLADO.md (60 min)
+   4. Lee el código fuente (30 min)
+
+💡 TIP 3: Verificar Instalación
+   Corre: python validar.py
+   Si todo OK → verde y checkmarks ✅
+
+💡 TIP 4: Usar en Python
+   from utilidades_penales import GeneradorDatos
+   from penales_montecarlo import SimuladorPenales, JugadorPenal
+   
+   jugadores = GeneradorDatos.obtener_jugadores_aleatorios(5)
+   portero = GeneradorDatos.obtener_portero_aleatorio()
+   sim = SimuladorPenales()
+   resultado = sim.simular_tanda(jugadores, portero, 10000)
+
+💡 TIP 5: Buscar Rápidamente
+   Ctrl+F en editor → busca por palabra clave en este documento
+
+💡 TIP 6: Entender Código
+   Cada archivo Python tiene comentarios.
+   Lee las docstrings (""") de cada función.
+
+
+═══════════════════════════════════════════════════════════════════════════════
+🚀 PRÓXIMOS PASOS
+═══════════════════════════════════════════════════════════════════════════════
+
+PASO 1: Instala dependencias
+   pip install -r requirements.txt
+
+PASO 2: Valida que todo funciona
+   python validar.py
+
+PASO 3: Ve exemplos prácticos
+   python ejemplos.py
+
+PASO 4: Ejecuta la interfaz web
+   streamlit run app_penales.py
+
+PASO 5: Experimenta y aprende
+   ¡Juega con diferentes equipos y porteros!
+
+
+═══════════════════════════════════════════════════════════════════════════════
+
+Generado: 2024
+Versión: 2.0 - Proyecto Completamente Integrado
+Estado: ✅ LISTO PARA USAR
+
+👉 Para empezar: Lee COMIENZA_AQUI.txt o ejecuta streamlit run app_penales.py
+
+═══════════════════════════════════════════════════════════════════════════════
