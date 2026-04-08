@@ -2506,6 +2506,8 @@ def section_montecarlo():
             usar_seed = st.checkbox("Usar semilla personalizada", value=False)
             seed = st.number_input("Semilla (seed)", value=42, min_value=0, step=1) if usar_seed else None
         with c3:
+            usar_error_max = st.checkbox("Usar error máximo permitido", value=False)
+            error_max = st.number_input("Error máximo permitido", value=0.01, min_value=0.0001, format="%.6f") if usar_error_max else None
             run_btn = st.form_submit_button("Calcular integral")
 
     if run_btn:
@@ -2518,7 +2520,56 @@ def section_montecarlo():
                 return
 
             # Calcular integral por Monte Carlo
-            integral, std, x_nodes, y_nodes = regla_montecarlo(func, a_val, b_val, int(n), seed=seed if usar_seed else None)
+            if usar_error_max and error_max is not None:
+                # Modo iterativo: continuar hasta alcanzar el error máximo
+                integral = 0.0
+                y_all = np.array([])
+                x_all = np.array([])
+                total_puntos = 0
+                iteracion = 0
+                current_seed = seed if usar_seed else None
+                
+                progress_bar = st.progress(0)
+                status_text = st.empty()
+                
+                while True:
+                    iteracion += 1
+                    if current_seed is not None:
+                        current_seed += iteracion - 1
+                    
+                    integral_iter, std_iter, x_nodes, y_nodes = regla_montecarlo(
+                        func, a_val, b_val, int(n), seed=current_seed
+                    )
+                    
+                    # Acumular puntos
+                    x_all = np.append(x_all, x_nodes)
+                    y_all = np.append(y_all, y_nodes)
+                    total_puntos += len(x_nodes)
+                    
+                    # Recalcular la integral y el error con todos los puntos acumulados
+                    integral = (b_val - a_val) * np.mean(y_all)
+                    var_f = np.var(y_all, ddof=1)
+                    std = np.sqrt(((b_val - a_val) ** 2 / total_puntos) * var_f)
+                    
+                    progress = min(std / error_max, 1.0)
+                    progress_bar.progress(progress)
+                    status_text.info(f"Iteración {iteracion}: {total_puntos} puntos, Error = {std:.7f}, Objetivo = {error_max:.7f}")
+                    
+                    if std <= error_max:
+                        status_text.success(f"✓ Convergencia alcanzada en iteración {iteracion} con {total_puntos} puntos")
+                        break
+                    
+                    if iteracion > 100:
+                        st.warning(f"Se alcanzó el límite de 100 iteraciones. Error actual: {std:.7f} (objetivo: {error_max:.7f})")
+                        break
+                
+                # Ordenar puntos para visualizar
+                sort_idx = np.argsort(x_all)
+                x_nodes = x_all[sort_idx]
+                y_nodes = y_all[sort_idx]
+            else:
+                # Modo estándar: usar n puntos
+                integral, std, x_nodes, y_nodes = regla_montecarlo(func, a_val, b_val, int(n), seed=seed if usar_seed else None)
 
             # Calcular intervalo de confianza
             # Usando distribución normal, z para el nivel de confianza
