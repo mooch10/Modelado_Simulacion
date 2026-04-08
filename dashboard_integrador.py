@@ -2532,8 +2532,9 @@ def section_montecarlo():
                 z = 1.645
             else:
                 # Aproximación general: z ≈ sqrt(2) * erfinv(1 - alpha)
-                # Pero usar numpy
-                from math import erfinv, sqrt
+                # Pero usar scipy
+                from scipy.special import erfinv
+                from math import sqrt
                 z = sqrt(2) * erfinv(1 - alpha)
             margin = z * std
             lower = integral - margin
