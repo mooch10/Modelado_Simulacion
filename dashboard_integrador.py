@@ -2571,6 +2571,14 @@ def section_montecarlo():
                 # Modo estándar: usar n puntos
                 integral, std, x_nodes, y_nodes = regla_montecarlo(func, a_val, b_val, int(n), seed=seed if usar_seed else None)
 
+            # Calcular error estándar
+            if usar_error_max and error_max is not None:
+                num_puntos = total_puntos
+            else:
+                num_puntos = int(n)
+            
+            error_estandar = std / np.sqrt(num_puntos)
+            
             # Calcular intervalo de confianza
             # Usando distribución normal, z para el nivel de confianza
             alpha = (100 - confianza) / 100
@@ -2591,10 +2599,14 @@ def section_montecarlo():
             lower = integral - margin
             upper = integral + margin
 
-            c_m1, c_m2, c_m3 = st.columns(3)
+            c_m1, c_m2, c_m3, c_m4 = st.columns(4)
             c_m1.metric("Integral aproximada", f"{integral:.7g}")
             c_m2.metric("Desviacion estandar", f"{std:.7g}")
-            c_m3.metric(f"IC {confianza}%", f"[{lower:.7g}, {upper:.7g}]")
+            c_m3.metric("Error estándar", f"{error_estandar:.7g}")
+            c_m4.metric(f"IC {confianza}%", f"[{lower:.7g}, {upper:.7g}]")
+            
+            # Mostrar IC en formato ± 
+            st.write(f"### IC {confianza}% (formato ±): {integral:.7g} ± {margin:.7g}")
 
             # Mostrar puntos
             df_puntos = pd.DataFrame({"x": x_nodes, "f(x)": y_nodes})
