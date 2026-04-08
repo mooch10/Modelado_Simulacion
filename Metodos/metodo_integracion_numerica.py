@@ -145,6 +145,63 @@ def regla_montecarlo(funcion_str, a, b, n, seed=None):
     return float(integral), float(std_integral), x_nodes, y_nodes
 
 
+def regla_montecarlo_2d(funcion_str, a, b, c, d, n, seed=None):
+    """
+    Integración doble por Monte Carlo.
+    
+    Calcula: ∫∫ f(x,y) dy dx en [a,b] × [c,d]
+    """
+    if n <= 0:
+        raise ValueError("n debe ser un entero positivo")
+    if b <= a or d <= c:
+        raise ValueError("Se requiere que b > a y d > c")
+
+    # Construir la función de 2 variables
+    x, y = sp.symbols('x y')
+    
+    # Parsear la expresión permitiendo x e y
+    allowed_names = {
+        "e": sp.E, "pi": sp.pi,
+        "sin": sp.sin, "cos": sp.cos, "tan": sp.tan,
+        "exp": sp.exp, "log": sp.log, "sqrt": sp.sqrt,
+        "abs": sp.Abs, "x": x, "y": y
+    }
+    
+    try:
+        expr_2d = sp.sympify(funcion_str, locals=allowed_names)
+    except:
+        raise ValueError(f"Error al parsear la función: {funcion_str}")
+    
+    f_2d = sp.lambdify((x, y), expr_2d, "numpy")
+    
+    # Generar n puntos aleatorios uniformemente en [a,b] × [c,d]
+    if seed is not None:
+        np.random.seed(seed)
+    x_random = np.random.uniform(a, b, n)
+    y_random = np.random.uniform(c, d, n)
+    
+    z_random = np.zeros(n)
+    for i in range(n):
+        try:
+            z_random[i] = float(f_2d(float(x_random[i]), float(y_random[i])))
+        except:
+            z_random[i] = np.nan
+    
+    z_random = z_random.astype(float)
+
+    # Integral aproximada: (b-a) * (d-c) * promedio de f(x,y)
+    volumen = (b - a) * (d - c)
+    integral = volumen * np.nanmean(z_random)
+
+    # Desviación estándar de la estimación
+    # Var(I) ≈ (volumen^2 / n) * Var(f(x,y))
+    var_f = np.nanvar(z_random, ddof=1)
+    var_integral = (volumen ** 2 / n) * var_f
+    std_integral = np.sqrt(var_integral)
+
+    return float(integral), float(std_integral), x_random, y_random, z_random
+
+
 def graficar_area(funcion_str, x, y, titulo):
     fig, ax = plt.subplots(figsize=(9, 4.8))
     ax.plot(x, y, linewidth=2, label=f"f(x) = {funcion_str}")

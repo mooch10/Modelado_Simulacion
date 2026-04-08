@@ -28,6 +28,7 @@ from Metodos.metodo_integracion_numerica import (
     regla_simpson_13,
     regla_simpson_38,
     regla_montecarlo,
+    regla_montecarlo_2d,
 )
 from Metodos.metodo_ajuste_curvas import regresion_lineal, regresion_polinomial
 from Metodos.metodo_sistemas_lineales import gauss_jordan, gauss_seidel
@@ -2637,6 +2638,96 @@ def section_montecarlo():
             st.error(f"Error en Monte Carlo: {exc}")
 
 
+def section_montecarlo_2d():
+    st.subheader("Integracion Doble por Monte Carlo")
+
+    with st.form("form_montecarlo_2d"):
+        c1, c2, c3 = st.columns(3)
+        with c1:
+            func = st.text_input("f(x,y)", value="x**2 + y**2")
+            a_text = st.text_input("Limite inferior a (x)", value="0")
+            b_text = st.text_input("Limite superior b (x)", value="1")
+        with c2:
+            c_text = st.text_input("Limite inferior c (y)", value="0")
+            d_text = st.text_input("Limite superior d (y)", value="1")
+            n = st.number_input("Cantidad de puntos n", value=1000, min_value=10, step=10)
+        with c3:
+            confianza = st.number_input("Intervalo de confianza (%)", value=95.0, min_value=80.0, max_value=99.9, step=0.1)
+            usar_seed = st.checkbox("Usar semilla personalizada", value=False)
+            seed = st.number_input("Semilla (seed)", value=42, min_value=0, step=1) if usar_seed else None
+        
+        run_btn = st.form_submit_button("Calcular integral doble")
+
+    if run_btn:
+        try:
+            a_val = parse_numeric_expr(a_text, "a")
+            b_val = parse_numeric_expr(b_text, "b")
+            c_val = parse_numeric_expr(c_text, "c")
+            d_val = parse_numeric_expr(d_text, "d")
+
+            if b_val <= a_val or d_val <= c_val:
+                st.error("Se requiere b > a y d > c.")
+                return
+
+            # Calcular integral doble por Monte Carlo
+            integral, std, x_nodes, y_nodes, z_nodes = regla_montecarlo_2d(
+                func, a_val, b_val, c_val, d_val, int(n), seed=seed if usar_seed else None
+            )
+
+            # Calcular error estándar
+            num_puntos = int(n)
+            error_estandar = std / np.sqrt(num_puntos)
+
+            # Calcular intervalo de confianza
+            alpha = (100 - confianza) / 100
+            if abs(confianza - 95) < 0.1:
+                z = 1.96
+            elif abs(confianza - 99) < 0.1:
+                z = 2.576
+            elif abs(confianza - 90) < 0.1:
+                z = 1.645
+            else:
+                from scipy.special import erfinv
+                from math import sqrt
+                z = sqrt(2) * erfinv(1 - alpha)
+            margin = z * std
+            lower = integral - margin
+            upper = integral + margin
+
+            c_m1, c_m2, c_m3, c_m4 = st.columns(4)
+            c_m1.metric("Integral doble aproximada", f"{integral:.7g}")
+            c_m2.metric("Desviacion estandar", f"{std:.7g}")
+            c_m3.metric("Error estándar", f"{error_estandar:.7g}")
+            c_m4.metric(f"IC {confianza}%", f"[{lower:.7g}, {upper:.7g}]")
+
+            st.write(f"### IC {confianza}% (formato ±): {integral:.7g} ± {margin:.7g}")
+
+            # Mostrar puntos
+            df_puntos = pd.DataFrame({"x": x_nodes, "y": y_nodes, "f(x,y)": z_nodes})
+            st.dataframe(
+                df_puntos.head(50),
+                use_container_width=True,
+                column_config={k: st.column_config.NumberColumn(k, format="%.7f") for k in df_puntos.columns},
+            )
+            if len(x_nodes) > 50:
+                st.info(f"Mostrando 50 de {len(x_nodes)} puntos. Todos los puntos se usaron en el calculo.")
+
+            # Graficar puntos en el plano xy
+            fig, ax = plt.subplots(figsize=(9, 4.8))
+            scatter = ax.scatter(x_nodes, y_nodes, c=z_nodes, cmap="viridis", s=10, alpha=0.6)
+            ax.set_title(f"Puntos aleatorios en [${a_val},{b_val}$] × [${c_val},{d_val}$]")
+            ax.set_xlabel("x")
+            ax.set_ylabel("y")
+            cbar = plt.colorbar(scatter, ax=ax)
+            cbar.set_label(f"f(x,y)")
+            ax.grid(alpha=0.3)
+            render_chart(fig)
+            plt.close(fig)
+
+        except Exception as exc:
+            st.error(f"Error en integral doble: {exc}")
+
+
 def section_ajuste_curvas():
     st.subheader("Ajuste de curvas (minimos cuadrados)")
 
@@ -3148,6 +3239,7 @@ def main():
             "Lagrange + Derivacion",
             "Integracion Numerica",
             "Monte Carlo",
+            "Monte Carlo 2D",
             "Ajuste de Curvas",
             "Sistemas Lineales",
             "EDO",
@@ -3242,6 +3334,8 @@ def main():
     with tabs[7]:
         section_montecarlo()
     with tabs[8]:
+        section_montecarlo_2d()
+    with tabs[9]:
         section_ajuste_curvas()
         render_panel_formulas(
             "Formulario de Ajuste de Curvas",
@@ -3253,7 +3347,7 @@ def main():
             DESGLOSE_COMPLETO_POR_APARTADO["Ajuste de Curvas"],
             "Ajuste de Curvas",
         )
-    with tabs[9]:
+    with tabs[10]:
         section_sistemas_lineales()
         render_panel_formulas(
             "Formulario de Sistemas Lineales",
@@ -3265,7 +3359,7 @@ def main():
             DESGLOSE_COMPLETO_POR_APARTADO["Sistemas Lineales"],
             "Sistemas Lineales",
         )
-    with tabs[10]:
+    with tabs[11]:
         section_edo()
         render_panel_formulas(
             "Formulario de EDO",
@@ -3277,7 +3371,7 @@ def main():
             DESGLOSE_COMPLETO_POR_APARTADO["EDO"],
             "EDO",
         )
-    with tabs[11]:
+    with tabs[12]:
         section_red_neuronal_descenso()
         render_panel_formulas(
             "Formulario de Red Neuronal GD",
