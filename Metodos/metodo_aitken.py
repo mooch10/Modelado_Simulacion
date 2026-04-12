@@ -8,6 +8,36 @@ from Metodos.input_parser import (
     build_numeric_function,
 )
 
+"""
+╔════════════════════════════════════════════════════════════════╗
+║              MACHETE: MÉTODO AITKEN                            ║
+╚════════════════════════════════════════════════════════════════╝
+
+DEFINICIÓN:
+Técnica de aceleración que usa tres iteraciones sucesivas de punto
+fijo para obtener mejor aproximación sin cálculos adicionales.
+
+UTILIDAD:
+Mejorar velocidad de convergencia del método de punto fijo.
+Reduce iteraciones necesarias sin derivadas.
+
+PASOS:
+1. Calcular x₀, x₁, x₂ usando punto fijo
+2. Aplicar fórmula de aceleración
+3. Usar x* como nueva aproximación
+4. Calcular error
+5. Si error < tol → convergió
+6. Si no → iterar nuevamente
+
+FÓRMULA:
+x* = x₀ - (x₁ - x₀)² / (x₂ - 2x₁ + x₀)
+Error: |x* - x₀|
+
+REQUISITOS:
+• Punto fijo convergente
+• Denominador (x₂ - 2x₁ + x₀) ≠ 0
+• Tres iteraciones iniciales disponibles
+"""
 
 def _evaluar_numero(valor):
     """Convierte resultados de lambdify a float real y valida finitud."""

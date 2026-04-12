@@ -9,6 +9,37 @@ from Metodos.input_parser import (
     build_numeric_function,
 )
 
+"""
+╔════════════════════════════════════════════════════════════════╗
+║          MACHETE: INTEGRACIÓN NUMÉRICA                         ║
+║  (Rectángulos, Trapecios, Simpson)                             ║
+╚════════════════════════════════════════════════════════════════╝
+
+DEFINICIÓN:
+Aproximar integral definida ∫_a^b f(x)dx mediante sumas de áreas
+de figuras geométricas simples.
+
+UTILIDAD:
+• Integrar cuando hay solución analítica compleja.
+• Integrar datos tabulados sin función explícita.
+
+PASOS:
+1. Dividir [a,b] en n subintervalos de ancho h = (b-a)/n
+2. Evaluar f en puntos de la malla
+3. Aplicar regla específica (rectángulos/trapecios/Simpson)
+4. Sumar para obtener integral aproximada
+
+FÓRMULAS:
+Rectángulos: I ≈ h · Σ f(x_i)
+Trapecios: I ≈ (h/2) · (f(x₀) + 2Σf(x_i) + f(x_n))
+Simpson: I ≈ (h/3) · (f(x₀) + 4Σf(x_impar) + 2Σf(x_par) + f(x_n))
+
+REQUISITOS:
+• a < b
+• n > 0 (subintervalos)
+• f continua en [a,b]
+• n par (para Simpson)
+"""
 
 def evaluar_funcion_robusta(funcion_str, x_values, variable="x"):
     """Evalua una funcion numérica y reemplaza no-finitos por el límite simbólico cuando exista."""

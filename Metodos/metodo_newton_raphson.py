@@ -9,6 +9,38 @@ from Metodos.input_parser import (
     build_numeric_function,
 )
 
+"""
+╔════════════════════════════════════════════════════════════════╗
+║            MACHETE: MÉTODO NEWTON-RAPHSON                      ║
+╚════════════════════════════════════════════════════════════════╝
+
+DEFINICIÓN:
+Método iterativo que usa la derivada de f para encontrar raíces
+utilizando rectas tangentes.
+
+UTILIDAD:
+Hallar raíces con convergencia cuadrática rápida.
+Ideal para ecuaciones no lineales complejas.
+
+PASOS:
+1. Elegir x₀ inicial
+2. Calcular f(x_n) y f'(x_n)
+3. Calcular nuevo valor: x_{n+1} = x_n - f(x_n)/f'(x_n)
+4. Calcular error: |x_{n+1} - x_n|
+5. Si error < tol → convergió
+6. Si no → repetir con x_{n+1}
+
+FÓRMULA:
+x_{n+1} = x_n - f(x_n) / f'(x_n)
+Error: |x_{n+1} - x_n|
+
+REQUISITOS:
+• f(x) y f'(x) calculables
+• f'(x₀) ≠ 0
+• x₀ cercano a la raíz
+• Máximo de iteraciones
+"""
+
 def metodo_newton_raphson(
     funcion_str: str,
     x0: float,

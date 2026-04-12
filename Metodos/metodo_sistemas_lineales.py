@@ -2,6 +2,42 @@ import numpy as np
 
 from Metodos.input_parser import parse_real, parse_real_or_default, parse_int_or_default
 
+"""
+╔════════════════════════════════════════════════════════════════╗
+║          MACHETE: SISTEMAS LINEALES                            ║
+║  (Gauss-Jordan, Gauss-Seidel)                                  ║
+╚════════════════════════════════════════════════════════════════╝
+
+DEFINICIÓN:
+• Gauss-Jordan: Método directo que resuelve Ax=b mediante
+  eliminación y sustitución hasta obtener matriz identidad.
+• Gauss-Seidel: Método iterativo que resuelve Ax=b usando
+  aproximaciones sucesivas con valores actualizados.
+
+UTILIDAD:
+Resolver sistemas de ecuaciones lineales n×n.
+
+PASOS (Gauss-Jordan):
+1. Formar matriz aumentada [A|b]
+2. Para cada columna, hacer pivoteo parcial
+3. Normalizar fila del pivote
+4. Eliminar columna en otras filas
+5. Al final, matriz identidad → x = última columna
+
+PASOS (Gauss-Seidel):
+1. Elegir x₀ inicial
+2. Para cada ecuación: x_i^(k+1) = (b_i - Σ_{j<i} a_ij·x_j^(k+1) - Σ_{j>i} a_ij·x_j^(k)) / a_ii
+3. Calcular error de iteración
+4. Si error < tol → convergió
+
+REQUISITOS (Gauss-Jordan):
+• Matriz A cuadrada
+• Det(A) ≠ 0 (pivotes no nulos)
+
+REQUISITOS (Gauss-Seidel):
+• A diagonalmente dominante o simétrica positiva definida
+• Diagonal no nula (a_ii ≠ 0)
+"""
 
 def gauss_jordan(A, b, tol=1e-12):
     A = np.array(A, dtype=float)

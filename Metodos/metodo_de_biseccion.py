@@ -7,6 +7,39 @@ from Metodos.input_parser import (
     build_numeric_function,
 )
 
+"""
+╔════════════════════════════════════════════════════════════════╗
+║                    MACHETE: MÉTODO BISECCIÓN                   ║
+╚════════════════════════════════════════════════════════════════╝
+
+DEFINICIÓN:
+Método para hallar raíces de f(x)=0 dividiendo repetidamente un intervalo
+en dos mitades, descartando la que no contiene la raíz.
+
+UTILIDAD:
+Encontrar raíces de ecuaciones no lineales cuando f es continua.
+Garantiza convergencia si f(a)·f(b) < 0.
+
+PASOS:
+1. Verificar que f(a)·f(b) < 0 (signos opuestos)
+2. Calcular punto medio: c = (a+b)/2
+3. Evaluar f(c)
+4. Si |f(c)| < tol → convergió
+5. Si f(a)·f(c) < 0 → nueva región [a,c]
+6. Si no → nueva región [c,b]
+7. Repetir hasta convergencia
+
+FÓRMULA:
+c = (a + b) / 2
+Error absoluto: |c_nuevo - c_anterior|
+
+REQUISITOS:
+• f(x) continua en [a,b]
+• f(a)·f(b) < 0 (signos opuestos)
+• Tolerancia > 0
+• Máximo de iteraciones definido
+"""
+
 def _evaluar_numero(valor):
     """Convierte resultados de lambdify a float real y valida finitud."""
     if isinstance(valor, complex):

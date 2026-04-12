@@ -3,6 +3,44 @@ import sympy as sp
 
 from Metodos.input_parser import parse_real, parse_real_or_default, parse_int_or_default
 
+"""
+╔════════════════════════════════════════════════════════════════╗
+║       MACHETE: ECUACIONES DIFERENCIALES ORDINARIAS              ║
+║  (Euler, Runge-Kutta 4)                                        ║
+╚════════════════════════════════════════════════════════════════╝
+
+DEFINICIÓN:
+Resuelven dy/dx = f(x,y) numéricamente a partir de condición inicial.
+
+UTILIDAD:
+• Resolver EDO sin solución analítica.
+• Modelar sistemas dinámicos (física, biología, economía).
+
+PASOS (Euler):
+1. Condición inicial: (x₀, y₀)
+2. Para cada paso i: y_{i+1} = y_i + h·f(x_i, y_i)
+3. Completar n iteraciones
+
+PASOS (RK4 - Runge-Kutta 4to orden):
+1. Condición inicial: (x₀, y₀)
+2. Calcular k₁,k₂,k₃,k₄ usando pendientes en puntos estratégicos
+3. y_{i+1} = y_i + (h/6)·(k₁ + 2k₂ + 2k₃ + k₄)
+4. Completar n iteraciones
+
+FÓRMULAS:
+Euler: y_{i+1} = y_i + h·f(x_i, y_i)
+RK4: k₁ = f(x_i, y_i)
+     k₂ = f(x_i + h/2, y_i + h·k₁/2)
+     k₃ = f(x_i + h/2, y_i + h·k₂/2)
+     k₄ = f(x_i + h, y_i + h·k₃)
+     y_{i+1} = y_i + (h/6)(k₁ + 2k₂ + 2k₃ + k₄)
+
+REQUISITOS:
+• f(x,y) calculable
+• h > 0 (tamaño paso)
+• n > 0 (iteraciones)
+• RK4 es más preciso que Euler
+"""
 
 ALLOWED_LOCALS = {
     "e": sp.E,

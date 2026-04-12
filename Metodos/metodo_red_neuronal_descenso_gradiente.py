@@ -4,6 +4,43 @@ from matplotlib.animation import FuncAnimation
 
 from Metodos.input_parser import parse_real_or_default, parse_int_or_default
 
+"""
+╔════════════════════════════════════════════════════════════════╗
+║     MACHETE: DESCENSO DE GRADIENTE (RED NEURONAL SIMPLE)        ║
+╚════════════════════════════════════════════════════════════════╝
+
+DEFINICIÓN:
+Algoritmo de optimización iterativo que ajusta parámetros (w, b)
+moviéndose en dirección opuesta al gradiente para minimizar el costo.
+
+UTILIDAD:
+• Entrenar modelos lineales y = w·x + b.
+• Base de métodos de aprendizaje automático.
+• Minimizar función objetivo (MSE, pérdida).
+
+PASOS:
+1. Inicializar w y b aleatoriamente
+2. Para cada época:
+   a) Calcular predicciones: ŷ = w·x + b
+   b) Calcular costo: J = (1/m)·Σ(ŷ - y)²
+   c) Calcular gradientes: ∂J/∂w, ∂J/∂b
+   d) Actualizar: w := w - α·∂J/∂w
+   e) Actualizar: b := b - α·∂J/∂b
+3. Registrar historial
+
+FÓRMULAS:
+Costo: J = (1/m)·Σ(ŷ - y)²
+∂J/∂w = (2/m)·Σ(ŷ - y)·x
+∂J/∂b = (2/m)·Σ(ŷ - y)
+Actualización: w := w - α·∂J/∂w
+              b := b - α·∂J/∂b
+
+REQUISITOS:
+• α (learning rate) > 0 y pequeño (típico: 0.01-0.1)
+• Epocas > 0
+• Datos normalizados o centrados (recomendado)
+• Inicialización de semilla para reproducibilidad
+"""
 
 def dataset_prueba_pequeno():
     """Dataset pequeno para simular aprendizaje supervisado lineal."""

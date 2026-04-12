@@ -7,6 +7,38 @@ from Metodos.input_parser import (
     build_numeric_function,
 )
 
+"""
+╔════════════════════════════════════════════════════════════════╗
+║              MACHETE: MÉTODO PUNTO FIJO                        ║
+╚════════════════════════════════════════════════════════════════╝
+
+DEFINICIÓN:
+Método iterativo que transforma f(x)=0 en x=g(x) y aplica iteraciones
+para converger a un punto fijo de g.
+
+UTILIDAD:
+Hallar raíces reescribiendo la ecuación como x = g(x).
+Útil cuando la transformación es más simple que Newton-Raphson.
+
+PASOS:
+1. Transformar f(x)=0 en x = g(x)
+2. Elegir x₀ inicial
+3. Iterar: x_{n+1} = g(x_n)
+4. Calcular error: |x_{n+1} - x_n|
+5. Si error < tol → convergió
+6. Si no → repetir paso 3
+
+FÓRMULA:
+x_{n+1} = g(x_n)
+Error absoluto: |x_{n+1} - x_n|
+
+REQUISITOS:
+• |g'(x)| < 1 en la región de convergencia (contracción)
+• g continua
+• x₀ suficientemente cercano a la raíz
+• Máximo de iteraciones
+"""
+
 def _evaluar_numero(valor):
     """Convierte resultados de lambdify a float real y valida finitud."""
     if isinstance(valor, complex):

@@ -3,6 +3,37 @@ import matplotlib.pyplot as plt
 
 from Metodos.input_parser import parse_real, parse_int_or_default
 
+"""
+╔════════════════════════════════════════════════════════════════╗
+║            MACHETE: AJUSTE DE CURVAS / REGRESIÓN               ║
+╚════════════════════════════════════════════════════════════════╝
+
+DEFINICIÓN:
+Técnica para encontrar una función que mejor aproxima un conjunto
+de datos discretos.
+
+UTILIDAD:
+• Ajuste lineal: y = mx + b (relaciones lineales)
+• Ajuste polinomial: y = a₀ + a₁x + a₂x² + ... (relaciones curvas)
+Usado en análisis de datos, predicción.
+
+PASOS:
+1. Organizar datos (x, y)
+2. Elegir modelo (lineal/polinomial)
+3. Resolver sistema de ecuaciones normales (mínimos cuadrados)
+4. Calcular coeficientes
+5. Obtener ecuación ajustada
+6. Calcular R² (bondad de ajuste)
+
+FÓRMULA (Lineal):
+y = mx + b (minimizar Σ(y - ŷ)²)
+R² = 1 - Σ(residuos)² / Σ(y - ȳ)²
+
+REQUISITOS:
+• Mínimo 2 puntos (lineal), n+1 puntos (grado n)
+• Puntos con x distintos
+• Valores finitos
+"""
 
 def normalizar_xy(x_vals, y_vals):
     x = np.array(x_vals, dtype=float)

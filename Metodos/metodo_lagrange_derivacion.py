@@ -2,6 +2,37 @@ import numpy as np
 import sympy as sp
 import math
 
+"""
+╔════════════════════════════════════════════════════════════════╗
+║         MACHETE: INTERPOLACIÓN POLINOMIAL LAGRANGE              ║
+╚════════════════════════════════════════════════════════════════╝
+
+DEFINICIÓN:
+Técnica que construye un polinomio de grado n que pasa por n+1
+puntos dados, permitiendo estimar valores intermedios.
+
+UTILIDAD:
+• Interpolar valores entre puntos conocidos.
+• Aproximar derivadas numéricamente.
+• Reconstruir funciones a partir de datos discretos.
+
+PASOS:
+1. Obtener n+1 puntos (x_i, y_i) distintos en x
+2. Construir bases de Lagrange L_i(x)
+3. Polinomio: P(x) = Σ y_i · L_i(x)
+4. Evaluar P(x) en puntos deseados
+5. Derivar P(x) para obtener velocidades
+
+FÓRMULA (Base Lagrange):
+L_i(x) = ∏_{j≠i} (x - x_j) / (x_i - x_j)
+P(x) = Σ_{i=0}^n y_i · L_i(x)
+
+REQUISITOS:
+• Mínimo 2 puntos
+• Puntos con x distintos
+• Valores y finitos
+• Se asume continuidad entre puntos
+"""
 
 def _locals_simbolicos():
     """Diccionario de funciones/constantes permitidas para sympify."""

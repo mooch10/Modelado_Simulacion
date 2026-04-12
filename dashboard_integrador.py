@@ -53,6 +53,248 @@ ALLOWED_LOCALS = {
 }
 
 
+MACHETES_TEORICOS = {
+    "Newton-Raphson": {
+        "definicion": "Método iterativo que usa la derivada de f para encontrar raíces utilizando rectas tangentes.",
+        "utilidad": "Hallar raíces con convergencia cuadrática rápida. Ideal para ecuaciones no lineales complejas.",
+        "pasos": [
+            "1. Elegir x_0 inicial",
+            "2. Calcular f(x_n) y f'(x_n)",
+            "3. Calcular nuevo valor: x_(n+1) = x_n - f(x_n)/f'(x_n)",
+            "4. Calcular error: |x_(n+1) - x_n|",
+            "5. Si error < tol => convergió",
+            "6. Si no => repetir con x_(n+1)"
+        ],
+        "formulas": [
+            r"$x_{n+1} = x_n - \frac{f(x_n)}{f'(x_n)}$",
+            r"$\text{Error: } e_n = |x_{n+1} - x_n|$"
+        ],
+        "requisitos": [
+            "• f(x) y f'(x) calculables",
+            "• f'(x_0) != 0",
+            "• x_0 cercano a la raiz",
+            "• Maximo de iteraciones"
+        ]
+    },
+    "Aitken": {
+        "definicion": "Técnica de aceleración que usa tres iteraciones sucesivas de punto fijo para obtener mejor aproximación sin cálculos adicionales.",
+        "utilidad": "Mejorar velocidad de convergencia del método de punto fijo. Reduce iteraciones necesarias sin derivadas.",
+        "pasos": [
+            "1. Calcular x_0, x_1, x_2 usando punto fijo",
+            "2. Aplicar fórmula de aceleración",
+            "3. Usar x* como nueva aproximación",
+            "4. Calcular error",
+            "5. Si error < tol => convergió",
+            "6. Si no => iterar nuevamente"
+        ],
+        "formulas": [
+            r"$x^* = x_0 - \frac{(x_1 - x_0)^2}{x_2 - 2x_1 + x_0}$",
+            r"$e_n = |x^* - x_0|$"
+        ],
+        "requisitos": [
+            "• Punto fijo convergente",
+            "• Denominador (x_2 - 2*x_1 + x_0) != 0",
+            "• Tres iteraciones iniciales disponibles"
+        ]
+    },
+    "Biseccion": {
+        "definicion": "Método para hallar raíces de f(x)=0 dividiendo repetidamente un intervalo en dos mitades, descartando la que no contiene la raíz.",
+        "utilidad": "Encontrar raíces de ecuaciones no lineales cuando f es continua. Garantiza convergencia si f(a)*f(b) < 0.",
+        "pasos": [
+            "1. Verificar que f(a)*f(b) < 0 (signos opuestos)",
+            "2. Calcular punto medio: c = (a+b)/2",
+            "3. Evaluar f(c)",
+            "4. Si |f(c)| < tol => convergió",
+            "5. Si f(a)*f(c) < 0 => nueva región [a,c]",
+            "6. Si no => nueva región [c,b]",
+            "7. Repetir hasta convergencia"
+        ],
+        "formulas": [
+            r"$c = \frac{a + b}{2}$",
+            r"$e_n = |c_{\text{nuevo}} - c_{\text{anterior}}|$"
+        ],
+        "requisitos": [
+            "• f(x) continua en [a,b]",
+            "• f(a)*f(b) < 0 (signos opuestos)",
+            "• Tolerancia > 0",
+            "• Maximo de iteraciones definido"
+        ]
+    },
+    "Punto Fijo": {
+        "definicion": "Método iterativo que transforma f(x)=0 en x=g(x) y aplica iteraciones para converger a un punto fijo de g.",
+        "utilidad": "Hallar raíces reescribiendo la ecuación como x = g(x). Útil cuando la transformación es más simple que Newton-Raphson.",
+        "pasos": [
+            "1. Transformar f(x)=0 en x = g(x)",
+            "2. Elegir x_0 inicial",
+            "3. Iterar: x_(n+1) = g(x_n)",
+            "4. Calcular error: |x_(n+1) - x_n|",
+            "5. Si error < tol => convergió",
+            "6. Si no => repetir paso 3"
+        ],
+        "formulas": [
+            r"$x_{n+1} = g(x_n)$",
+            r"$e_n = |x_{n+1} - x_n|$"
+        ],
+        "requisitos": [
+            "• |g'(x)| < 1 en región de convergencia",
+            "• g continua",
+            "• x_0 suficientemente cercano a la raiz",
+            "• Maximo de iteraciones"
+        ]
+    },
+    "Lagrange + Derivacion": {
+        "definicion": "Interpolación polinomial que construye un polinomio de grado n que pasa por n+1 puntos dados, permitiendo estimar valores intermedios y derivadas.",
+        "utilidad": "Interpolar valores entre puntos conocidos. Aproximar derivadas numéricamente. Reconstruir funciones a partir de datos discretos.",
+        "pasos": [
+            "1. Obtener n+1 puntos (x_i, y_i) distintos en x",
+            "2. Construir bases de Lagrange L_i(x)",
+            "3. Polinomio: P(x) = suma de y_i * L_i(x)",
+            "4. Evaluar P(x) en puntos deseados",
+            "5. Derivar P(x) para obtener velocidades"
+        ],
+        "formulas": [
+            r"$L_i(x) = \prod_{j \neq i} \frac{x - x_j}{x_i - x_j}$",
+            r"$P(x) = \sum_{i=0}^{n} y_i \cdot L_i(x)$"
+        ],
+        "requisitos": [
+            "• Minimo 2 puntos",
+            "• Puntos con x distintos",
+            "• Valores y finitos",
+            "• Se asume continuidad entre puntos"
+        ]
+    },
+    "Integracion Numerica": {
+        "definicion": "Aproximar integral definida ∫_a^b f(x)dx mediante sumas de áreas de figuras geométricas simples.",
+        "utilidad": "Integrar cuando hay solución analítica compleja. Integrar datos tabulados sin función explícita.",
+        "pasos": [
+            "1. Dividir [a,b] en n subintervalos de ancho h = (b-a)/n",
+            "2. Evaluar f en puntos de la malla",
+            "3. Aplicar regla específica (rectángulos/trapecios/Simpson)",
+            "4. Sumar para obtener integral aproximada"
+        ],
+        "formulas": [
+            r"$I \approx h \sum_{i} f(x_i) \quad \text{(Rectángulos)}$",
+            r"$I \approx \frac{h}{2} [f(x_0) + 2\sum f(x_i) + f(x_n)] \quad \text{(Trapecios)}$",
+            r"$I \approx \frac{h}{3} [f(x_0) + 4\sum f(x_{\text{impar}}) + 2\sum f(x_{\text{par}}) + f(x_n)] \quad \text{(Simpson 1/3)}$"
+        ],
+        "requisitos": [
+            "• a < b",
+            "• n > 0 (subintervalos)",
+            "• f continua en [a,b]",
+            "• n par (para Simpson)"
+        ]
+    },
+    "Ajuste de Curvas": {
+        "definicion": "Técnica para encontrar una función que mejor aproxima un conjunto de datos discretos.",
+        "utilidad": "Ajuste lineal: y = mx + b (relaciones lineales). Ajuste polinomial: y = a_0 + a_1*x + a_2*x^2 + ... (relaciones curvas).",
+        "pasos": [
+            "1. Organizar datos (x, y)",
+            "2. Elegir modelo (lineal/polinomial)",
+            "3. Resolver sistema de ecuaciones normales (minimos cuadrados)",
+            "4. Calcular coeficientes",
+            "5. Obtener ecuación ajustada",
+            "6. Calcular R^2 (bondad de ajuste)"
+        ],
+        "formulas": [
+            r"$\hat{y} = mx + b \quad \text{(lineal)}$",
+            r"$R^2 = 1 - \frac{\sum (y - \hat{y})^2}{\sum (y - \bar{y})^2}$"
+        ],
+        "requisitos": [
+            "• Minimo 2 puntos (lineal), n+1 puntos (grado n)",
+            "• Puntos con x distintos",
+            "• Valores finitos"
+        ]
+    },
+    "Sistemas Lineales": {
+        "definicion": "Métodos para resolver sistemas de ecuaciones lineales de la forma Ax=b. Gauss-Jordan (directo) y Gauss-Seidel (iterativo).",
+        "utilidad": "Resolver sistemas de ecuaciones lineales n×n.",
+        "pasos": [
+            "Gauss-Jordan: 1) Matriz aumentada [A|b] 2) Pivoteo 3) Normalización 4) Matriz identidad => solución",
+            "Gauss-Seidel: 1) x_0 inicial 2) Actualizar cada x_i usando valores nuevos y viejos 3) Iterar hasta convergencia"
+        ],
+        "formulas": [
+            r"$A \mathbf{x} = \mathbf{b} \quad \text{(sistema lineal)}$",
+            r"$x_i^{(k+1)} = \frac{1}{a_{ii}} \left(b_i - \sum_{j<i} a_{ij}x_j^{(k+1)} - \sum_{j>i} a_{ij}x_j^{(k)}\right)$"
+        ],
+        "requisitos": [
+            "• Gauss-Jordan: Matriz A cuadrada, Det(A) != 0",
+            "• Gauss-Seidel: A diagonalmente dominante"
+        ]
+    },
+    "EDO": {
+        "definicion": "Métodos para resolver ecuaciones diferenciales ordinarias dy/dx = f(x,y) numéricamente a partir de condición inicial.",
+        "utilidad": "Resolver EDO sin solución analítica. Modelar sistemas dinámicos (física, biología, economía).",
+        "pasos": [
+            "Euler: 1) Condición inicial (x_0, y_0) 2) y_(i+1) = y_i + h*f(x_i, y_i) 3) Completar n iteraciones",
+            "RK4: 1) Calcular k_1, k_2, k_3, k_4 en puntos estratégicos 2) y_(i+1) = y_i + (h/6)*(k_1+2*k_2+2*k_3+k_4)"
+        ],
+        "formulas": [
+            r"$y_{i+1} = y_i + h \cdot f(x_i, y_i) \quad \text{(Euler)}$",
+            r"$y_{i+1} = y_i + \frac{h}{6}(k_1 + 2k_2 + 2k_3 + k_4) \quad \text{(RK4)}$"
+        ],
+        "requisitos": [
+            "• f(x,y) calculable",
+            "• h > 0 (tamanio paso)",
+            "• n > 0 (iteraciones)",
+            "• RK4 es mas preciso que Euler"
+        ]
+    },
+    "Red Neuronal GD": {
+        "definicion": "Algoritmo de optimización iterativo que ajusta parámetros (w, b) moviéndose en dirección opuesta al gradiente para minimizar el costo.",
+        "utilidad": "Entrenar modelos lineales y = w*x + b. Base de métodos de aprendizaje automático. Minimizar función objetivo (MSE, pérdida).",
+        "pasos": [
+            "1. Inicializar w y b aleatoriamente",
+            "2. Para cada época: a) Calcular predicciones y_hat = w*x + b",
+            "   b) Calcular costo J = (1/m)*suma(y_hat - y)^2",
+            "   c) Calcular gradientes dJ/dw, dJ/db",
+            "   d) Actualizar w := w - alpha*dJ/dw",
+            "   e) Actualizar b := b - alpha*dJ/db",
+            "3. Registrar historial"
+        ],
+        "formulas": [
+            r"$J = \frac{1}{m} \sum_{i=1}^{m} (\hat{y}_i - y_i)^2$",
+            r"$\frac{\partial J}{\partial w} = \frac{2}{m} \sum_{i} (\hat{y}_i - y_i) \cdot x_i$",
+            r"$w := w - \alpha \cdot \frac{\partial J}{\partial w}$"
+        ],
+        "requisitos": [
+            "• alpha (learning rate) > 0 y pequeño (0.01-0.1)",
+            "• Epocas > 0",
+            "• Datos normalizados o centrados (recomendado)",
+            "• Inicialización de semilla para reproducibilidad"
+        ]
+    }
+}
+
+
+def mostrar_machete(metodo_nombre):
+    """Muestra el machete teórico de un método en un expander."""
+    if metodo_nombre not in MACHETES_TEORICOS:
+        return
+    
+    machete = MACHETES_TEORICOS[metodo_nombre]
+    with st.expander(f"📚 Machete Teórico: {metodo_nombre}", expanded=False):
+        st.markdown(f"**DEFINICIÓN**  \n{machete['definicion']}")
+        st.markdown(f"**UTILIDAD**  \n{machete['utilidad']}")
+        
+        st.markdown("**PASOS**")
+        for paso in machete['pasos']:
+            st.markdown(f"- {paso}")
+        
+        st.markdown("**FÓRMULAS**")
+        for formula in machete['formulas']:
+            # Remover los signos $ al inicio y final si existen
+            formula_clean = formula.strip()
+            if formula_clean.startswith("$") and formula_clean.endswith("$"):
+                formula_clean = formula_clean[1:-1]
+            elif formula_clean.startswith(r"$") and formula_clean.endswith(r"$"):
+                formula_clean = formula_clean[1:-1]
+            st.latex(formula_clean)
+        
+        st.markdown("**REQUISITOS**")
+        for req in machete['requisitos']:
+            st.markdown(f"- {req}")
+
+
 PALETAS_DASHBOARD = {
     "Viva": {
         "accent_1": "#00E5FF",
@@ -3248,6 +3490,7 @@ def main():
     )
 
     with tabs[0]:
+        mostrar_machete("Newton-Raphson")
         section_newton()
         render_panel_formulas(
             "Formulario de Newton-Raphson",
@@ -3260,6 +3503,7 @@ def main():
             "Newton-Raphson",
         )
     with tabs[1]:
+        mostrar_machete("Aitken")
         section_aitken()
         render_panel_formulas(
             "Formulario de Aitken",
@@ -3272,6 +3516,7 @@ def main():
             "Aitken",
         )
     with tabs[2]:
+        mostrar_machete("Biseccion")
         section_biseccion()
         render_panel_formulas(
             "Formulario de Biseccion",
@@ -3284,6 +3529,7 @@ def main():
             "Biseccion",
         )
     with tabs[3]:
+        mostrar_machete("Punto Fijo")
         section_punto_fijo()
         render_panel_formulas(
             "Formulario de Punto Fijo",
@@ -3296,6 +3542,7 @@ def main():
             "Punto Fijo",
         )
     with tabs[4]:
+        st.markdown("### Comparación de 4 métodos de búsqueda de raíces")
         section_comparativa()
         render_panel_formulas(
             "Formulario de Comparativa",
@@ -3308,6 +3555,7 @@ def main():
             "Comparativa",
         )
     with tabs[5]:
+        mostrar_machete("Lagrange + Derivacion")
         section_lagrange()
         render_panel_formulas(
             "Formulario de Lagrange y Derivacion",
@@ -3320,6 +3568,7 @@ def main():
             "Lagrange + Derivacion",
         )
     with tabs[6]:
+        mostrar_machete("Integracion Numerica")
         section_integracion_numerica()
         render_panel_formulas(
             "Formulario de Integracion Numerica",
@@ -3336,6 +3585,7 @@ def main():
     with tabs[8]:
         section_montecarlo_2d()
     with tabs[9]:
+        mostrar_machete("Ajuste de Curvas")
         section_ajuste_curvas()
         render_panel_formulas(
             "Formulario de Ajuste de Curvas",
@@ -3348,6 +3598,7 @@ def main():
             "Ajuste de Curvas",
         )
     with tabs[10]:
+        mostrar_machete("Sistemas Lineales")
         section_sistemas_lineales()
         render_panel_formulas(
             "Formulario de Sistemas Lineales",
@@ -3360,6 +3611,7 @@ def main():
             "Sistemas Lineales",
         )
     with tabs[11]:
+        mostrar_machete("EDO")
         section_edo()
         render_panel_formulas(
             "Formulario de EDO",
@@ -3372,6 +3624,7 @@ def main():
             "EDO",
         )
     with tabs[12]:
+        mostrar_machete("Red Neuronal GD")
         section_red_neuronal_descenso()
         render_panel_formulas(
             "Formulario de Red Neuronal GD",
