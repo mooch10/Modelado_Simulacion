@@ -1351,6 +1351,18 @@ FORMULAS_POR_APARTADO = {
         r"I\approx\frac{h}{3}\left[f(x_0)+f(x_n)+4\sum f(x_{impar})+2\sum f(x_{par})\right]\ \text{(Simpson 1/3)}",
         r"I\approx\frac{3h}{8}\left[f(x_0)+f(x_n)+3\sum f(x_{i\not\equiv0\ (3)})+2\sum f(x_{i\equiv0\ (3)})\right]\ \text{(Simpson 3/8)}",
     ],
+    "Monte Carlo": [
+        r"I\approx(b-a)\,\frac{1}{n}\sum_{i=1}^{n}f(x_i),\quad x_i\sim U(a,b)",
+        r"\widehat{\sigma}_I=\sqrt{\frac{(b-a)^2}{n}\,\widehat{\mathrm{Var}}(f(x_i))}",
+        r"IC_{1-\alpha}:\ I\pm z_{1-\alpha/2}\,\widehat{\sigma}_I",
+        r"\widehat{e}_{MC}=\mathcal{O}(n^{-1/2})",
+    ],
+    "Monte Carlo 2D": [
+        r"I\approx(b-a)(d-c)\,\frac{1}{n}\sum_{i=1}^{n}f(x_i,y_i),\ (x_i,y_i)\sim U([a,b]\times[c,d])",
+        r"\widehat{\sigma}_I=\sqrt{\frac{[(b-a)(d-c)]^2}{n}\,\widehat{\mathrm{Var}}(f(x_i,y_i))}",
+        r"IC_{1-\alpha}:\ I\pm z_{1-\alpha/2}\,\widehat{\sigma}_I",
+        r"\widehat{e}_{MC}=\mathcal{O}(n^{-1/2})",
+    ],
     "Ajuste de Curvas": [
         r"\hat{y}=a x+b\ \text{(lineal)}",
         r"\hat{y}=\sum_{k=0}^{m} a_k x^k\ \text{(polinomial)}",
@@ -1424,6 +1436,20 @@ SIMBOLOS_POR_APARTADO = {
         r"$h=(b-a)/n$: paso",
         r"$x_i=a+ih$: nodos",
     ],
+    "Monte Carlo": [
+        r"$a,b$: limites del intervalo",
+        r"$x_i$: muestra uniforme en $[a,b]$",
+        r"$n$: cantidad de muestras aleatorias",
+        r"$\widehat{\sigma}_I$: desviacion estandar del estimador",
+        r"$z$: cuantil normal para el nivel de confianza",
+    ],
+    "Monte Carlo 2D": [
+        r"$a,b$: limites en eje $x$",
+        r"$c,d$: limites en eje $y$",
+        r"$(x_i,y_i)$: muestra uniforme en el rectangulo",
+        r"$A=(b-a)(d-c)$: area de integracion",
+        r"$\widehat{\sigma}_I$: desviacion estandar del estimador",
+    ],
     "Ajuste de Curvas": [
         r"$y_i$: valor observado",
         r"$\hat{y}_i$: valor ajustado",
@@ -1490,6 +1516,18 @@ CONDICIONES_POR_APARTADO = {
         "Simpson 1/3: n par.",
         "Simpson 3/8: n multiplo de 3.",
         "f(x) debe ser integrable en [a,b] (singularidades removibles se tratan con limite).",
+    ],
+    "Monte Carlo": [
+        "Se requiere b > a y n >= 1.",
+        "f(x) debe evaluarse de forma finita en la mayor parte del intervalo.",
+        "La precision mejora al aumentar n (convergencia estadistica).",
+        "Para reproducibilidad, usar semilla fija.",
+    ],
+    "Monte Carlo 2D": [
+        "Se requiere b > a, d > c y n >= 1.",
+        "f(x,y) debe poder evaluarse en los puntos muestreados.",
+        "La region de integracion debe ser rectangular [a,b]x[c,d].",
+        "La precision mejora al aumentar n (orden Monte Carlo).",
     ],
     "Ajuste de Curvas": [
         "x e y deben tener la misma cantidad de datos.",
@@ -1627,6 +1665,40 @@ PASOS_POR_APARTADO = {
             "titulo": "Cota de truncamiento",
             "simbolico": r"$|E_T|\le C\,h^p\max|f^{(k)}(x)|$",
             "numerico": "Se reemplaza h y la derivada maxima estimada en el intervalo.",
+        },
+    ],
+    "Monte Carlo": [
+        {
+            "titulo": "Muestreo uniforme",
+            "simbolico": r"$x_i\sim U(a,b),\ i=1,\dots,n$",
+            "numerico": "Se generan n puntos aleatorios en [a,b].",
+        },
+        {
+            "titulo": "Estimador de la integral",
+            "simbolico": r"$I\approx (b-a)\,\bar f,\ \bar f=\frac{1}{n}\sum f(x_i)$",
+            "numerico": "Se calcula el promedio de f(x_i) y se multiplica por (b-a).",
+        },
+        {
+            "titulo": "Incertidumbre e intervalo",
+            "simbolico": r"$\widehat{\sigma}_I=\sqrt{\frac{(b-a)^2}{n}\widehat{Var}(f)}\ ,\ IC=I\pm z\widehat{\sigma}_I$",
+            "numerico": "Con confianza elegida se calcula z y luego el margen z*sigma.",
+        },
+    ],
+    "Monte Carlo 2D": [
+        {
+            "titulo": "Muestreo en area rectangular",
+            "simbolico": r"$(x_i,y_i)\sim U([a,b]\times[c,d])$",
+            "numerico": "Se generan n pares aleatorios dentro del rectangulo.",
+        },
+        {
+            "titulo": "Estimador de integral doble",
+            "simbolico": r"$I\approx A\,\bar f,\ A=(b-a)(d-c),\ \bar f=\frac{1}{n}\sum f(x_i,y_i)$",
+            "numerico": "Se promedia f(x_i,y_i) y se multiplica por el area A.",
+        },
+        {
+            "titulo": "Incertidumbre e intervalo",
+            "simbolico": r"$\widehat{\sigma}_I=\sqrt{\frac{A^2}{n}\widehat{Var}(f)}\ ,\ IC=I\pm z\widehat{\sigma}_I$",
+            "numerico": "Se reporta desviacion del estimador y el intervalo de confianza.",
         },
     ],
     "Ajuste de Curvas": [
@@ -1767,6 +1839,23 @@ DESGLOSE_COMPLETO_POR_APARTADO = {
         "Si hay referencia, calcular error absoluto y relativo.",
         "Estimar cota de truncamiento y mostrar sustitucion numerica.",
         "Graficar aproximacion geometrica del metodo elegido.",
+    ],
+    "Monte Carlo": [
+        "Definir f(x), intervalo [a,b], n y nivel de confianza.",
+        "Generar n muestras uniformes x_i en [a,b].",
+        "Evaluar y_i=f(x_i) y calcular promedio muestral.",
+        "Estimar integral con I=(b-a)*promedio(y_i).",
+        "Estimar varianza muestral de y_i y sigma del estimador.",
+        "Construir intervalo de confianza I +- z*sigma.",
+        "Reportar tabla de puntos y grafico con muestras aleatorias.",
+    ],
+    "Monte Carlo 2D": [
+        "Definir f(x,y), rectangulo [a,b]x[c,d], n y confianza.",
+        "Generar muestras uniformes (x_i,y_i) en la region.",
+        "Evaluar z_i=f(x_i,y_i) y calcular promedio de z_i.",
+        "Estimar integral con I=A*promedio(z_i), A=(b-a)(d-c).",
+        "Estimar dispersion y construir intervalo de confianza.",
+        "Mostrar tabla de muestras y nube de puntos coloreada por f(x,y).",
     ],
     "Ajuste de Curvas": [
         "Ingresar pares (x_i,y_i) y elegir tipo de regresion.",
@@ -2751,7 +2840,8 @@ def section_montecarlo():
         with c3:
             usar_error_max = st.checkbox("Usar error máximo permitido", value=False)
             error_max = st.number_input("Error máximo permitido", value=0.01, min_value=0.0001, format="%.6f") if usar_error_max else None
-            run_btn = st.form_submit_button("Calcular integral")
+
+        run_btn = st.form_submit_button("Calcular integral")
 
     if run_btn:
         try:
@@ -2876,6 +2966,20 @@ def section_montecarlo():
             render_chart(fig)
             plt.close(fig)
 
+            promedio_fx = float(np.mean(y_nodes))
+            cuentas = [
+                rf"I_{{MC}}=(b-a)\,\overline{{f}}",
+                rf"a={_num(a_val)},\ b={_num(b_val)},\ n={int(num_puntos)}",
+                rf"\overline{{f}}={_num(promedio_fx, 12)}",
+                rf"I_{{MC}}={_num(integral, 12)}",
+                rf"\hat{{\sigma}}_I={_num(std, 12)}",
+                rf"IC_{{{_num(confianza, 6)}\%}}=[{_num(lower, 12)},\ {_num(upper, 12)}]",
+            ]
+            if usar_error_max and error_max is not None:
+                cuentas.append(rf"n_{{efectivo}}={int(num_puntos)}\ \text{{(acumulado por iteraciones)}}")
+                cuentas.append(rf"\text{{objetivo de error}}={_num(error_max, 12)}")
+            guardar_cuentas("Monte Carlo", cuentas)
+
         except Exception as exc:
             st.error(f"Error en Monte Carlo: {exc}")
 
@@ -2965,6 +3069,18 @@ def section_montecarlo_2d():
             ax.grid(alpha=0.3)
             render_chart(fig)
             plt.close(fig)
+
+            area = (b_val - a_val) * (d_val - c_val)
+            promedio_fxy = float(np.nanmean(z_nodes))
+            cuentas = [
+                rf"A=(b-a)(d-c)=({_num(b_val)}-{_num(a_val)})({_num(d_val)}-{_num(c_val)})={_num(area, 12)}",
+                rf"I_{{MC2D}}=A\,\overline{{f}},\ \overline{{f}}=\frac{{1}}{{n}}\sum_{{i=1}}^n f(x_i,y_i)",
+                rf"\overline{{f}}={_num(promedio_fxy, 12)}",
+                rf"I_{{MC2D}}={_num(integral, 12)}",
+                rf"\hat{{\sigma}}_I={_num(std, 12)}",
+                rf"IC_{{{_num(confianza, 6)}\%}}=[{_num(lower, 12)},\ {_num(upper, 12)}]",
+            ]
+            guardar_cuentas("Monte Carlo 2D", cuentas)
 
         except Exception as exc:
             st.error(f"Error en integral doble: {exc}")
@@ -3582,8 +3698,28 @@ def main():
         )
     with tabs[7]:
         section_montecarlo()
+        render_panel_formulas(
+            "Formulario de Integracion por Monte Carlo",
+            FORMULAS_POR_APARTADO["Monte Carlo"],
+            SIMBOLOS_POR_APARTADO["Monte Carlo"],
+            CONDICIONES_POR_APARTADO["Monte Carlo"],
+            PASOS_POR_APARTADO["Monte Carlo"],
+            st.session_state.get("show_step_by_step_all", False),
+            DESGLOSE_COMPLETO_POR_APARTADO["Monte Carlo"],
+            "Monte Carlo",
+        )
     with tabs[8]:
         section_montecarlo_2d()
+        render_panel_formulas(
+            "Formulario de Integracion Doble por Monte Carlo",
+            FORMULAS_POR_APARTADO["Monte Carlo 2D"],
+            SIMBOLOS_POR_APARTADO["Monte Carlo 2D"],
+            CONDICIONES_POR_APARTADO["Monte Carlo 2D"],
+            PASOS_POR_APARTADO["Monte Carlo 2D"],
+            st.session_state.get("show_step_by_step_all", False),
+            DESGLOSE_COMPLETO_POR_APARTADO["Monte Carlo 2D"],
+            "Monte Carlo 2D",
+        )
     with tabs[9]:
         mostrar_machete("Ajuste de Curvas")
         section_ajuste_curvas()
