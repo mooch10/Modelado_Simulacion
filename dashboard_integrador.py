@@ -2389,9 +2389,154 @@ DESGLOSE_COMPLETO_POR_APARTADO = {
 }
 
 
+CASOS_PRACTICOS = {
+    "Newton-Raphson": {
+        "nombre": "🏀 Altura máxima de balón",
+        "descripcion": "Un jugador lanza una pelota. La altura h(t) = 20*t - 5*t² metros a los t segundos. Hallar el tiempo exacto donde la altura es máxima (donde h'(t) = 0, es decir: 20 - 10*t = 0)",
+        "funcion": "20 - 10*x",
+        "x0": 1.5,
+        "tol": 1e-8,
+        "max_iter": 50,
+        "aplicacion": "En deportes y física, encontrar el pico de trayectoria es común. Newton-Raphson resuelve instantáneamente el tiempo exacto del punto más alto sin necesidad de prueba y error."
+    },
+    "Aitken": {
+        "nombre": "🎮 Nivel de jugador videojuego",
+        "descripcion": "Videojuego donde nivel aumenta lentamente: nivel_{n+1} = 0.7*nivel_n + 30. Jugador quiere saber ¿cuál será mi nivel final si sigo jugando? Aitken lo predice rápidamente sin esperar 100 partidas.",
+        "g": "0.7*x + 30",
+        "x0": 0.0,
+        "tol": 1e-10,
+        "max_iter": 50,
+        "aplicacion": "En videojuegos, apps, y sistemas que convergen lentamente, Aitken predice el resultado final sin esperar. Juega 3 veces rápido y Aitken te dice cuándo llegarás a máximo nivel."
+    },
+    "Biseccion": {
+        "nombre": "� Nivel de dificultad en videojuego",
+        "descripcion": "Videojuego tiene slider de dificultad 1-100. Muy bajo = ganas siempre, muy alto = imposible. Bisección encuentra el nivel exacto donde tienes 50% de ganar. ¡Tu nivel ideal!",
+        "funcion": "sin(x/50 - 1) - 0.3",
+        "a": 1.0,
+        "b": 100.0,
+        "tol": 1e-4,
+        "max_iter": 50,
+        "aplicacion": "En diseño de juegos, apps de fitness, y controles inteligentes, bisección encuentra el punto perfecto. Divide el rango a la mitad cada vez hasta encontrar el equilibrio exacto."
+    },
+    "Punto Fijo": {
+        "nombre": "💬 Trending topic en redes",
+        "descripcion": "Hashtag #viral crece y luego decrece. Cada hora: tweets_{n+1} = 0.9*tweets_n + 5000. ¿Cuántos tweets en equilibrio? Itera hasta que el número se estabiliza.",
+        "g": "0.9*x + 5000",
+        "x0": 10000.0,
+        "tol": 1e-3,
+        "max_iter": 100,
+        "aplicacion": "En redes sociales y fenómenos virales, punto fijo predice cuándo un hashtag se estabiliza. Sin fórmulas complejas, solo iterar hasta que el número de tweets no cambie más."
+    },
+    "Lagrange + Derivacion": {
+        "nombre": "� Velocidad en una carretera",
+        "descripcion": "GPS marca posición cada 10 segundos: (0, 0 km), (10, 2.5 km), (20, 5 km). Lagrange interpola: ¿dónde estabas a los 7 segundos? Derivada = velocidad en ese momento (qué tan rápido ibas).",
+        "datos_x": [0, 10, 20],
+        "datos_y": [0, 2.5, 5],
+        "punto": 7.0,
+        "aplicacion": "En navegación GPS, apps de fitness y deportes wearables, tienes mediciones cada pocos segundos pero necesitas posición/velocidad precisa entre puntos. Lagrange lo hace suavemente."
+    },
+    "Integracion Numerica": {
+        "nombre": "🏊 Volumen de una piscina irregular",
+        "descripcion": "Piscina con profundidad variable: d(x) = 2 + sin(x). Ancho 10 metros. Integrar profundidad = volumen total de agua. Simpson calcula litros sin medir cada punto.",
+        "funcion": "2 + sin(x)",
+        "a": 0.0,
+        "b": 10.0,
+        "n": 20,
+        "aplicacion": "En construcción, parques acuáticos, y diseño, necesitas volumen total sin levantar cada sección. Integración numérica suma automáticamente usando pocos datos."
+    },
+    "Ajuste de Curvas": {
+        "nombre": "🏋️ Progreso en el gimnasio",
+        "descripcion": "Peso levantado cada semana: (1, 20kg), (2, 22kg), (3, 25kg), (4, 28kg), (5, 32kg). Ajuste polinomial predice: ¿cuánto levantarás en semana 8?",
+        "datos_x": [1, 2, 3, 4, 5],
+        "datos_y": [20, 22, 25, 28, 32],
+        "tipo": "polinomial",
+        "grado": 2,
+        "aplicacion": "En fitness, salud y deportes, ajuste de curvas predice progreso. Ingresa datos de semanas pasadas, obtén predicción de futuro sin cálculos complejos."
+    },
+    "Monte Carlo": {
+        "nombre": "🎲 Probabilidad de ganar la Loto",
+        "descripcion": "Simular 100000 tiradas de Loto. Contar cuántas veces ganas el premio mayor. Monte Carlo estima: ¿cuál es MI probabilidad real de ganar?",
+        "funcion": "1 if x > 0.99 else 0",
+        "a": 0.0,
+        "b": 1.0,
+        "n": 100000,
+        "aplicacion": "En juegos de azar, seguros, y riesgos, Monte Carlo simula millones de escenarios para responder \\\"¿cuál es la probabilidad real?\\\". Sin fórmulas complicadas, solo simulación."
+    },
+    "Sistemas Lineales": {
+        "nombre": "🍜 Receta con 3 ingredientes",
+        "descripcion": "Harina cuesta $2/kg, azúcar $3/kg, mantequilla $5/kg. Necesitas 10 kg total, costo $30, y mantequilla sea el doble de harina. ¿Cuánto de cada uno? 3 ecuaciones, 3 incógnitas.",
+        "A": [[1, 1, 1], [2, 3, 5], [1, 0, -2]],
+        "b": [10, 30, 0],
+        "metodo": "Gauss-Jordan",
+        "aplicacion": "En cocina, finanzas personales y mezclas, sistemas lineales resuelven recetas y presupuestos. Especifica restricciones, obtén cantidades exactas de cada ingrediente."
+    },
+    "EDO": {
+        "nombre": "💊 Medicamento en sangre",
+        "descripcion": "Tomas una pastilla con 500mg. Tu cuerpo degrada 30% del medicamento cada hora: dM/dt = -0.3*M. RK4 predice: ¿cuántos mg quedan después de 5 horas?",
+        "f": "-0.3*y",
+        "x0": 0.0,
+        "y0": 500.0,
+        "h": 0.1,
+        "n": 50,
+        "aplicacion": "En farmacología y medicina, ecuaciones diferenciales modelan cómo el cuerpo metaboliza drogas. RK4 predice concentración en sangre sin experimentos, solo matemáticas."
+    },
+    "Red Neuronal GD": {
+        "nombre": "� Calificación vs horas estudiadas",
+        "descripcion": "Datos de varios estudiantes: (2 hrs, 60%), (4 hrs, 75%), (6 hrs, 85%), (8 hrs, 95%). Red neuronal aprende: calificación = w*horas + b. ¿Qué nota obtendrás con 5 horas?",
+        "generar_datos": "lineal",
+        "alpha": 0.01,
+        "epocas": 200,
+        "semilla": 42,
+        "aplicacion": "En educación, descenso de gradiente aprende la relación entre esfuerzo y resultados. Sin fórmula teórica, solo datos históricos suficientes para predecir notas futuras."
+    },
+    "Monte Carlo 2D": {
+        "nombre": "� Bosque en terreno",
+        "descripcion": "Región 10×10 km con bosque irregular. Lanzar 50000 puntos aleatorios, contar cuántos caen en bosque. Monte Carlo calcula: ¿cuántos km² de bosque real?",
+        "funcion": "1 if ((x-5)**2 + (y-5)**2) < 16 else 0",
+        "a": 0.0,
+        "b": 10.0,
+        "c": 0.0,
+        "d": 10.0,
+        "n": 50000,
+        "aplicacion": "En ecología, cartografía y urbanismo, Monte Carlo 2D mide áreas de bosques, ciudades, océanos sin levantar cada metro. Solo puntos aleatorios y conteo."
+    }
+}
+
+
+def mostrar_casos_practicos(metodo_nombre):
+    """Muestra el caso práctico de forma clara y accesible."""
+    if metodo_nombre not in CASOS_PRACTICOS:
+        return
+    
+    caso = CASOS_PRACTICOS[metodo_nombre]
+    
+    with st.expander(f"💡 {caso['nombre']}", expanded=True):
+        st.markdown(f"**¿Qué hace este caso?**")
+        st.write(caso['descripcion'])
+        
+        st.markdown(f"**🔗 Cómo interviene el método:**")
+        st.info(caso['aplicacion'])
+        
+        st.markdown(f"**📋 Parámetros del caso:**")
+        param_dict = {k: v for k, v in caso.items() if k not in ["nombre", "descripcion", "aplicacion"]}
+        
+        # Mostrar parámetros en columnas
+        cols = st.columns(2)
+        items = list(param_dict.items())
+        for i, (key, value) in enumerate(items):
+            with cols[i % 2]:
+                if isinstance(value, (list, tuple)):
+                    st.code(f"{key}:\n" + "\n".join(str(v) for v in value))
+                else:
+                    st.code(f"{key}: {value}")
+
+
+
 def section_newton():
     st.subheader("Metodo de Newton-Raphson")
     st.info(sugerir_metodo("Raices", derivada_disp=True))
+    
+    mostrar_casos_practicos("Newton-Raphson")
 
     with st.form("form_newton"):
         c1, c2 = st.columns(2)
@@ -2480,6 +2625,8 @@ def section_newton():
 def section_aitken():
     st.subheader("Metodo de Aitken")
     st.info(sugerir_metodo("Raices", derivada_disp=False))
+    
+    mostrar_casos_practicos("Aitken")
 
     with st.form("form_aitken"):
         c1, c2 = st.columns(2)
@@ -2570,6 +2717,8 @@ def section_aitken():
 def section_biseccion():
     st.subheader("Metodo de Biseccion")
     st.info(sugerir_metodo("Raices", intervalo_ok=True))
+    
+    mostrar_casos_practicos("Biseccion")
 
     with st.form("form_biseccion"):
         c1, c2 = st.columns(2)
@@ -2657,6 +2806,8 @@ def section_biseccion():
 def section_punto_fijo():
     st.subheader("Metodo de Punto Fijo")
     st.info(sugerir_metodo("Raices", derivada_disp=False))
+    
+    mostrar_casos_practicos("Punto Fijo")
 
     with st.form("form_punto_fijo"):
         c1, c2 = st.columns(2)
@@ -2888,6 +3039,8 @@ def section_comparativa():
 def section_lagrange():
     st.subheader("Lagrange, derivacion y error")
     mostrar_pasos = mostrar_pasos_activo(False)
+    
+    mostrar_casos_practicos("Lagrange + Derivacion")
 
     st.markdown("Ingresa datos para interpolacion. Puedes cargar y manualmente o desde f(x).")
 
@@ -3150,6 +3303,8 @@ def section_integracion_numerica():
     st.subheader("Integracion numerica")
     st.info(sugerir_metodo("Integracion"))
     mostrar_pasos = mostrar_pasos_activo(False)
+    
+    mostrar_casos_practicos("Integracion Numerica")
 
     with st.form("form_integracion"):
         c1, c2, c3 = st.columns(3)
@@ -3458,6 +3613,8 @@ def section_integracion_numerica():
 
 def section_montecarlo():
     st.subheader("Integracion por Monte Carlo")
+    
+    mostrar_casos_practicos("Monte Carlo")
 
     with st.form("form_montecarlo"):
         c1, c2, c3 = st.columns(3)
@@ -3606,6 +3763,8 @@ def section_montecarlo():
 
 def section_montecarlo_2d():
     st.subheader("Integracion Doble por Monte Carlo")
+    
+    mostrar_casos_practicos("Monte Carlo 2D")
 
     with st.form("form_montecarlo_2d"):
         c1, c2, c3 = st.columns(3)
@@ -3698,6 +3857,8 @@ def section_montecarlo_2d():
 
 def section_ajuste_curvas():
     st.subheader("Ajuste de curvas (minimos cuadrados)")
+    
+    mostrar_casos_practicos("Ajuste de Curvas")
 
     with st.form("form_ajuste"):
         c1, c2, c3 = st.columns(3)
@@ -3821,6 +3982,8 @@ def section_ajuste_curvas():
 
 def section_sistemas_lineales():
     st.subheader("Resolucion de sistemas lineales")
+    
+    mostrar_casos_practicos("Sistemas Lineales")
 
     with st.form("form_sistemas"):
         n = st.number_input("Dimension n", value=3, min_value=1, step=1)
@@ -3984,6 +4147,8 @@ def section_sistemas_lineales():
 def section_edo():
     st.subheader("EDO de valor inicial")
     st.info(sugerir_metodo("EDO"))
+    
+    mostrar_casos_practicos("EDO")
 
     with st.form("form_edo"):
         c1, c2, c3 = st.columns(3)
@@ -4254,6 +4419,8 @@ def section_edo():
 
 def section_red_neuronal_descenso():
     st.subheader("Red neuronal base con descenso de gradiente")
+    
+    mostrar_casos_practicos("Red Neuronal GD")
 
     with st.form("form_red_descenso"):
         c1, c2 = st.columns(2)
