@@ -2,6 +2,7 @@ import io
 import contextlib
 import sys
 from pathlib import Path
+from statistics import NormalDist
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -32,7 +33,7 @@ from Metodos.metodo_integracion_numerica import (
 )
 from Metodos.metodo_ajuste_curvas import regresion_lineal, regresion_polinomial
 from Metodos.metodo_sistemas_lineales import gauss_jordan, gauss_seidel
-from Metodos.metodo_edo import metodo_euler, metodo_rk4, construir_funcion_edo
+from Metodos.metodo_edo import metodo_euler, metodo_heun, metodo_rk4, construir_funcion_edo
 from Metodos.metodo_red_neuronal_descenso_gradiente import (
     dataset_prueba_pequeno,
     entrenar_descenso_gradiente_lineal,
@@ -226,16 +227,20 @@ MACHETES_TEORICOS = {
         "utilidad": "Resolver EDO sin solución analítica. Modelar sistemas dinámicos (física, biología, economía).",
         "pasos": [
             "Euler: 1) Condición inicial (x_0, y_0) 2) y_(i+1) = y_i + h*f(x_i, y_i) 3) Completar n iteraciones",
+            "Heun: 1) Predictor y* = y_i + h*f(x_i,y_i) 2) Corrector y_(i+1) = y_i + (h/2)*(f(x_i,y_i)+f(x_i+h,y*))",
             "RK4: 1) Calcular k_1, k_2, k_3, k_4 en puntos estratégicos 2) y_(i+1) = y_i + (h/6)*(k_1+2*k_2+2*k_3+k_4)"
         ],
         "formulas": [
             r"$y_{i+1} = y_i + h \cdot f(x_i, y_i) \quad \text{(Euler)}$",
+            r"$k_1=f(x_i,y_i),\ y^*=y_i+h k_1,\ k_2=f(x_i+h,y^*)$",
+            r"$y_{i+1}=y_i+\frac{h}{2}(k_1+k_2) \quad \text{(Heun)}$",
             r"$y_{i+1} = y_i + \frac{h}{6}(k_1 + 2k_2 + 2k_3 + k_4) \quad \text{(RK4)}$"
         ],
         "requisitos": [
             "• f(x,y) calculable",
             "• h > 0 (tamanio paso)",
             "• n > 0 (iteraciones)",
+            "• Heun usa predictor-corrector para mejorar Euler",
             "• RK4 es mas preciso que Euler"
         ]
     },
@@ -423,6 +428,16 @@ def parse_numeric_expr(expr_text, field_name, allow_infinite=False):
             return value
         raise ValueError(f"{field_name} debe ser un numero finito")
     return value
+
+
+def z_score_from_confidence(confianza_pct):
+    """Retorna el valor critico z bilateral para un porcentaje de confianza dado."""
+    confianza = float(confianza_pct)
+    if not (0.0 < confianza < 100.0):
+        raise ValueError("El intervalo de confianza debe estar entre 0 y 100")
+
+    prob = 0.5 + (confianza / 200.0)
+    return float(NormalDist().inv_cdf(prob))
 
 
 def estimate_max_abs_derivative(expr, variable, order, a, b, points=2001):
@@ -1377,6 +1392,8 @@ FORMULAS_POR_APARTADO = {
     ],
     "EDO": [
         r"y_{n+1}=y_n+h f(x_n,y_n)\ \text{(Euler)}",
+        r"k_1=f(x_n,y_n),\ y^*=y_n+h k_1,\ k_2=f(x_n+h,y^*)",
+        r"y_{n+1}=y_n+\frac{h}{2}(k_1+k_2)\ \text{(Heun)}",
         r"k_1=f(x_n,y_n),\ k_2=f\!\left(x_n+\frac h2,y_n+\frac h2k_1\right)",
         r"k_3=f\!\left(x_n+\frac h2,y_n+\frac h2k_2\right),\ k_4=f(x_n+h,y_n+hk_3)",
         r"y_{n+1}=y_n+\frac h6(k_1+2k_2+2k_3+k_4)\ \text{(RK4)}",
@@ -1542,6 +1559,7 @@ CONDICIONES_POR_APARTADO = {
     "EDO": [
         "f(x,y) debe estar bien definida en el dominio de integracion.",
         "El paso h debe ser positivo y acorde a la estabilidad del metodo.",
+        "Heun suele reducir el error de Euler con costo computacional moderado.",
         "RK4 suele ofrecer mayor precision que Euler con el mismo h.",
     ],
     "Red Neuronal GD": [
@@ -1742,6 +1760,11 @@ PASOS_POR_APARTADO = {
             "numerico": "Con h=0.1, x0=0, y0=1 se avanza paso a paso.",
         },
         {
+            "titulo": "Heun (predictor-corrector)",
+            "simbolico": r"$y^*=y_n+h f(x_n,y_n),\ y_{n+1}=y_n+\frac{h}{2}[f(x_n,y_n)+f(x_n+h,y^*)]$",
+            "numerico": "Se calcula un predictor tipo Euler y luego se corrige con el promedio de pendientes.",
+        },
+        {
             "titulo": "RK4",
             "simbolico": r"$y_{n+1}=y_n+\frac{h}{6}(k_1+2k_2+2k_3+k_4)$",
             "numerico": "Se calculan cuatro pendientes intermedias por cada paso.",
@@ -1876,6 +1899,7 @@ DESGLOSE_COMPLETO_POR_APARTADO = {
     "EDO": [
         "Definir y'=f(x,y), condicion inicial (x0,y0), h y n.",
         "Euler: avanzar con y_(n+1)=y_n+h f(x_n,y_n).",
+        "Heun: calcular predictor y* y luego corregir con promedio de pendientes.",
         "RK4: calcular k1,k2,k3,k4 y combinar.",
         "Construir tabla de nodos (x_n,y_n).",
         "Si hay solucion exacta, calcular errores por nodo.",
@@ -2913,21 +2937,8 @@ def section_montecarlo():
             error_estandar = std / np.sqrt(num_puntos)
             
             # Calcular intervalo de confianza
-            # Usando distribución normal, z para el nivel de confianza
-            alpha = (100 - confianza) / 100
-            # Aproximación simple para z
-            if abs(confianza - 95) < 0.1:
-                z = 1.96
-            elif abs(confianza - 99) < 0.1:
-                z = 2.576
-            elif abs(confianza - 90) < 0.1:
-                z = 1.645
-            else:
-                # Aproximación general: z ≈ sqrt(2) * erfinv(1 - alpha)
-                # Pero usar scipy
-                from scipy.special import erfinv
-                from math import sqrt
-                z = sqrt(2) * erfinv(1 - alpha)
+            # Usando distribución normal estándar (sin dependencia de scipy)
+            z = z_score_from_confidence(confianza)
             margin = z * std
             lower = integral - margin
             upper = integral + margin
@@ -3025,17 +3036,7 @@ def section_montecarlo_2d():
             error_estandar = std / np.sqrt(num_puntos)
 
             # Calcular intervalo de confianza
-            alpha = (100 - confianza) / 100
-            if abs(confianza - 95) < 0.1:
-                z = 1.96
-            elif abs(confianza - 99) < 0.1:
-                z = 2.576
-            elif abs(confianza - 90) < 0.1:
-                z = 1.645
-            else:
-                from scipy.special import erfinv
-                from math import sqrt
-                z = sqrt(2) * erfinv(1 - alpha)
+            z = z_score_from_confidence(confianza)
             margin = z * std
             lower = integral - margin
             upper = integral + margin
@@ -3340,40 +3341,49 @@ def section_edo():
         c1, c2, c3 = st.columns(3)
         with c1:
             fxy = st.text_input("y' = f(x, y)", value="x + y")
-            x0 = st.number_input("x0", value=0.0)
-            y0 = st.number_input("y0", value=1.0)
+            x0_text = st.text_input("x0", value="0", help="Admite expresiones: pi/2, e, sqrt(2), etc.")
+            y0_text = st.text_input("y0", value="1", help="Admite expresiones: pi/2, e, sqrt(2), etc.")
         with c2:
-            h = st.number_input("Paso h", value=0.1)
+            h_text = st.text_input("Paso h", value="0.1", help="Admite expresiones: pi/10, e/10, etc.")
             n = st.number_input("Cantidad de pasos n", value=10, min_value=1, step=1)
-            metodo = st.selectbox("Metodo", ["Euler", "RK4"])
+            metodo = st.selectbox("Metodo", ["Euler", "Heun", "RK4"])
         with c3:
-            comparar_euler_rk4 = st.checkbox("Comparar Euler vs RK4", value=True)
+            comparar_metodos = st.checkbox("Comparar Euler, Heun y RK4", value=True)
             mostrar_campo = st.checkbox("Mostrar campo de pendientes", value=True)
             y_exact_text = st.text_input("y(x) exacta opcional", value="")
         run_btn = st.form_submit_button("Resolver EDO")
 
     if run_btn:
         try:
+            x0 = parse_numeric_expr(x0_text, "x0")
+            y0 = parse_numeric_expr(y0_text, "y0")
+            h = parse_numeric_expr(h_text, "h")
+
             rows_euler = metodo_euler(fxy, float(x0), float(y0), float(h), int(n))
+            rows_heun = metodo_heun(fxy, float(x0), float(y0), float(h), int(n))
             rows_rk4 = metodo_rk4(fxy, float(x0), float(y0), float(h), int(n))
 
-            if metodo == "Euler":
-                rows = rows_euler
-                df = pd.DataFrame(rows)
-                st.dataframe(df, use_container_width=True)
-            else:
-                rows = rows_rk4
-                df = pd.DataFrame(rows)
-                st.dataframe(df, use_container_width=True)
+            rows_map = {"Euler": rows_euler, "Heun": rows_heun, "RK4": rows_rk4}
+            rows = rows_map[metodo]
+            df = pd.DataFrame(rows)
+            st.dataframe(df, use_container_width=True)
 
             x_num_e = np.array([r["x"] for r in rows_euler], dtype=float)
             y_num_e = np.array([r["y"] for r in rows_euler], dtype=float)
+            x_num_h = np.array([r["x"] for r in rows_heun], dtype=float)
+            y_num_h = np.array([r["y"] for r in rows_heun], dtype=float)
             x_num_r = np.array([r["x"] for r in rows_rk4], dtype=float)
             y_num_r = np.array([r["y"] for r in rows_rk4], dtype=float)
 
             x_end = float(x_num_e[-1])
-            st.metric("Resultado Euler", f"y({x_end:.7g}) = {float(y_num_e[-1]):.12g}")
-            st.metric("Resultado RK4", f"y({x_end:.7g}) = {float(y_num_r[-1]):.12g}")
+            if comparar_metodos:
+                m1, m2, m3 = st.columns(3)
+                m1.metric("Euler", f"y({x_end:.7g}) = {float(y_num_e[-1]):.12g}")
+                m2.metric("Heun", f"y({x_end:.7g}) = {float(y_num_h[-1]):.12g}")
+                m3.metric("RK4", f"y({x_end:.7g}) = {float(y_num_r[-1]):.12g}")
+            else:
+                y_sel = {"Euler": y_num_e, "Heun": y_num_h, "RK4": y_num_r}[metodo]
+                st.metric(f"Resultado {metodo}", f"y({x_end:.7g}) = {float(y_sel[-1]):.12g}")
 
             exact_vals = None
             if y_exact_text.strip():
@@ -3385,12 +3395,15 @@ def section_edo():
                     st.warning(f"No se pudo evaluar y(x) exacta: {exc}")
 
             fig, ax = plt.subplots(figsize=(9.5, 4.8))
-            if comparar_euler_rk4:
+            if comparar_metodos:
                 ax.plot(x_num_e, y_num_e, "o-", linewidth=1.8, label="Euler")
+                ax.plot(x_num_h, y_num_h, "^-", linewidth=1.8, label="Heun")
                 ax.plot(x_num_r, y_num_r, "s-", linewidth=1.8, label="RK4")
             else:
                 if metodo == "Euler":
                     ax.plot(x_num_e, y_num_e, "o-", linewidth=2, label="Euler")
+                elif metodo == "Heun":
+                    ax.plot(x_num_h, y_num_h, "^-", linewidth=2, label="Heun")
                 else:
                     ax.plot(x_num_r, y_num_r, "s-", linewidth=2, label="RK4")
 
@@ -3407,10 +3420,17 @@ def section_edo():
 
             if exact_vals is not None:
                 err_e = np.abs(y_num_e - exact_vals)
+                err_h = np.abs(y_num_h - exact_vals)
                 err_r = np.abs(y_num_r - exact_vals)
                 fig_er, ax_er = plt.subplots(figsize=(8.8, 4.2))
-                ax_er.semilogy(x_num_e, np.clip(err_e, 1e-16, None), "o-", label="Error Euler")
-                ax_er.semilogy(x_num_r, np.clip(err_r, 1e-16, None), "s-", label="Error RK4")
+                if comparar_metodos:
+                    ax_er.semilogy(x_num_e, np.clip(err_e, 1e-16, None), "o-", label="Error Euler")
+                    ax_er.semilogy(x_num_h, np.clip(err_h, 1e-16, None), "^-", label="Error Heun")
+                    ax_er.semilogy(x_num_r, np.clip(err_r, 1e-16, None), "s-", label="Error RK4")
+                else:
+                    err_sel = {"Euler": err_e, "Heun": err_h, "RK4": err_r}[metodo]
+                    x_sel = {"Euler": x_num_e, "Heun": x_num_h, "RK4": x_num_r}[metodo]
+                    ax_er.semilogy(x_sel, np.clip(err_sel, 1e-16, None), "o-", label=f"Error {metodo}")
                 ax_er.set_title("Error absoluto vs x")
                 ax_er.set_xlabel("x")
                 ax_er.set_ylabel("|error|")
@@ -3440,8 +3460,14 @@ def section_edo():
 
                 fig_fld, ax_fld = plt.subplots(figsize=(9.2, 4.8))
                 ax_fld.quiver(Xg, Yg, U, V, N, cmap="viridis", alpha=0.75)
-                ax_fld.plot(x_num_e, y_num_e, "o-", linewidth=1.4, label="Euler")
-                ax_fld.plot(x_num_r, y_num_r, "s-", linewidth=1.4, label="RK4")
+                if comparar_metodos:
+                    ax_fld.plot(x_num_e, y_num_e, "o-", linewidth=1.4, label="Euler")
+                    ax_fld.plot(x_num_h, y_num_h, "^-", linewidth=1.4, label="Heun")
+                    ax_fld.plot(x_num_r, y_num_r, "s-", linewidth=1.4, label="RK4")
+                else:
+                    x_sel = {"Euler": x_num_e, "Heun": x_num_h, "RK4": x_num_r}[metodo]
+                    y_sel = {"Euler": y_num_e, "Heun": y_num_h, "RK4": y_num_r}[metodo]
+                    ax_fld.plot(x_sel, y_sel, "o-", linewidth=1.4, label=metodo)
                 ax_fld.set_title("Campo de pendientes y trayectorias")
                 ax_fld.set_xlabel("x")
                 ax_fld.set_ylabel("y")
@@ -3453,6 +3479,7 @@ def section_edo():
             cuentas = [
                 rf"x_0={_num(x0)},\ y_0={_num(y0)},\ h={_num(h)},\ n={int(n)}",
                 rf"y_{{Euler}}(x_f)={_num(y_num_e[-1], 12)}",
+                rf"y_{{Heun}}(x_f)={_num(y_num_h[-1], 12)}",
                 rf"y_{{RK4}}(x_f)={_num(y_num_r[-1], 12)}",
             ]
             if exact_vals is not None:

@@ -186,7 +186,7 @@ def main():
         print("7. Integración numérica (Trapecio, Simpson 1/3 y 3/8)")
         print("8. Ajuste de curvas (Regresión lineal y polinomial)")
         print("9. Sistemas lineales (Gauss-Jordan y Gauss-Seidel)")
-        print("10. EDO (Euler y RK4)")
+        print("10. EDO (Euler, Heun y RK4)")
         print("11. Red neuronal base (Descenso de gradiente)")
         print("12. Salir")
         print("=" * 80)
