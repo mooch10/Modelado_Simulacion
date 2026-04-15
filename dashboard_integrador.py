@@ -1751,24 +1751,6 @@ def render_export_dataframe(nombre_base, df):
         c2.info("Exportacion a Excel no disponible en este entorno.")
 
 
-def render_modo_docente(apartado, df):
-    if not st.session_state.get("teacher_mode", False):
-        return
-    if df is None or not isinstance(df, pd.DataFrame) or df.empty:
-        return
-    st.markdown("#### Modo docente: iteracion paso a paso")
-    idx = st.slider(
-        f"Iteracion a explicar ({apartado})",
-        min_value=0,
-        max_value=len(df) - 1,
-        value=0,
-        step=1,
-        key=f"teacher_{apartado}",
-    )
-    fila = df.iloc[int(idx)]
-    st.dataframe(pd.DataFrame([fila]), use_container_width=True)
-
-
 def registrar_ejecucion(apartado, metodo, iteraciones=None, error_final=None, convergio=None, tiempo_ms=None):
     if "historial_metodos" not in st.session_state:
         st.session_state["historial_metodos"] = []
@@ -2457,7 +2439,6 @@ def section_newton():
 
             render_newton_charts(func, root, x0_run, errors)
             render_export_dataframe("newton_iteraciones", df)
-            render_modo_docente("Newton", df)
             evaluar_estabilidad_numerica("Newton-Raphson", df=df, arrays={"errores": errors})
 
             cuentas = []
@@ -2534,7 +2515,6 @@ def section_aitken():
             render_chart(fig_e)
             plt.close(fig_e)
             render_export_dataframe("aitken_iteraciones", df)
-            render_modo_docente("Aitken", df)
             evaluar_estabilidad_numerica("Aitken", df=df, arrays={"errores": errors})
 
             margin = max(2.0, abs(float(root) - float(x0)) + 1.0)
@@ -2637,7 +2617,6 @@ def section_biseccion():
             render_chart(fig_e)
             plt.close(fig_e)
             render_export_dataframe("biseccion_iteraciones", df)
-            render_modo_docente("Biseccion", df)
             evaluar_estabilidad_numerica("Biseccion", df=df)
 
             cuentas = []
@@ -2733,7 +2712,6 @@ def section_punto_fijo():
             render_chart(fig_e)
             plt.close(fig_e)
             render_export_dataframe("punto_fijo_iteraciones", df)
-            render_modo_docente("PuntoFijo", df)
             evaluar_estabilidad_numerica("Punto Fijo", df=df)
 
             margin = max(2.0, abs(float(root) - float(x0)) + 1.0)
@@ -2869,7 +2847,6 @@ def section_comparativa():
         df = pd.DataFrame(results)
         st.dataframe(df, use_container_width=True)
         render_export_dataframe("comparativa_metodos", df)
-        render_modo_docente("Comparativa", df)
         evaluar_estabilidad_numerica("Comparativa", df=df)
         elapsed_ms = (time.perf_counter() - t0) * 1000.0
         st.metric("Tiempo de ejecucion (ms)", elapsed_ms)
@@ -3336,7 +3313,6 @@ def section_integracion_numerica():
                 column_config={k: st.column_config.NumberColumn(k, format="%.6f") for k in df_nodes.columns},
             )
             render_export_dataframe("integracion_nodos", df_nodes)
-            render_modo_docente("IntegracionNodos", df_nodes)
             evaluar_estabilidad_numerica("Integracion Numerica", df=df_nodes)
 
             if es_impropia:
@@ -3902,7 +3878,6 @@ def section_sistemas_lineales():
                 df_sol = pd.DataFrame([sol], columns=[f"x{i + 1}" for i in range(len(sol))])
                 st.dataframe(df_sol, use_container_width=True)
                 render_export_dataframe("sistemas_gauss_jordan_solucion", df_sol)
-                render_modo_docente("SistemasGJ", df_sol)
                 elapsed_ms = (time.perf_counter() - t0) * 1000.0
                 st.metric("Tiempo de ejecucion (ms)", elapsed_ms)
                 registrar_ejecucion("Sistemas Lineales", "Gauss-Jordan", iteraciones=len(pasos), convergio=True, tiempo_ms=elapsed_ms)
@@ -3943,7 +3918,6 @@ def section_sistemas_lineales():
                     df_iters = pd.DataFrame(iters)
                     st.dataframe(df_iters, use_container_width=True)
                     render_export_dataframe("sistemas_gauss_seidel_iteraciones", df_iters)
-                    render_modo_docente("SistemasGS", df_iters)
                     evaluar_estabilidad_numerica("Gauss-Seidel", df=df_iters)
 
                     fig_s1, ax_s1 = plt.subplots(figsize=(8.2, 4.0))
@@ -4102,7 +4076,6 @@ def section_edo():
             )
             st.dataframe(df, use_container_width=True)
             render_export_dataframe("edo_tabla_metodo", df)
-            render_modo_docente("EDO", df)
             evaluar_estabilidad_numerica("EDO", df=df)
 
             st.markdown("#### Comparativa de todos los metodos (por iteracion)")
@@ -4377,12 +4350,6 @@ def main():
         value=True,
         key="show_theoretical_machete",
         help="Muestra u oculta el bloque de machete teorico y su desglose en todas las pestañas.",
-    )
-    st.sidebar.toggle(
-        "Modo docente (iteracion a iteracion)",
-        value=False,
-        key="teacher_mode",
-        help="Permite seleccionar una iteracion y verla explicada con sus valores.",
     )
     st.sidebar.toggle(
         "Mostrar herramientas de exportacion",
