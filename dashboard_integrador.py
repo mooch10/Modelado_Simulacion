@@ -1,8 +1,10 @@
 import io
 import contextlib
 import sys
+import time
 from pathlib import Path
 from statistics import NormalDist
+from datetime import datetime
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -273,6 +275,9 @@ MACHETES_TEORICOS = {
 
 def mostrar_machete(metodo_nombre):
     """Muestra el machete teórico de un método en un expander."""
+    if not st.session_state.get("show_theoretical_machete", True):
+        return
+
     if metodo_nombre not in MACHETES_TEORICOS:
         return
     
@@ -301,6 +306,36 @@ def mostrar_machete(metodo_nombre):
 
 
 PALETAS_DASHBOARD = {
+    "Oscuro": {
+        "accent_1": "#4DA3FF",
+        "accent_2": "#00C7A5",
+        "accent_3": "#F5B700",
+        "series": [
+            "#4DA3FF",
+            "#00C7A5",
+            "#F5B700",
+            "#FF6B6B",
+            "#B38CFF",
+            "#7EF0FF",
+            "#7DD87D",
+            "#FFB86C",
+        ],
+        "app_bg": "#0B1020",
+        "sidebar_bg": "#0E1428",
+        "panel_bg": "#111A33",
+        "text": "#EAF0FF",
+        "text_muted": "#AAB6D6",
+        "line_soft": "rgba(170,182,214,0.35)",
+        "chart_paper": "#0B1020",
+        "chart_bg": "#111A33",
+        "chart_text": "#EAF0FF",
+        "chart_axis": "#C9D6FF",
+        "chart_grid": "#C9D6FF",
+        "zero_axis": "#EAF0FF",
+        "legend_bg": "#0F1730",
+        "legend_edge": "#3B4A74",
+        "plotly_template": "plotly_dark",
+    },
     "Viva": {
         "accent_1": "#00E5FF",
         "accent_2": "#FF6B35",
@@ -315,6 +350,21 @@ PALETAS_DASHBOARD = {
             "#00C16E",
             "#FF8A00",
         ],
+        "app_bg": "#071018",
+        "sidebar_bg": "#0B1622",
+        "panel_bg": "#112131",
+        "text": "#F4FBFF",
+        "text_muted": "#B7D6EB",
+        "line_soft": "rgba(0,229,255,0.35)",
+        "chart_paper": "#071018",
+        "chart_bg": "#112131",
+        "chart_text": "#F4FBFF",
+        "chart_axis": "#D9F2FF",
+        "chart_grid": "#00E5FF",
+        "zero_axis": "#F4FBFF",
+        "legend_bg": "#0D1B2A",
+        "legend_edge": "#245575",
+        "plotly_template": "plotly_dark",
     },
     "Pastel oscuro": {
         "accent_1": "#7AD3FF",
@@ -330,24 +380,82 @@ PALETAS_DASHBOARD = {
             "#9EE7C9",
             "#FFD3A8",
         ],
+        "app_bg": "#14131A",
+        "sidebar_bg": "#1B1923",
+        "panel_bg": "#242030",
+        "text": "#F4EEF8",
+        "text_muted": "#CBBFD6",
+        "line_soft": "rgba(203,191,214,0.35)",
+        "chart_paper": "#14131A",
+        "chart_bg": "#242030",
+        "chart_text": "#F4EEF8",
+        "chart_axis": "#E6DDEE",
+        "chart_grid": "#DCD0E8",
+        "zero_axis": "#F4EEF8",
+        "legend_bg": "#1C1A27",
+        "legend_edge": "#6A5D7D",
+        "plotly_template": "plotly_dark",
     },
 }
 
 
 def paleta_activa():
-    preset = st.session_state.get("palette_preset", "Viva")
-    return PALETAS_DASHBOARD.get(preset, PALETAS_DASHBOARD["Viva"])
+    preset = st.session_state.get("palette_preset", "Oscuro")
+    return PALETAS_DASHBOARD.get(preset, PALETAS_DASHBOARD["Oscuro"])
 
 
 def aplicar_tema_visual_dashboard(paleta):
-    """Mejora contraste y distincion de colores sin modificar el fondo negro general."""
+    """Aplica tema visual completo para dashboard y widgets principales."""
     css = """
         <style>
         :root {
             --accent-1: __ACCENT1__;
             --accent-2: __ACCENT2__;
             --accent-3: __ACCENT3__;
-            --line-soft: rgba(255,255,255,0.22);
+            --line-soft: __LINE_SOFT__;
+            --app-bg: __APP_BG__;
+            --sidebar-bg: __SIDEBAR_BG__;
+            --panel-bg: __PANEL_BG__;
+            --text-main: __TEXT_MAIN__;
+            --text-muted: __TEXT_MUTED__;
+        }
+
+        .stApp {
+            background: var(--app-bg);
+            color: var(--text-main);
+        }
+
+        .stApp [data-testid="stSidebar"] {
+            background: var(--sidebar-bg);
+            border-right: 1px solid var(--line-soft);
+        }
+
+        .stMarkdown, .stText, p, label, h1, h2, h3, h4, h5, h6 {
+            color: var(--text-main) !important;
+        }
+
+        [data-testid="stCaptionContainer"] p {
+            color: var(--text-muted) !important;
+        }
+
+        [data-testid="stForm"],
+        [data-testid="stVerticalBlockBorderWrapper"],
+        [data-testid="stDataFrame"],
+        [data-testid="stPlotlyChart"],
+        [data-testid="stImage"] {
+            background: var(--panel-bg);
+            border: 1px solid var(--line-soft);
+            border-radius: 12px;
+        }
+
+        .stTextInput input,
+        .stNumberInput input,
+        .stTextArea textarea,
+        .stSelectbox [data-baseweb="select"] > div,
+        .stMultiSelect [data-baseweb="select"] > div {
+            background: color-mix(in srgb, var(--panel-bg) 88%, black);
+            color: var(--text-main);
+            border-color: var(--line-soft) !important;
         }
 
         .stTabs [data-baseweb="tab-list"] button[role="tab"] {
@@ -355,6 +463,8 @@ def aplicar_tema_visual_dashboard(paleta):
             border-radius: 10px;
             margin-right: 6px;
             padding: 8px 12px;
+            color: var(--text-main);
+            background: color-mix(in srgb, var(--panel-bg) 92%, transparent);
         }
 
         .stTabs [data-baseweb="tab-list"] button[aria-selected="true"] {
@@ -366,7 +476,8 @@ def aplicar_tema_visual_dashboard(paleta):
 
         .stButton > button {
             border: 1px solid var(--accent-1);
-            color: #FFFFFF;
+            color: var(--text-main);
+            background: color-mix(in srgb, var(--panel-bg) 85%, transparent);
         }
 
         .stButton > button:hover {
@@ -378,13 +489,19 @@ def aplicar_tema_visual_dashboard(paleta):
             border: 1px solid var(--line-soft);
             border-radius: 12px;
             padding: 8px 10px;
-            background: rgba(255,255,255,0.02);
+            background: color-mix(in srgb, var(--panel-bg) 90%, transparent);
         }
         </style>
     """
     css = css.replace("__ACCENT1__", paleta["accent_1"])
     css = css.replace("__ACCENT2__", paleta["accent_2"])
     css = css.replace("__ACCENT3__", paleta["accent_3"])
+    css = css.replace("__LINE_SOFT__", paleta["line_soft"])
+    css = css.replace("__APP_BG__", paleta["app_bg"])
+    css = css.replace("__SIDEBAR_BG__", paleta["sidebar_bg"])
+    css = css.replace("__PANEL_BG__", paleta["panel_bg"])
+    css = css.replace("__TEXT_MAIN__", paleta["text"])
+    css = css.replace("__TEXT_MUTED__", paleta["text_muted"])
     st.markdown(
         css,
         unsafe_allow_html=True,
@@ -405,6 +522,38 @@ def safe_eval_expr(expr_text, variable="x"):
     if invalid:
         raise ValueError(f"Variables no permitidas: {invalid}")
     return expr
+
+
+def resolver_y_exacta_edo(funcion_str, x0, y0):
+    """Intenta resolver analiticamente y' = f(x,y) con y(x0)=y0."""
+    x = sp.Symbol("x")
+    y_sym = sp.Symbol("y")
+    y_fun = sp.Function("y")
+
+    expr = sp.sympify(funcion_str, locals=ALLOWED_LOCALS)
+    invalid = expr.free_symbols - {x, y_sym}
+    if invalid:
+        raise ValueError(f"Variables no permitidas en EDO: {invalid}")
+
+    rhs = expr.subs({y_sym: y_fun(x)})
+    ode = sp.Eq(sp.diff(y_fun(x), x), rhs)
+    sol = sp.dsolve(ode, ics={y_fun(float(x0)): float(y0)})
+    y_expr = sp.simplify(sol.rhs)
+    y_eval = sp.lambdify(x, y_expr, "numpy")
+    return y_expr, y_eval
+
+
+def referencia_edo_alta_precision(funcion_str, x0, y0, h, n, factor=20):
+    """Genera referencia numerica con RK4 de paso fino y la re-muestrea en nodos originales."""
+    factor = max(5, int(factor))
+    h_ref = float(h) / factor
+    n_ref = int(n) * factor
+    rows_ref = metodo_rk4(funcion_str, float(x0), float(y0), float(h_ref), int(n_ref))
+    x_ref = np.array([r["x"] for r in rows_ref], dtype=float)
+    y_ref = np.array([r["y"] for r in rows_ref], dtype=float)
+    x_target = float(x0) + np.arange(int(n) + 1, dtype=float) * float(h)
+    y_target = np.interp(x_target, x_ref, y_ref)
+    return x_target, y_target
 
 
 def parse_numeric_expr(expr_text, field_name, allow_infinite=False):
@@ -996,31 +1145,37 @@ def sugerir_x0_primera_raiz_positiva(func_text, x0_usuario, muestras=4000):
 def render_chart(fig):
     """Renderiza Matplotlib en modo interactivo (Plotly) cuando esta disponible."""
     interactive = st.session_state.get("interactive_charts", True)
-    paleta_series = paleta_activa()["series"]
+    paleta = paleta_activa()
+    paleta_series = paleta["series"]
 
     # Refuerza contraste en figuras Matplotlib antes de convertir/renderizar.
     for ax in fig.get_axes():
-        ax.tick_params(axis="both", colors="black", labelcolor="black")
-        ax.xaxis.label.set_color("black")
-        ax.yaxis.label.set_color("black")
-        ax.title.set_color("black")
+        ax.set_facecolor(paleta["chart_bg"])
+        ax.tick_params(axis="both", colors=paleta["chart_axis"], labelcolor=paleta["chart_axis"])
+        ax.xaxis.label.set_color(paleta["chart_text"])
+        ax.yaxis.label.set_color(paleta["chart_text"])
+        ax.title.set_color(paleta["chart_text"])
         legend = ax.get_legend()
         if legend is not None:
-            legend.get_frame().set_facecolor("white")
-            legend.get_frame().set_edgecolor("black")
+            legend.get_frame().set_facecolor(paleta["legend_bg"])
+            legend.get_frame().set_edgecolor(paleta["legend_edge"])
             legend.get_frame().set_alpha(1.0)
             for txt in legend.get_texts():
-                txt.set_color("black")
+                txt.set_color(paleta["chart_text"])
         for spine in ax.spines.values():
-            spine.set_color("black")
+            spine.set_color(paleta["chart_axis"])
+
+        ax.grid(True, color=paleta["chart_grid"], alpha=0.55)
 
         # Resalta ejes en cero para mejorar visibilidad.
         xlim = ax.get_xlim()
         ylim = ax.get_ylim()
         if ylim[0] <= 0 <= ylim[1]:
-            ax.axhline(0, color="black", linewidth=2.2, alpha=0.95, zorder=4)
+            ax.axhline(0, color=paleta["zero_axis"], linewidth=2.2, alpha=0.95, zorder=4)
         if xlim[0] <= 0 <= xlim[1]:
-            ax.axvline(0, color="black", linewidth=2.2, alpha=0.95, zorder=4)
+            ax.axvline(0, color=paleta["zero_axis"], linewidth=2.2, alpha=0.95, zorder=4)
+
+    fig.patch.set_facecolor(paleta["chart_paper"])
 
     # Evita que etiquetas y leyendas queden recortadas en el render final.
     fig.tight_layout()
@@ -1035,34 +1190,40 @@ def render_chart(fig):
             fig_plotly = mpl_to_plotly(fig)
             fig_plotly.update_layout(
                 margin=dict(l=18, r=18, t=60, b=28),
-                paper_bgcolor="white",
-                plot_bgcolor="white",
-                font=dict(color="black"),
-                template="plotly_white",
+                paper_bgcolor=paleta["chart_paper"],
+                plot_bgcolor=paleta["chart_bg"],
+                font=dict(color=paleta["chart_text"]),
+                template=paleta["plotly_template"],
                 colorway=paleta_series,
-                legend=dict(font=dict(color="black"), title=dict(font=dict(color="black"))),
+                legend=dict(
+                    bgcolor=paleta["legend_bg"],
+                    bordercolor=paleta["legend_edge"],
+                    borderwidth=1,
+                    font=dict(color=paleta["chart_text"]),
+                    title=dict(font=dict(color=paleta["chart_text"])),
+                ),
             )
             fig_plotly.update_xaxes(
-                color="black",
-                tickfont=dict(color="black"),
-                title_font=dict(color="black"),
+                color=paleta["chart_axis"],
+                tickfont=dict(color=paleta["chart_axis"]),
+                title_font=dict(color=paleta["chart_text"]),
                 showline=True,
-                linecolor="black",
+                linecolor=paleta["chart_axis"],
                 zeroline=True,
                 zerolinewidth=2.2,
-                zerolinecolor="black",
-                gridcolor="rgba(0,0,0,0.15)",
+                zerolinecolor=paleta["zero_axis"],
+                gridcolor=paleta["chart_grid"],
             )
             fig_plotly.update_yaxes(
-                color="black",
-                tickfont=dict(color="black"),
-                title_font=dict(color="black"),
+                color=paleta["chart_axis"],
+                tickfont=dict(color=paleta["chart_axis"]),
+                title_font=dict(color=paleta["chart_text"]),
                 showline=True,
-                linecolor="black",
+                linecolor=paleta["chart_axis"],
                 zeroline=True,
                 zerolinewidth=2.2,
-                zerolinecolor="black",
-                gridcolor="rgba(0,0,0,0.15)",
+                zerolinecolor=paleta["zero_axis"],
+                gridcolor=paleta["chart_grid"],
             )
             st.plotly_chart(fig_plotly, use_container_width=True)
             return
@@ -1079,7 +1240,8 @@ def render_chart(fig):
 
 def _build_newton_plotly_function(func_text, root, xmin, xmax, title):
     go = __import__("plotly.graph_objects", fromlist=["Figure"]) 
-    paleta_series = paleta_activa()["series"]
+    paleta = paleta_activa()
+    paleta_series = paleta["series"]
 
     x = np.linspace(xmin, xmax, 800)
     y = build_func_plot(func_text, x)
@@ -1100,48 +1262,55 @@ def _build_newton_plotly_function(func_text, root, xmin, xmax, title):
             y=[0],
             mode="markers",
             name=f"Raiz aprox: {root:.8g}",
-            marker=dict(color="#FF3D81", size=10),
+            marker=dict(color=paleta["accent_2"], size=10),
         )
     )
 
-    fig.add_hline(y=0, line_width=2.4, line_color="black", opacity=0.95)
-    fig.add_vline(x=0, line_width=2.4, line_color="black", opacity=0.95)
+    fig.add_hline(y=0, line_width=2.4, line_color=paleta["zero_axis"], opacity=0.95)
+    fig.add_vline(x=0, line_width=2.4, line_color=paleta["zero_axis"], opacity=0.95)
     fig.update_layout(
         title=title,
         xaxis_title="x",
         yaxis_title="f(x)",
         margin=dict(l=18, r=18, t=60, b=28),
-        paper_bgcolor="white",
-        plot_bgcolor="white",
-        font=dict(color="black"),
-        template="plotly_white",
+        paper_bgcolor=paleta["chart_paper"],
+        plot_bgcolor=paleta["chart_bg"],
+        font=dict(color=paleta["chart_text"]),
+        template=paleta["plotly_template"],
         colorway=paleta_series,
-        legend=dict(font=dict(color="black"), title=dict(font=dict(color="black"))),
+        legend=dict(
+            bgcolor=paleta["legend_bg"],
+            bordercolor=paleta["legend_edge"],
+            borderwidth=1,
+            font=dict(color=paleta["chart_text"]),
+            title=dict(font=dict(color=paleta["chart_text"])),
+        ),
     )
     fig.update_xaxes(
         showgrid=True,
-        gridcolor="rgba(0,0,0,0.15)",
-        color="black",
-        tickfont=dict(color="black"),
-        title_font=dict(color="black"),
+        gridcolor=paleta["chart_grid"],
+        color=paleta["chart_axis"],
+        tickfont=dict(color=paleta["chart_axis"]),
+        title_font=dict(color=paleta["chart_text"]),
         showline=True,
-        linecolor="black",
+        linecolor=paleta["chart_axis"],
     )
     fig.update_yaxes(
         showgrid=True,
-        gridcolor="rgba(0,0,0,0.15)",
-        color="black",
-        tickfont=dict(color="black"),
-        title_font=dict(color="black"),
+        gridcolor=paleta["chart_grid"],
+        color=paleta["chart_axis"],
+        tickfont=dict(color=paleta["chart_axis"]),
+        title_font=dict(color=paleta["chart_text"]),
         showline=True,
-        linecolor="black",
+        linecolor=paleta["chart_axis"],
     )
     return fig
 
 
 def _build_newton_plotly_error(errors, title, y_label="Error absoluto"):
     go = __import__("plotly.graph_objects", fromlist=["Figure"]) 
-    paleta_series = paleta_activa()["series"]
+    paleta = paleta_activa()
+    paleta_series = paleta["series"]
 
     errors = np.array(errors, dtype=float)
     idx = np.arange(1, len(errors) + 1)
@@ -1162,33 +1331,39 @@ def _build_newton_plotly_error(errors, title, y_label="Error absoluto"):
         xaxis_title="Iteracion",
         yaxis_title=y_label,
         margin=dict(l=18, r=18, t=60, b=28),
-        paper_bgcolor="white",
-        plot_bgcolor="white",
-        font=dict(color="black"),
-        template="plotly_white",
+        paper_bgcolor=paleta["chart_paper"],
+        plot_bgcolor=paleta["chart_bg"],
+        font=dict(color=paleta["chart_text"]),
+        template=paleta["plotly_template"],
         colorway=paleta_series,
-        legend=dict(font=dict(color="black"), title=dict(font=dict(color="black"))),
+        legend=dict(
+            bgcolor=paleta["legend_bg"],
+            bordercolor=paleta["legend_edge"],
+            borderwidth=1,
+            font=dict(color=paleta["chart_text"]),
+            title=dict(font=dict(color=paleta["chart_text"])),
+        ),
     )
     if np.all(errors > 0):
         fig.update_yaxes(type="log")
 
     fig.update_xaxes(
         showgrid=True,
-        gridcolor="rgba(0,0,0,0.15)",
-        color="black",
-        tickfont=dict(color="black"),
-        title_font=dict(color="black"),
+        gridcolor=paleta["chart_grid"],
+        color=paleta["chart_axis"],
+        tickfont=dict(color=paleta["chart_axis"]),
+        title_font=dict(color=paleta["chart_text"]),
         showline=True,
-        linecolor="black",
+        linecolor=paleta["chart_axis"],
     )
     fig.update_yaxes(
         showgrid=True,
-        gridcolor="rgba(0,0,0,0.15)",
-        color="black",
-        tickfont=dict(color="black"),
-        title_font=dict(color="black"),
+        gridcolor=paleta["chart_grid"],
+        color=paleta["chart_axis"],
+        tickfont=dict(color=paleta["chart_axis"]),
+        title_font=dict(color=paleta["chart_text"]),
         showline=True,
-        linecolor="black",
+        linecolor=paleta["chart_axis"],
     )
     return fig
 
@@ -1313,18 +1488,332 @@ def render_panel_formulas(
             else:
                 st.info("Ejecuta este metodo para ver aqui el paso a paso numerico real de las cuentas.")
 
+        if mostrar_pasos and apartado_clave:
+            desglose = st.session_state.get("desglose_iteraciones", {}).get(apartado_clave, [])
+            st.markdown("**Desglose numerico por iteracion (abajo del todo)**")
+            if desglose:
+                for fila in desglose:
+                    iter_txt = fila.get("iteracion", "")
+                    if iter_txt != "":
+                        st.markdown(f"**Iteracion {iter_txt}**")
+                    if fila.get("formula"):
+                        st.latex(fila["formula"])
+                    if fila.get("cuenta"):
+                        st.latex(fila["cuenta"])
+            else:
+                st.info("Ejecuta este metodo para ver el desglose numerico completo por iteracion.")
 
-def _num(v, dec=8):
+
+def _num(v, dec=6):
     try:
         return f"{float(v):.{dec}g}"
     except Exception:
         return str(v)
 
 
+DISPLAY_DECIMALS = 6
+
+
+def _format_float_max_decimals(value, decimals=DISPLAY_DECIMALS):
+    """Formatea flotantes con maximo de decimales y sin ceros de relleno."""
+    text = f"{float(value):.{decimals}f}".rstrip("0").rstrip(".")
+    return "0" if text in {"", "-0"} else text
+
+
+def _round_dataframe_numeric(data, decimals=DISPLAY_DECIMALS):
+    if not isinstance(data, pd.DataFrame):
+        return data
+    data_out = data.copy()
+    num_cols = data_out.select_dtypes(include=[np.number]).columns
+    if len(num_cols) > 0:
+        data_out.loc[:, num_cols] = data_out.loc[:, num_cols].round(decimals)
+    return data_out
+
+
+def _format_numbers_in_text(text, decimals=DISPLAY_DECIMALS):
+    import re
+
+    pattern = re.compile(r"(?<![\w.])[-+]?\d+(?:\.\d+)?(?:[eE][-+]?\d+)?")
+
+    def _repl(match):
+        token = match.group(0)
+        # Mantener enteros intactos para no alterar conteos/indices.
+        if "." not in token and "e" not in token.lower():
+            return token
+        try:
+            return _format_float_max_decimals(float(token), decimals)
+        except Exception:
+            return token
+
+    return pattern.sub(_repl, text)
+
+
+def _format_metric_value(value, decimals=DISPLAY_DECIMALS):
+    if isinstance(value, (float, np.floating)):
+        return _format_float_max_decimals(value, decimals)
+    if isinstance(value, str):
+        return _format_numbers_in_text(value, decimals)
+    return value
+
+
+_STREAMLIT_DATAFRAME_ORIG = st.dataframe
+_STREAMLIT_METRIC_ORIG = st.metric
+_STREAMLIT_WRITE_ORIG = st.write
+_STREAMLIT_INFO_ORIG = st.info
+_STREAMLIT_WARNING_ORIG = st.warning
+_STREAMLIT_SUCCESS_ORIG = st.success
+
+
+def _dataframe_with_rounded_decimals(data=None, *args, **kwargs):
+    data = _round_dataframe_numeric(data, DISPLAY_DECIMALS)
+    return _STREAMLIT_DATAFRAME_ORIG(data, *args, **kwargs)
+
+
+def _metric_with_rounded_decimals(label, value, delta=None, *args, **kwargs):
+    value_fmt = _format_metric_value(value, DISPLAY_DECIMALS)
+    delta_fmt = _format_metric_value(delta, DISPLAY_DECIMALS)
+    return _STREAMLIT_METRIC_ORIG(label, value_fmt, delta_fmt, *args, **kwargs)
+
+
+def _format_textual_args(args, decimals=DISPLAY_DECIMALS):
+    out = []
+    for arg in args:
+        if isinstance(arg, str):
+            out.append(_format_numbers_in_text(arg, decimals))
+        else:
+            out.append(arg)
+    return tuple(out)
+
+
+def _write_with_rounded_decimals(*args, **kwargs):
+    return _STREAMLIT_WRITE_ORIG(*_format_textual_args(args), **kwargs)
+
+
+def _info_with_rounded_decimals(body, *args, **kwargs):
+    body_fmt = _format_numbers_in_text(body, DISPLAY_DECIMALS) if isinstance(body, str) else body
+    return _STREAMLIT_INFO_ORIG(body_fmt, *args, **kwargs)
+
+
+def _warning_with_rounded_decimals(body, *args, **kwargs):
+    body_fmt = _format_numbers_in_text(body, DISPLAY_DECIMALS) if isinstance(body, str) else body
+    return _STREAMLIT_WARNING_ORIG(body_fmt, *args, **kwargs)
+
+
+def _success_with_rounded_decimals(body, *args, **kwargs):
+    body_fmt = _format_numbers_in_text(body, DISPLAY_DECIMALS) if isinstance(body, str) else body
+    return _STREAMLIT_SUCCESS_ORIG(body_fmt, *args, **kwargs)
+
+
+st.dataframe = _dataframe_with_rounded_decimals
+st.metric = _metric_with_rounded_decimals
+st.write = _write_with_rounded_decimals
+st.info = _info_with_rounded_decimals
+st.warning = _warning_with_rounded_decimals
+st.success = _success_with_rounded_decimals
+
+
 def guardar_cuentas(apartado_clave, lineas):
     if "cuentas_paso_a_paso" not in st.session_state:
         st.session_state["cuentas_paso_a_paso"] = {}
     st.session_state["cuentas_paso_a_paso"][apartado_clave] = list(lineas)
+
+
+def guardar_desglose_iteraciones(apartado_clave, filas):
+    """Guarda un desglose numerico por iteracion para mostrarlo al final del panel."""
+    if "desglose_iteraciones" not in st.session_state:
+        st.session_state["desglose_iteraciones"] = {}
+    st.session_state["desglose_iteraciones"][apartado_clave] = list(filas)
+
+
+def mostrar_pasos_activo(local_flag=False):
+    """Activa paso a paso si el toggle global esta ON o si el local esta marcado."""
+    return bool(st.session_state.get("show_step_by_step_all", False) or local_flag)
+
+
+def sugerir_metodo(apartado, **kwargs):
+    if apartado == "Raices":
+        intervalo_ok = kwargs.get("intervalo_ok", False)
+        derivada_disp = kwargs.get("derivada_disp", True)
+        if intervalo_ok:
+            return "Recomendacion: inicia con Biseccion para garantizar convergencia y luego usa Newton para acelerar."
+        if derivada_disp:
+            return "Recomendacion: Newton-Raphson suele converger mas rapido si x0 es razonable y f'(x) no se anula."
+        return "Recomendacion: Punto Fijo o Aitken son utiles cuando no quieres derivar explicitamente."
+    if apartado == "EDO":
+        return "Recomendacion: usa RK4 para mejor precision; Euler para aprendizaje y Heun como punto intermedio."
+    if apartado == "Integracion":
+        return "Recomendacion: Simpson (1/3 o 3/8) suele dar mejor precision si la funcion es suave y n cumple requisitos."
+    return ""
+
+
+def mostrar_error_guiado(apartado, exc):
+    err_txt = str(exc)
+    st.error(f"Error en {apartado}: {err_txt}")
+    texto = err_txt.lower()
+    sugerencias = []
+    if "variables no permitidas" in texto:
+        sugerencias.append("Revisa que la expresion solo use variables esperadas (por ejemplo x, y) y funciones validas.")
+    if "division by zero" in texto or "zero" in texto:
+        sugerencias.append("Ajusta el punto inicial/intervalo para evitar divisiones por cero durante iteraciones.")
+    if "n par" in texto:
+        sugerencias.append("Para Simpson 1/3, usa n par.")
+    if "multiplo de 3" in texto:
+        sugerencias.append("Para Simpson 3/8, usa n multiplo de 3.")
+    if "signo" in texto or "f(a)*f(b)" in texto:
+        sugerencias.append(
+            "Prueba un intervalo distinto: verifica que f(a) y f(b) tengan signos opuestos evaluando varios puntos o mirando la grafica."
+        )
+    if not sugerencias:
+        sugerencias.append("Verifica funcion, parametros iniciales y formato de entrada.")
+
+    def _tokens_norm(s):
+        import re
+
+        s_norm = re.sub(r"[^a-z0-9\s]", " ", s.lower())
+        return {t for t in s_norm.split() if len(t) >= 3}
+
+    err_tokens = _tokens_norm(err_txt)
+    sugerencias_filtradas = []
+    for sug in sugerencias:
+        sug_tokens = _tokens_norm(sug)
+        if not sug_tokens:
+            continue
+        inter = len(err_tokens.intersection(sug_tokens))
+        ratio_solape = inter / max(1, len(sug_tokens))
+        # Evita repetir esencialmente el mismo contenido del error.
+        if ratio_solape >= 0.65:
+            continue
+        if sug.strip().lower() in err_txt.strip().lower():
+            continue
+        sugerencias_filtradas.append(sug)
+
+    if not sugerencias_filtradas:
+        sugerencias_filtradas = ["Intenta con parametros iniciales distintos y revisa el formato de la entrada."]
+
+    st.info("Sugerencias: " + " | ".join(sugerencias_filtradas))
+
+
+def evaluar_estabilidad_numerica(nombre, df=None, arrays=None):
+    if not st.session_state.get("show_stability_panel", True):
+        return
+    issues = []
+    if df is not None and isinstance(df, pd.DataFrame):
+        vals = df.select_dtypes(include=[np.number]).to_numpy(dtype=float)
+        if vals.size:
+            if np.isnan(vals).any():
+                issues.append("Hay valores NaN en resultados numericos.")
+            if np.isinf(vals).any():
+                issues.append("Hay valores infinitos en resultados numericos.")
+            vmax = np.nanmax(np.abs(vals)) if np.isfinite(vals).any() else np.nan
+            if np.isfinite(vmax) and vmax > 1e12:
+                issues.append("Magnitudes muy grandes detectadas (>|1e12|), posible inestabilidad.")
+    if arrays:
+        for k, arr in arrays.items():
+            a = np.array(arr, dtype=float)
+            if np.isnan(a).any():
+                issues.append(f"{k}: contiene NaN.")
+            if np.isinf(a).any():
+                issues.append(f"{k}: contiene infinito.")
+    with st.expander(f"Estabilidad numerica - {nombre}", expanded=False):
+        if issues:
+            for msg in issues:
+                st.warning(msg)
+        else:
+            st.success("Sin alertas numericas relevantes en esta ejecucion.")
+
+
+def render_export_dataframe(nombre_base, df):
+    if not st.session_state.get("show_export_tools", True):
+        return
+    if df is None or not isinstance(df, pd.DataFrame):
+        return
+    csv_bytes = df.to_csv(index=False).encode("utf-8")
+    c1, c2 = st.columns(2)
+    c1.download_button(
+        label=f"Descargar CSV ({nombre_base})",
+        data=csv_bytes,
+        file_name=f"{nombre_base}.csv",
+        mime="text/csv",
+        key=f"dl_csv_{nombre_base}",
+    )
+    try:
+        bio = io.BytesIO()
+        with pd.ExcelWriter(bio, engine="openpyxl") as writer:
+            df.to_excel(writer, index=False, sheet_name="resultados")
+        c2.download_button(
+            label=f"Descargar Excel ({nombre_base})",
+            data=bio.getvalue(),
+            file_name=f"{nombre_base}.xlsx",
+            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            key=f"dl_xlsx_{nombre_base}",
+        )
+    except Exception:
+        c2.info("Exportacion a Excel no disponible en este entorno.")
+
+
+def render_modo_docente(apartado, df):
+    if not st.session_state.get("teacher_mode", False):
+        return
+    if df is None or not isinstance(df, pd.DataFrame) or df.empty:
+        return
+    st.markdown("#### Modo docente: iteracion paso a paso")
+    idx = st.slider(
+        f"Iteracion a explicar ({apartado})",
+        min_value=0,
+        max_value=len(df) - 1,
+        value=0,
+        step=1,
+        key=f"teacher_{apartado}",
+    )
+    fila = df.iloc[int(idx)]
+    st.dataframe(pd.DataFrame([fila]), use_container_width=True)
+
+
+def registrar_ejecucion(apartado, metodo, iteraciones=None, error_final=None, convergio=None, tiempo_ms=None):
+    if "historial_metodos" not in st.session_state:
+        st.session_state["historial_metodos"] = []
+    st.session_state["historial_metodos"].append(
+        {
+            "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+            "apartado": apartado,
+            "metodo": metodo,
+            "iteraciones": None if iteraciones is None else int(iteraciones),
+            "error_final": None if error_final is None else float(error_final),
+            "convergio": convergio,
+            "tiempo_ms": None if tiempo_ms is None else float(tiempo_ms),
+        }
+    )
+
+
+def section_historial_benchmark():
+    st.subheader("Historial y benchmark temporal")
+    hist = st.session_state.get("historial_metodos", [])
+    if not hist:
+        st.info("Aun no hay ejecuciones registradas.")
+        return
+    dfh = pd.DataFrame(hist)
+    st.dataframe(dfh, use_container_width=True)
+    if "tiempo_ms" in dfh.columns and dfh["tiempo_ms"].notna().any():
+        fig, ax = plt.subplots(figsize=(9, 3.8))
+        ax.plot(np.arange(len(dfh)), dfh["tiempo_ms"].astype(float), "o-", label="Tiempo (ms)")
+        ax.set_title("Tiempo de ejecucion por corrida")
+        ax.set_xlabel("Corrida")
+        ax.set_ylabel("ms")
+        ax.grid(alpha=0.3)
+        ax.legend()
+        render_chart(fig)
+        plt.close(fig)
+    if "error_final" in dfh.columns and dfh["error_final"].notna().any():
+        fig2, ax2 = plt.subplots(figsize=(9, 3.8))
+        ax2.plot(np.arange(len(dfh)), np.clip(dfh["error_final"].astype(float), 1e-16, None), "s-", label="Error final")
+        ax2.set_yscale("log")
+        ax2.set_title("Error final por corrida (escala log)")
+        ax2.set_xlabel("Corrida")
+        ax2.set_ylabel("Error")
+        ax2.grid(alpha=0.3, which="both")
+        ax2.legend()
+        render_chart(fig2)
+        plt.close(fig2)
 
 
 FORMULAS_POR_APARTADO = {
@@ -1920,6 +2409,7 @@ DESGLOSE_COMPLETO_POR_APARTADO = {
 
 def section_newton():
     st.subheader("Metodo de Newton-Raphson")
+    st.info(sugerir_metodo("Raices", derivada_disp=True))
 
     with st.form("form_newton"):
         c1, c2 = st.columns(2)
@@ -1938,6 +2428,7 @@ def section_newton():
 
     if run_btn:
         try:
+            t0 = time.perf_counter()
             x0_run = float(x0)
             if buscar_primera_positiva:
                 x0_sugerido = sugerir_x0_primera_raiz_positiva(func, x0_run)
@@ -1958,27 +2449,56 @@ def section_newton():
             st.metric("Raiz aproximada", f"{root:.12g}")
             st.metric("Convergencia", "Si" if converged else "No")
             st.metric("Iteraciones", len(iterations))
+            elapsed_ms = (time.perf_counter() - t0) * 1000.0
+            st.metric("Tiempo de ejecucion (ms)", elapsed_ms)
 
             err_col = "Error |x_(n+1) - x_n|"
             errors = df[err_col].astype(float).to_numpy()
 
             render_newton_charts(func, root, x0_run, errors)
+            render_export_dataframe("newton_iteraciones", df)
+            render_modo_docente("Newton", df)
+            evaluar_estabilidad_numerica("Newton-Raphson", df=df, arrays={"errores": errors})
 
             cuentas = []
+            desglose = []
             for i, fila in enumerate(iterations[:5], start=1):
                 cuentas.append(
                     rf"x_{{{i}}} = x_{{{i-1}}} - \frac{{f(x_{{{i-1}}})}}{{f'(x_{{{i-1}}})}} = {_num(fila['x_n'])} - \frac{{{_num(fila['f(x_n)'])}}}{{{_num(fila["f'(x_n)"])}}} = {_num(fila['x_(n+1)'])}"
                 )
                 cuentas.append(rf"e_{{{i}}}=|x_{{{i}}}-x_{{{i-1}}}|={_num(fila['Error |x_(n+1) - x_n|'])}")
+            for i, fila in enumerate(iterations, start=1):
+                x_n = _num(fila["x_n"])
+                f_n = _num(fila["f(x_n)"])
+                fp_n = _num(fila["f'(x_n)"])
+                x_np1 = _num(fila["x_(n+1)"])
+                err_n = _num(fila["Error |x_(n+1) - x_n|"])
+                desglose.append(
+                    {
+                        "iteracion": i,
+                        "formula": r"x_{n+1}=x_n-\frac{f(x_n)}{f'(x_n)}",
+                        "cuenta": rf"x_{{{i}}}={x_n}-\frac{{{f_n}}}{{{fp_n}}}={x_np1},\ e_{{{i}}}={err_n}",
+                    }
+                )
             cuentas.append(rf"x^* \approx {_num(root, 12)}")
             guardar_cuentas("Newton-Raphson", cuentas)
+            guardar_desglose_iteraciones("Newton-Raphson", desglose)
+            registrar_ejecucion(
+                "Newton-Raphson",
+                "Newton-Raphson",
+                iteraciones=len(iterations),
+                error_final=float(errors[-1]) if len(errors) else None,
+                convergio=bool(converged),
+                tiempo_ms=elapsed_ms,
+            )
 
         except Exception as exc:
-            st.error(f"Error al ejecutar Newton: {exc}")
+            mostrar_error_guiado("Newton-Raphson", exc)
 
 
 def section_aitken():
     st.subheader("Metodo de Aitken")
+    st.info(sugerir_metodo("Raices", derivada_disp=False))
 
     with st.form("form_aitken"):
         c1, c2 = st.columns(2)
@@ -1992,6 +2512,7 @@ def section_aitken():
 
     if run_btn:
         try:
+            t0 = time.perf_counter()
             root, iterations, converged = run_silent(
                 metodo_aitken, g, float(x0), float(tol), int(max_iter)
             )
@@ -2005,11 +2526,16 @@ def section_aitken():
             st.metric("Raiz aproximada", f"{root:.12g}")
             st.metric("Convergencia", "Si" if converged else "No")
             st.metric("Iteraciones", len(iterations))
+            elapsed_ms = (time.perf_counter() - t0) * 1000.0
+            st.metric("Tiempo de ejecucion (ms)", elapsed_ms)
 
             errors = df["Error"].astype(float).to_numpy()
             fig_e = plot_error_curve(errors, "Error por iteracion (Aitken)")
             render_chart(fig_e)
             plt.close(fig_e)
+            render_export_dataframe("aitken_iteraciones", df)
+            render_modo_docente("Aitken", df)
+            evaluar_estabilidad_numerica("Aitken", df=df, arrays={"errores": errors})
 
             margin = max(2.0, abs(float(root) - float(x0)) + 1.0)
             x = np.linspace(float(root) - margin, float(root) + margin, 800)
@@ -2028,21 +2554,42 @@ def section_aitken():
             plt.close(fig)
 
             cuentas = []
+            desglose = []
             for i, fila in enumerate(iterations[:5], start=1):
                 x_n = fila.get("x_n", np.nan)
                 x_n1 = fila.get("x_n1", fila.get("x_(n+1)", np.nan))
                 err = fila.get("Error", np.nan)
                 cuentas.append(rf"x_{{{i}}}=g(x_{{{i-1}}})={_num(x_n1)}")
                 cuentas.append(rf"e_{{{i}}}=|x_{{{i}}}-x_{{{i-1}}}|={_num(err)}")
+            for i, fila in enumerate(iterations, start=1):
+                x_n1 = fila.get("x_n1", fila.get("x_(n+1)", np.nan))
+                err = fila.get("Error", np.nan)
+                desglose.append(
+                    {
+                        "iteracion": i,
+                        "formula": r"x_{n+1}=g(x_n)",
+                        "cuenta": rf"x_{{{i}}}=g(x_{{{i-1}}})={_num(x_n1)},\ e_{{{i}}}={_num(err)}",
+                    }
+                )
             cuentas.append(rf"x^* \approx {_num(root, 12)}")
             guardar_cuentas("Aitken", cuentas)
+            guardar_desglose_iteraciones("Aitken", desglose)
+            registrar_ejecucion(
+                "Aitken",
+                "Aitken",
+                iteraciones=len(iterations),
+                error_final=float(errors[-1]) if len(errors) else None,
+                convergio=bool(converged),
+                tiempo_ms=elapsed_ms,
+            )
 
         except Exception as exc:
-            st.error(f"Error al ejecutar Aitken: {exc}")
+            mostrar_error_guiado("Aitken", exc)
 
 
 def section_biseccion():
     st.subheader("Metodo de Biseccion")
+    st.info(sugerir_metodo("Raices", intervalo_ok=True))
 
     with st.form("form_biseccion"):
         c1, c2 = st.columns(2)
@@ -2057,6 +2604,7 @@ def section_biseccion():
 
     if run_btn:
         try:
+            t0 = time.perf_counter()
             root, rows = run_silent(
                 metodo_biseccion,
                 func,
@@ -2078,6 +2626,8 @@ def section_biseccion():
             st.metric("Raiz aproximada", f"{root:.12g}")
             st.metric("Iteraciones", len(df))
             st.metric("Error final |f(c)|", f"{float(df['Error_f(c)'].iloc[-1]):.7f}")
+            elapsed_ms = (time.perf_counter() - t0) * 1000.0
+            st.metric("Tiempo de ejecucion (ms)", elapsed_ms)
 
             fig_f = plot_function_with_root(func, float(root), float(a), float(b), "Funcion y raiz aproximada (Biseccion)")
             render_chart(fig_f)
@@ -2086,8 +2636,12 @@ def section_biseccion():
             fig_e = plot_error_curve(df["Error_f(c)"].to_numpy(), "Error por iteracion (Biseccion)", "|f(c)|")
             render_chart(fig_e)
             plt.close(fig_e)
+            render_export_dataframe("biseccion_iteraciones", df)
+            render_modo_docente("Biseccion", df)
+            evaluar_estabilidad_numerica("Biseccion", df=df)
 
             cuentas = []
+            desglose = []
             for i, (_, fila) in enumerate(df.head(5).iterrows(), start=1):
                 a_i = _num(fila["a"])
                 b_i = _num(fila["b"])
@@ -2095,15 +2649,35 @@ def section_biseccion():
                     rf"c_{{{i}}}=\frac{{a_{{{i}}}+b_{{{i}}}}}{{2}}=\frac{{{a_i}+{b_i}}}{{2}}={_num(fila['c'])}"
                 )
                 cuentas.append(rf"|f(c_{{{i}}})|={_num(abs(fila['f(c)']))}")
+            for i, (_, fila) in enumerate(df.iterrows(), start=1):
+                a_i = _num(fila["a"])
+                b_i = _num(fila["b"])
+                desglose.append(
+                    {
+                        "iteracion": i,
+                        "formula": r"c_n=\frac{a_n+b_n}{2}",
+                        "cuenta": rf"c_{{{i}}}=\frac{{{a_i}+{b_i}}}{{2}}={_num(fila['c'])},\ |f(c_{{{i}}})|={_num(abs(fila['f(c)']))}",
+                    }
+                )
             cuentas.append(rf"x^* \approx {_num(root, 12)}")
             guardar_cuentas("Biseccion", cuentas)
+            guardar_desglose_iteraciones("Biseccion", desglose)
+            registrar_ejecucion(
+                "Biseccion",
+                "Biseccion",
+                iteraciones=len(df),
+                error_final=float(df["Error_f(c)"].iloc[-1]) if len(df) else None,
+                convergio=True,
+                tiempo_ms=elapsed_ms,
+            )
 
         except Exception as exc:
-            st.error(f"Error al ejecutar Biseccion: {exc}")
+            mostrar_error_guiado("Biseccion", exc)
 
 
 def section_punto_fijo():
     st.subheader("Metodo de Punto Fijo")
+    st.info(sugerir_metodo("Raices", derivada_disp=False))
 
     with st.form("form_punto_fijo"):
         c1, c2 = st.columns(2)
@@ -2120,6 +2694,7 @@ def section_punto_fijo():
 
     if run_btn:
         try:
+            t0 = time.perf_counter()
             root, rows = run_silent(
                 metodo_punto_fijo,
                 g,
@@ -2138,6 +2713,8 @@ def section_punto_fijo():
             st.metric("Raiz aproximada", f"{root:.12g}")
             st.metric("Iteraciones", len(df))
             st.metric("Error final", f"{float(df['Error'].iloc[-1]):.7f}")
+            elapsed_ms = (time.perf_counter() - t0) * 1000.0
+            st.metric("Tiempo de ejecucion (ms)", elapsed_ms)
 
             if xmax <= xmin:
                 st.warning("Para graficar f(x), se requiere x max > x min.")
@@ -2155,6 +2732,9 @@ def section_punto_fijo():
             fig_e = plot_error_curve(df["Error"].to_numpy(), "Error por iteracion (Punto Fijo)")
             render_chart(fig_e)
             plt.close(fig_e)
+            render_export_dataframe("punto_fijo_iteraciones", df)
+            render_modo_docente("PuntoFijo", df)
+            evaluar_estabilidad_numerica("Punto Fijo", df=df)
 
             margin = max(2.0, abs(float(root) - float(x0)) + 1.0)
             x = np.linspace(float(root) - margin, float(root) + margin, 800)
@@ -2173,18 +2753,37 @@ def section_punto_fijo():
             plt.close(fig)
 
             cuentas = []
+            desglose = []
             for i, (_, fila) in enumerate(df.head(5).iterrows(), start=1):
                 cuentas.append(rf"x_{{{i}}}=g(x_{{{i-1}}})={_num(fila['x_n1'])}")
                 cuentas.append(rf"e_{{{i}}}=|x_{{{i}}}-x_{{{i-1}}}|={_num(fila['Error'])}")
+            for i, (_, fila) in enumerate(df.iterrows(), start=1):
+                desglose.append(
+                    {
+                        "iteracion": i,
+                        "formula": r"x_{n+1}=g(x_n)",
+                        "cuenta": rf"x_{{{i}}}=g(x_{{{i-1}}})={_num(fila['x_n1'])},\ e_{{{i}}}={_num(fila['Error'])}",
+                    }
+                )
             cuentas.append(rf"x^* \approx {_num(root, 12)}")
             guardar_cuentas("Punto Fijo", cuentas)
+            guardar_desglose_iteraciones("Punto Fijo", desglose)
+            registrar_ejecucion(
+                "Punto Fijo",
+                "Punto Fijo",
+                iteraciones=len(df),
+                error_final=float(df["Error"].iloc[-1]) if len(df) else None,
+                convergio=True,
+                tiempo_ms=elapsed_ms,
+            )
 
         except Exception as exc:
-            st.error(f"Error al ejecutar Punto Fijo: {exc}")
+            mostrar_error_guiado("Punto Fijo", exc)
 
 
 def section_comparativa():
     st.subheader("Comparativa de los 4 metodos")
+    st.info(sugerir_metodo("Raices", intervalo_ok=True, derivada_disp=True))
 
     with st.form("form_comparativa"):
         c1, c2 = st.columns(2)
@@ -2200,6 +2799,7 @@ def section_comparativa():
         run_btn = st.form_submit_button("Ejecutar comparativa")
 
     if run_btn:
+        t0 = time.perf_counter()
         results = []
 
         try:
@@ -2268,6 +2868,11 @@ def section_comparativa():
 
         df = pd.DataFrame(results)
         st.dataframe(df, use_container_width=True)
+        render_export_dataframe("comparativa_metodos", df)
+        render_modo_docente("Comparativa", df)
+        evaluar_estabilidad_numerica("Comparativa", df=df)
+        elapsed_ms = (time.perf_counter() - t0) * 1000.0
+        st.metric("Tiempo de ejecucion (ms)", elapsed_ms)
 
         fig1, ax1 = plt.subplots(figsize=(8, 4.2))
         ax1.bar(df["Metodo"], df["Iteraciones"])
@@ -2292,11 +2897,20 @@ def section_comparativa():
             cuentas.append(
                 rf"\text{{{row['Metodo']}}}:\ x^*={_num(row['Raiz'], 10)},\ N_{{iter}}={int(row['Iteraciones'])},\ e_f={_num(row['Error_final'])}"
             )
+            registrar_ejecucion(
+                "Comparativa",
+                str(row["Metodo"]),
+                iteraciones=int(row["Iteraciones"]),
+                error_final=float(row["Error_final"]),
+                convergio=bool(row["Convergencia"]),
+                tiempo_ms=elapsed_ms,
+            )
         guardar_cuentas("Comparativa", cuentas)
 
 
 def section_lagrange():
     st.subheader("Lagrange, derivacion y error")
+    mostrar_pasos = mostrar_pasos_activo(False)
 
     st.markdown("Ingresa datos para interpolacion. Puedes cargar y manualmente o desde f(x).")
 
@@ -2353,11 +2967,12 @@ def section_lagrange():
         st.write("Polinomio de Lagrange:")
         st.latex(f"P(x) = {polynomial_to_decimal_latex(p_lagr, max_decimals=7)}")
 
-        st.write("Bases de Lagrange:")
-        with st.expander("Ver bases L_i(x)", expanded=True):
-            for i, li in enumerate(bases_lagr):
-                li_expandida = sp.expand(li)
-                st.latex(f"L_{{{i}}}(x) = {sp.latex(li_expandida)}")
+        if mostrar_pasos:
+            st.write("Bases de Lagrange:")
+            with st.expander("Ver bases L_i(x)", expanded=True):
+                for i, li in enumerate(bases_lagr):
+                    li_expandida = sp.expand(li)
+                    st.latex(f"L_{{{i}}}(x) = {sp.latex(li_expandida)}")
 
         c_eval_1, c_eval_2 = st.columns([2, 1])
         x_eval_text = c_eval_1.text_input(
@@ -2556,6 +3171,8 @@ def section_lagrange():
 
 def section_integracion_numerica():
     st.subheader("Integracion numerica")
+    st.info(sugerir_metodo("Integracion"))
+    mostrar_pasos = mostrar_pasos_activo(False)
 
     with st.form("form_integracion"):
         c1, c2, c3 = st.columns(3)
@@ -2575,6 +3192,7 @@ def section_integracion_numerica():
 
     if run_btn:
         try:
+            t0 = time.perf_counter()
             a_val = parse_numeric_expr(a_text, "a", allow_infinite=True)
             b_val = parse_numeric_expr(b_text, "b", allow_infinite=True)
 
@@ -2649,6 +3267,8 @@ def section_integracion_numerica():
             c_m1.metric("Resultado", f"{valor:.12g}")
             c_m2.metric("Metodo", metodo)
             c_m3.metric("Intervalos n", int(n))
+            elapsed_ms = (time.perf_counter() - t0) * 1000.0
+            st.metric("Tiempo de ejecucion (ms)", elapsed_ms)
 
             cota_sel = np.nan if es_impropia else cota_truncamiento_integracion(
                 metodo,
@@ -2675,15 +3295,16 @@ def section_integracion_numerica():
                     max_f2=max_f2,
                     max_f4=max_f4,
                 )
-                with st.expander("Ver paso a paso del error de truncamiento"):
-                    for paso in detalle_cota["pasos"]:
-                        st.write(paso)
-                    if detalle_cota["latex_formula"]:
-                        st.latex(detalle_cota["latex_formula"])
-                    if detalle_cota["latex_sustitucion"]:
-                        st.latex(detalle_cota["latex_sustitucion"])
-                    if detalle_cota["ok"]:
-                        st.latex(rf"|E_T| \leq {float(detalle_cota['cota']):.7g}")
+                if mostrar_pasos:
+                    with st.expander("Ver paso a paso del error de truncamiento"):
+                        for paso in detalle_cota["pasos"]:
+                            st.write(paso)
+                        if detalle_cota["latex_formula"]:
+                            st.latex(detalle_cota["latex_formula"])
+                        if detalle_cota["latex_sustitucion"]:
+                            st.latex(detalle_cota["latex_sustitucion"])
+                        if detalle_cota["ok"]:
+                            st.latex(rf"|E_T| \leq {float(detalle_cota['cota']):.7g}")
             else:
                 st.info("Se utilizo transformacion de variable para resolver integral impropia.")
 
@@ -2712,8 +3333,11 @@ def section_integracion_numerica():
             st.dataframe(
                 df_nodes,
                 use_container_width=True,
-                column_config={k: st.column_config.NumberColumn(k, format="%.7f") for k in df_nodes.columns},
+                column_config={k: st.column_config.NumberColumn(k, format="%.6f") for k in df_nodes.columns},
             )
+            render_export_dataframe("integracion_nodos", df_nodes)
+            render_modo_docente("IntegracionNodos", df_nodes)
+            evaluar_estabilidad_numerica("Integracion Numerica", df=df_nodes)
 
             if es_impropia:
                 fig = plot_integracion_impropia_transformada(
@@ -2754,11 +3378,12 @@ def section_integracion_numerica():
                     df_comp,
                     use_container_width=True,
                     column_config={
-                        "Integral": st.column_config.NumberColumn("Integral", format="%.7f"),
-                        "Error_abs": st.column_config.NumberColumn("Error_abs", format="%.7f"),
-                        "Cota_trunc": st.column_config.NumberColumn("Cota_trunc", format="%.7f"),
+                        "Integral": st.column_config.NumberColumn("Integral", format="%.6f"),
+                        "Error_abs": st.column_config.NumberColumn("Error_abs", format="%.6f"),
+                        "Cota_trunc": st.column_config.NumberColumn("Cota_trunc", format="%.6f"),
                     },
                 )
+                render_export_dataframe("integracion_comparativa", df_comp)
 
                 fig_c, ax_c = plt.subplots(figsize=(8.5, 4.2))
                 ok_mask = df_comp["Integral"].notna()
@@ -2842,9 +3467,17 @@ def section_integracion_numerica():
             if np.isfinite(cota_sel):
                 cuentas.append(rf"|E_T|\le {_num(cota_sel)}")
             guardar_cuentas("Integracion Numerica", cuentas)
+            registrar_ejecucion(
+                "Integracion Numerica",
+                metodo,
+                iteraciones=int(n),
+                error_final=abs(float(valor) - float(exact_val)) if exact_val is not None else None,
+                convergio=True,
+                tiempo_ms=elapsed_ms,
+            )
 
         except Exception as exc:
-            st.error(f"Error en integracion numerica: {exc}")
+            mostrar_error_guiado("Integracion Numerica", exc)
 
 
 def section_montecarlo():
@@ -2957,7 +3590,7 @@ def section_montecarlo():
             st.dataframe(
                 df_puntos.head(50),  # Mostrar solo primeros 50 para no sobrecargar
                 use_container_width=True,
-                column_config={k: st.column_config.NumberColumn(k, format="%.7f") for k in df_puntos.columns},
+                column_config={k: st.column_config.NumberColumn(k, format="%.6f") for k in df_puntos.columns},
             )
             if len(x_nodes) > 50:
                 st.info(f"Mostrando 50 de {len(x_nodes)} puntos. Todos los puntos se usaron en el calculo.")
@@ -3054,7 +3687,7 @@ def section_montecarlo_2d():
             st.dataframe(
                 df_puntos.head(50),
                 use_container_width=True,
-                column_config={k: st.column_config.NumberColumn(k, format="%.7f") for k in df_puntos.columns},
+                column_config={k: st.column_config.NumberColumn(k, format="%.6f") for k in df_puntos.columns},
             )
             if len(x_nodes) > 50:
                 st.info(f"Mostrando 50 de {len(x_nodes)} puntos. Todos los puntos se usaron en el calculo.")
@@ -3227,12 +3860,14 @@ def section_sistemas_lineales():
             x0_text = st.text_input("x0 para Gauss-Seidel (opcional, csv)", value="")
             tol = st.number_input("Tolerancia", value=1e-6, format="%.1e")
             max_iter = st.number_input("Max iteraciones", value=100, min_value=1, step=1)
-            mostrar_pasos = st.checkbox("Mostrar pasos/iteraciones", value=True)
+            mostrar_pasos_local = st.checkbox("Mostrar pasos/iteraciones", value=False)
 
         run_btn = st.form_submit_button("Resolver sistema")
 
     if run_btn:
         try:
+            t0 = time.perf_counter()
+            mostrar_pasos = mostrar_pasos_activo(mostrar_pasos_local)
             A = parse_matrix_text(A_text, int(n))
             b = parse_vector_text(b_text, int(n))
 
@@ -3266,6 +3901,11 @@ def section_sistemas_lineales():
                 sol, pasos = gauss_jordan(A, b)
                 df_sol = pd.DataFrame([sol], columns=[f"x{i + 1}" for i in range(len(sol))])
                 st.dataframe(df_sol, use_container_width=True)
+                render_export_dataframe("sistemas_gauss_jordan_solucion", df_sol)
+                render_modo_docente("SistemasGJ", df_sol)
+                elapsed_ms = (time.perf_counter() - t0) * 1000.0
+                st.metric("Tiempo de ejecucion (ms)", elapsed_ms)
+                registrar_ejecucion("Sistemas Lineales", "Gauss-Jordan", iteraciones=len(pasos), convergio=True, tiempo_ms=elapsed_ms)
 
                 if mostrar_pasos:
                     with st.expander("Ver pasos de Gauss-Jordan", expanded=False):
@@ -3287,10 +3927,24 @@ def section_sistemas_lineales():
                 st.dataframe(df_sol, use_container_width=True)
                 st.metric("Convergencia", "Si" if convergio else "No")
                 st.metric("Iteraciones", len(iters))
+                render_export_dataframe("sistemas_gauss_seidel_solucion", df_sol)
+                elapsed_ms = (time.perf_counter() - t0) * 1000.0
+                st.metric("Tiempo de ejecucion (ms)", elapsed_ms)
+                registrar_ejecucion(
+                    "Sistemas Lineales",
+                    "Gauss-Seidel",
+                    iteraciones=len(iters),
+                    error_final=float(iters[-1]["Error_inf"]) if iters else None,
+                    convergio=bool(convergio),
+                    tiempo_ms=elapsed_ms,
+                )
 
                 if mostrar_pasos and iters:
                     df_iters = pd.DataFrame(iters)
                     st.dataframe(df_iters, use_container_width=True)
+                    render_export_dataframe("sistemas_gauss_seidel_iteraciones", df_iters)
+                    render_modo_docente("SistemasGS", df_iters)
+                    evaluar_estabilidad_numerica("Gauss-Seidel", df=df_iters)
 
                     fig_s1, ax_s1 = plt.subplots(figsize=(8.2, 4.0))
                     err_vals = df_iters["Error_inf"].to_numpy(dtype=float)
@@ -3321,21 +3975,41 @@ def section_sistemas_lineales():
                     plt.close(fig_s2)
 
             cuentas = [rf"A\,x=b\ \text{{con }}n={int(n)}"]
+            desglose = []
             if metodo == "Gauss-Jordan":
                 cuentas.append(r"[A|b]\rightarrow[I|x]")
                 cuentas.append(rf"x_1={_num(sol[0])}")
+                for i, paso in enumerate(pasos, start=1):
+                    desglose.append(
+                        {
+                            "iteracion": i,
+                            "formula": r"[A|b]\rightarrow[I|x]\ \text{(operaciones elementales)}",
+                            "cuenta": rf"\text{{Paso {i}: }}{paso['paso']}",
+                        }
+                    )
             else:
                 cuentas.append(rf"\text{{Iteraciones Seidel}}={len(iters)}")
                 if iters:
                     cuentas.append(rf"\|e\|_\infty^{{(final)}}={_num(iters[-1]['Error_inf'])}")
+                for fila in iters:
+                    i = int(fila.get("Iteracion", 0))
+                    desglose.append(
+                        {
+                            "iteracion": i,
+                            "formula": r"x_i^{(k+1)}=\frac{1}{a_{ii}}\left(b_i-\sum_{j<i}a_{ij}x_j^{(k+1)}-\sum_{j>i}a_{ij}x_j^{(k)}\right)",
+                            "cuenta": rf"\|e\|_\infty^{{({i})}}={_num(fila.get('Error_inf', np.nan))}",
+                        }
+                    )
             guardar_cuentas("Sistemas Lineales", cuentas)
+            guardar_desglose_iteraciones("Sistemas Lineales", desglose)
 
         except Exception as exc:
-            st.error(f"Error al resolver sistema lineal: {exc}")
+            mostrar_error_guiado("Sistemas Lineales", exc)
 
 
 def section_edo():
     st.subheader("EDO de valor inicial")
+    st.info(sugerir_metodo("EDO"))
 
     with st.form("form_edo"):
         c1, c2, c3 = st.columns(3)
@@ -3350,11 +4024,15 @@ def section_edo():
         with c3:
             comparar_metodos = st.checkbox("Comparar Euler, Heun y RK4", value=True)
             mostrar_campo = st.checkbox("Mostrar campo de pendientes", value=True)
-            y_exact_text = st.text_input("y(x) exacta opcional", value="")
+            y_exact_text = st.text_input(
+                "y(x) exacta opcional (si no la sabes, se calcula sola)",
+                value="",
+            )
         run_btn = st.form_submit_button("Resolver EDO")
 
     if run_btn:
         try:
+            t0 = time.perf_counter()
             x0 = parse_numeric_expr(x0_text, "x0")
             y0 = parse_numeric_expr(y0_text, "y0")
             h = parse_numeric_expr(h_text, "h")
@@ -3365,8 +4043,6 @@ def section_edo():
 
             rows_map = {"Euler": rows_euler, "Heun": rows_heun, "RK4": rows_rk4}
             rows = rows_map[metodo]
-            df = pd.DataFrame(rows)
-            st.dataframe(df, use_container_width=True)
 
             x_num_e = np.array([r["x"] for r in rows_euler], dtype=float)
             y_num_e = np.array([r["y"] for r in rows_euler], dtype=float)
@@ -3374,25 +4050,97 @@ def section_edo():
             y_num_h = np.array([r["y"] for r in rows_heun], dtype=float)
             x_num_r = np.array([r["x"] for r in rows_rk4], dtype=float)
             y_num_r = np.array([r["y"] for r in rows_rk4], dtype=float)
-
-            x_end = float(x_num_e[-1])
-            if comparar_metodos:
-                m1, m2, m3 = st.columns(3)
-                m1.metric("Euler", f"y({x_end:.7g}) = {float(y_num_e[-1]):.12g}")
-                m2.metric("Heun", f"y({x_end:.7g}) = {float(y_num_h[-1]):.12g}")
-                m3.metric("RK4", f"y({x_end:.7g}) = {float(y_num_r[-1]):.12g}")
-            else:
-                y_sel = {"Euler": y_num_e, "Heun": y_num_h, "RK4": y_num_r}[metodo]
-                st.metric(f"Resultado {metodo}", f"y({x_end:.7g}) = {float(y_sel[-1]):.12g}")
+            x_num_m = np.array([r["x"] for r in rows], dtype=float)
+            y_num_m = np.array([r["y"] for r in rows], dtype=float)
 
             exact_vals = None
-            if y_exact_text.strip():
+            expr_exact = None
+
+            # Primero se intenta resolver la EDO exacta automaticamente.
+            try:
+                expr_exact, exact_fun = resolver_y_exacta_edo(fxy, x0, y0)
+                exact_vals = np.array(exact_fun(x_num_r), dtype=float)
+                st.info("Se calculo automaticamente la solucion exacta y(x) para la comparacion.")
+                st.latex(r"y(x)=" + sp.latex(expr_exact))
+            except Exception as exc_auto:
+                # Si no se puede resolver automaticamente, se permite ingreso manual.
+                if y_exact_text.strip():
+                    try:
+                        expr_exact = safe_eval_expr(y_exact_text, "x")
+                        exact_fun = sp.lambdify(sp.Symbol("x"), expr_exact, "numpy")
+                        exact_vals = np.array(exact_fun(x_num_r), dtype=float)
+                    except Exception as exc_manual:
+                        st.warning(
+                            f"No se pudo calcular y(x) automatica ({exc_auto}) ni evaluar la manual ({exc_manual})."
+                        )
+                else:
+                    try:
+                        _, exact_vals_ref = referencia_edo_alta_precision(fxy, x0, y0, h, int(n), factor=20)
+                        exact_vals = np.array(exact_vals_ref, dtype=float)
+                        st.info("No hubo solucion cerrada; se usa referencia numerica de alta precision (RK4 refinado).")
+                    except Exception:
+                        st.warning(
+                            "No se pudo obtener y(x) exacta ni referencia de alta precision. "
+                            "La tabla se mostrara sin y_real ni errores exactos."
+                        )
+
+            exact_vals_m = None
+            if expr_exact is not None:
                 try:
-                    expr_exact = safe_eval_expr(y_exact_text, "x")
-                    exact_fun = sp.lambdify(sp.Symbol("x"), expr_exact, "numpy")
-                    exact_vals = np.array(exact_fun(x_num_r), dtype=float)
-                except Exception as exc:
-                    st.warning(f"No se pudo evaluar y(x) exacta: {exc}")
+                    exact_fun_m = sp.lambdify(sp.Symbol("x"), expr_exact, "numpy")
+                    exact_vals_m = np.array(exact_fun_m(x_num_m), dtype=float)
+                except Exception:
+                    exact_vals_m = None
+
+            df = pd.DataFrame(rows).copy()
+            df["valor_real"] = exact_vals_m if exact_vals_m is not None else np.full_like(x_num_m, np.nan)
+            df["valor_metodo"] = y_num_m
+            df["error_metodo"] = (
+                np.abs(y_num_m - exact_vals_m)
+                if exact_vals_m is not None
+                else np.full_like(x_num_m, np.nan)
+            )
+            st.dataframe(df, use_container_width=True)
+            render_export_dataframe("edo_tabla_metodo", df)
+            render_modo_docente("EDO", df)
+            evaluar_estabilidad_numerica("EDO", df=df)
+
+            st.markdown("#### Comparativa de todos los metodos (por iteracion)")
+            tabla_comp = pd.DataFrame(
+                {
+                    "Iteracion": [r["Iteracion"] for r in rows_rk4],
+                    "x": x_num_r,
+                    "y_real": exact_vals if exact_vals is not None else np.full_like(x_num_r, np.nan),
+                    "y_euler": y_num_e,
+                    "y_heun": y_num_h,
+                    "y_rk4": y_num_r,
+                    "error_euler": np.abs(y_num_e - exact_vals)
+                    if exact_vals is not None
+                    else np.full_like(x_num_r, np.nan),
+                    "error_heun": np.abs(y_num_h - exact_vals)
+                    if exact_vals is not None
+                    else np.full_like(x_num_r, np.nan),
+                    "error_rk4": np.abs(y_num_r - exact_vals)
+                    if exact_vals is not None
+                    else np.full_like(x_num_r, np.nan),
+                    "k_euler": [r.get("k1", np.nan) for r in rows_euler],
+                    "k1_heun": [r.get("k1", np.nan) for r in rows_heun],
+                    "k2_heun": [r.get("k2", np.nan) for r in rows_heun],
+                    "k1_rk4": [r.get("k1", np.nan) for r in rows_rk4],
+                    "k2_rk4": [r.get("k2", np.nan) for r in rows_rk4],
+                    "k3_rk4": [r.get("k3", np.nan) for r in rows_rk4],
+                    "k4_rk4": [r.get("k4", np.nan) for r in rows_rk4],
+                }
+            )
+            st.dataframe(tabla_comp, use_container_width=True)
+
+            x_end = float(x_num_e[-1])
+            m1, m2, m3 = st.columns(3)
+            m1.metric("Euler", f"y({x_end:.7g}) = {float(y_num_e[-1]):.12g}")
+            m2.metric("Heun", f"y({x_end:.7g}) = {float(y_num_h[-1]):.12g}")
+            m3.metric("RK4", f"y({x_end:.7g}) = {float(y_num_r[-1]):.12g}")
+            elapsed_ms = (time.perf_counter() - t0) * 1000.0
+            st.metric("Tiempo de ejecucion (ms)", elapsed_ms)
 
             fig, ax = plt.subplots(figsize=(9.5, 4.8))
             if comparar_metodos:
@@ -3423,14 +4171,9 @@ def section_edo():
                 err_h = np.abs(y_num_h - exact_vals)
                 err_r = np.abs(y_num_r - exact_vals)
                 fig_er, ax_er = plt.subplots(figsize=(8.8, 4.2))
-                if comparar_metodos:
-                    ax_er.semilogy(x_num_e, np.clip(err_e, 1e-16, None), "o-", label="Error Euler")
-                    ax_er.semilogy(x_num_h, np.clip(err_h, 1e-16, None), "^-", label="Error Heun")
-                    ax_er.semilogy(x_num_r, np.clip(err_r, 1e-16, None), "s-", label="Error RK4")
-                else:
-                    err_sel = {"Euler": err_e, "Heun": err_h, "RK4": err_r}[metodo]
-                    x_sel = {"Euler": x_num_e, "Heun": x_num_h, "RK4": x_num_r}[metodo]
-                    ax_er.semilogy(x_sel, np.clip(err_sel, 1e-16, None), "o-", label=f"Error {metodo}")
+                ax_er.semilogy(x_num_e, np.clip(err_e, 1e-16, None), "o-", label="Error Euler")
+                ax_er.semilogy(x_num_h, np.clip(err_h, 1e-16, None), "^-", label="Error Heun")
+                ax_er.semilogy(x_num_r, np.clip(err_r, 1e-16, None), "s-", label="Error RK4")
                 ax_er.set_title("Error absoluto vs x")
                 ax_er.set_xlabel("x")
                 ax_er.set_ylabel("|error|")
@@ -3438,6 +4181,11 @@ def section_edo():
                 ax_er.legend()
                 render_chart(fig_er)
                 plt.close(fig_er)
+
+                e1, e2, e3 = st.columns(3)
+                e1.metric("Error final Euler", float(err_e[-1]))
+                e2.metric("Error final Heun", float(err_h[-1]))
+                e3.metric("Error final RK4", float(err_r[-1]))
 
             if mostrar_campo:
                 _, f_eval = construir_funcion_edo(fxy)
@@ -3482,12 +4230,53 @@ def section_edo():
                 rf"y_{{Heun}}(x_f)={_num(y_num_h[-1], 12)}",
                 rf"y_{{RK4}}(x_f)={_num(y_num_r[-1], 12)}",
             ]
+            desglose = []
+            for i in range(1, len(rows_euler)):
+                fila_e = rows_euler[i]
+                fila_h = rows_heun[i]
+                fila_r = rows_rk4[i]
+                err_e_i = abs(y_num_e[i] - exact_vals[i]) if exact_vals is not None else np.nan
+                err_h_i = abs(y_num_h[i] - exact_vals[i]) if exact_vals is not None else np.nan
+                err_r_i = abs(y_num_r[i] - exact_vals[i]) if exact_vals is not None else np.nan
+
+                desglose.append(
+                    {
+                        "iteracion": i,
+                        "formula": r"\text{Euler: }y_{n+1}=y_n+h\,f(x_n,y_n)",
+                        "cuenta": rf"x={_num(fila_e['x'])},\ y_{{Euler}}={_num(fila_e['y'])},\ k_1={_num(fila_e.get('k1', np.nan))},\ e={_num(err_e_i)}",
+                    }
+                )
+                desglose.append(
+                    {
+                        "iteracion": i,
+                        "formula": r"\text{Heun: }y^*=y_n+h k_1,\ y_{n+1}=y_n+\frac{h}{2}(k_1+k_2)",
+                        "cuenta": rf"x={_num(fila_h['x'])},\ y_{{Heun}}={_num(fila_h['y'])},\ k_1={_num(fila_h.get('k1', np.nan))},\ k_2={_num(fila_h.get('k2', np.nan))},\ e={_num(err_h_i)}",
+                    }
+                )
+                desglose.append(
+                    {
+                        "iteracion": i,
+                        "formula": r"\text{RK4: }y_{n+1}=y_n+\frac{h}{6}(k_1+2k_2+2k_3+k_4)",
+                        "cuenta": rf"x={_num(fila_r['x'])},\ y_{{RK4}}={_num(fila_r['y'])},\ k_1={_num(fila_r.get('k1', np.nan))},\ k_2={_num(fila_r.get('k2', np.nan))},\ k_3={_num(fila_r.get('k3', np.nan))},\ k_4={_num(fila_r.get('k4', np.nan))},\ e={_num(err_r_i)}",
+                    }
+                )
             if exact_vals is not None:
+                cuentas.append(rf"|e_{{Euler}}(x_f)|={_num(abs(y_num_e[-1]-exact_vals[-1]))}")
+                cuentas.append(rf"|e_{{Heun}}(x_f)|={_num(abs(y_num_h[-1]-exact_vals[-1]))}")
                 cuentas.append(rf"|e_{{RK4}}(x_f)|={_num(abs(y_num_r[-1]-exact_vals[-1]))}")
             guardar_cuentas("EDO", cuentas)
+            guardar_desglose_iteraciones("EDO", desglose)
+            registrar_ejecucion(
+                "EDO",
+                metodo,
+                iteraciones=int(n),
+                error_final=float(abs(y_num_m[-1] - exact_vals_m[-1])) if exact_vals_m is not None else None,
+                convergio=True,
+                tiempo_ms=elapsed_ms,
+            )
 
         except Exception as exc:
-            st.error(f"Error en EDO: {exc}")
+            mostrar_error_guiado("EDO", exc)
 
 
 def section_red_neuronal_descenso():
@@ -3566,10 +4355,10 @@ def main():
     st.set_page_config(page_title="Dashboard Integrador de Metodos", layout="wide")
     st.sidebar.selectbox(
         "Preset de color",
-        ["Viva", "Pastel oscuro"],
+        ["Oscuro", "Viva", "Pastel oscuro"],
         index=0,
         key="palette_preset",
-        help="Cambia colores de acentos y series manteniendo fondo negro.",
+        help="Cambia tema completo: Oscuro, Viva o Pastel oscuro.",
     )
     st.sidebar.toggle(
         "Ver paso a paso en todos los metodos",
@@ -3577,35 +4366,74 @@ def main():
         key="show_step_by_step_all",
         help="Muestra desglose simbolico y numerico en cada apartado.",
     )
+    st.sidebar.toggle(
+        "Mostrar imagenes del encabezado",
+        value=True,
+        key="show_header_logos",
+        help="Muestra u oculta las imagenes de la esquina superior derecha.",
+    )
+    st.sidebar.toggle(
+        "Mostrar machete teorico",
+        value=True,
+        key="show_theoretical_machete",
+        help="Muestra u oculta el bloque de machete teorico y su desglose en todas las pestañas.",
+    )
+    st.sidebar.toggle(
+        "Modo docente (iteracion a iteracion)",
+        value=False,
+        key="teacher_mode",
+        help="Permite seleccionar una iteracion y verla explicada con sus valores.",
+    )
+    st.sidebar.toggle(
+        "Mostrar herramientas de exportacion",
+        value=True,
+        key="show_export_tools",
+        help="Habilita descarga de tablas en CSV/Excel.",
+    )
+    st.sidebar.toggle(
+        "Panel de estabilidad numerica",
+        value=True,
+        key="show_stability_panel",
+        help="Muestra alertas de NaN, infinito y magnitudes extremas.",
+    )
 
     paleta = paleta_activa()
     aplicar_tema_visual_dashboard(paleta)
 
-    # Fondo blanco y alto contraste para todos los graficos de Matplotlib.
-    plt.rcParams["figure.facecolor"] = "white"
-    plt.rcParams["axes.facecolor"] = "white"
-    plt.rcParams["savefig.facecolor"] = "white"
-    plt.rcParams["text.color"] = "black"
-    plt.rcParams["axes.labelcolor"] = "black"
-    plt.rcParams["xtick.color"] = "black"
-    plt.rcParams["ytick.color"] = "black"
-    plt.rcParams["legend.facecolor"] = "white"
-    plt.rcParams["legend.edgecolor"] = "black"
-    plt.rcParams["legend.labelcolor"] = "black"
+    # Ajuste global de Matplotlib alineado al tema activo.
+    plt.rcParams["figure.facecolor"] = paleta["chart_paper"]
+    plt.rcParams["axes.facecolor"] = paleta["chart_bg"]
+    plt.rcParams["savefig.facecolor"] = paleta["chart_paper"]
+    plt.rcParams["text.color"] = paleta["chart_text"]
+    plt.rcParams["axes.labelcolor"] = paleta["chart_text"]
+    plt.rcParams["xtick.color"] = paleta["chart_axis"]
+    plt.rcParams["ytick.color"] = paleta["chart_axis"]
+    plt.rcParams["axes.edgecolor"] = paleta["chart_axis"]
+    plt.rcParams["grid.color"] = paleta["chart_grid"]
+    plt.rcParams["legend.facecolor"] = paleta["legend_bg"]
+    plt.rcParams["legend.edgecolor"] = paleta["legend_edge"]
+    plt.rcParams["legend.labelcolor"] = paleta["chart_text"]
     plt.rcParams["axes.prop_cycle"] = plt.cycler(color=paleta["series"])
 
-    header_left, header_right = st.columns([8, 2], vertical_alignment="center")
+    show_header_logos = bool(st.session_state.get("show_header_logos", True))
+
+    if show_header_logos:
+        header_left, header_right = st.columns([8, 2], vertical_alignment="center")
+    else:
+        header_left, header_right = st.columns([1, 0.0001], vertical_alignment="center")
+
     with header_left:
         st.title("Dashboard Integrador de Metodos Numericos")
         st.caption("Interfaz grafica con formularios, botones, tablas y graficos de funcion/error")
-    with header_right:
-        logo_ferro, logo_estudiantes, logo_nuevo = st.columns(3)
-        with logo_ferro:
-            mostrar_imagen_encabezado("ferro.webp", ancho=110, texto_alternativo="Ferro")
-        with logo_estudiantes:
-            mostrar_imagen_encabezado("estudiantes.webp", ancho=110, texto_alternativo="Estudiantes")
-        with logo_nuevo:
-            mostrar_imagen_encabezado("uni.webp", ancho=110, texto_alternativo="Nuevo escudo")
+    if show_header_logos:
+        with header_right:
+            logo_ferro, logo_estudiantes, logo_nuevo = st.columns(3)
+            with logo_ferro:
+                mostrar_imagen_encabezado("ferro.webp", ancho=110, texto_alternativo="Ferro")
+            with logo_estudiantes:
+                mostrar_imagen_encabezado("estudiantes.webp", ancho=110, texto_alternativo="Estudiantes")
+            with logo_nuevo:
+                mostrar_imagen_encabezado("uni.webp", ancho=110, texto_alternativo="Nuevo escudo")
 
     st.sidebar.toggle(
         "Graficos interactivos",
@@ -3629,6 +4457,7 @@ def main():
             "Sistemas Lineales",
             "EDO",
             "Red Neuronal GD",
+            "Historial + Benchmark",
         ]
     )
 
@@ -3799,6 +4628,8 @@ def main():
             DESGLOSE_COMPLETO_POR_APARTADO["Red Neuronal GD"],
             "Red Neuronal GD",
         )
+    with tabs[13]:
+        section_historial_benchmark()
 
 
 def _is_streamlit_context():
