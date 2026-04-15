@@ -157,7 +157,24 @@ def regla_montecarlo(funcion_str, a, b, n, seed=None):
     if seed is not None:
         np.random.seed(seed)
     x_random = np.random.uniform(a, b, n)
-    y_random = np.array(evaluar_funcion_robusta(funcion_str, x_random), dtype=float)
+    
+    # Intentar evaluar: primero con evaluación robusta, luego con eval seguro
+    try:
+        y_random = np.array(evaluar_funcion_robusta(funcion_str, x_random), dtype=float)
+    except (ValueError, TypeError, AttributeError):
+        # Fallback para expresiones condicionales como "1 if x > 0.99 else 0"
+        y_random = np.zeros(n, dtype=float)
+        namespace = {"x": None, "np": np, "sin": np.sin, "cos": np.cos, "tan": np.tan, 
+                    "exp": np.exp, "log": np.log, "sqrt": np.sqrt, "abs": np.abs}
+        
+        for i, xi in enumerate(x_random):
+            namespace["x"] = xi
+            try:
+                y_random[i] = float(eval(funcion_str, {"__builtins__": {}}, namespace))
+            except Exception as e:
+                raise ValueError(f"Error evaluando función en x={xi}: {e}")
+    
+    y_random = np.array(y_random, dtype=float)
 
     # Integral aproximada: (b-a) * promedio de f(x_i)
     integral = (b - a) * np.mean(y_random)
@@ -198,12 +215,15 @@ def regla_montecarlo_2d(funcion_str, a, b, c, d, n, seed=None):
         "abs": sp.Abs, "x": x, "y": y
     }
     
+    # Intentar con SymPy primero
     try:
         expr_2d = sp.sympify(funcion_str, locals=allowed_names)
+        f_2d = sp.lambdify((x, y), expr_2d, "numpy")
+        use_sympymode = True
     except:
-        raise ValueError(f"Error al parsear la función: {funcion_str}")
-    
-    f_2d = sp.lambdify((x, y), expr_2d, "numpy")
+        # Si falla, usar eval para condicionales
+        f_2d = None
+        use_sympymode = False
     
     # Generar n puntos aleatorios uniformemente en [a,b] × [c,d]
     if seed is not None:
@@ -212,11 +232,20 @@ def regla_montecarlo_2d(funcion_str, a, b, c, d, n, seed=None):
     y_random = np.random.uniform(c, d, n)
     
     z_random = np.zeros(n)
+    namespace_2d = {"x": None, "y": None, "np": np, "sin": np.sin, "cos": np.cos, 
+                    "tan": np.tan, "exp": np.exp, "log": np.log, "sqrt": np.sqrt, "abs": np.abs}
+    
     for i in range(n):
         try:
-            z_random[i] = float(f_2d(float(x_random[i]), float(y_random[i])))
-        except:
-            z_random[i] = np.nan
+            if use_sympymode:
+                z_random[i] = float(f_2d(float(x_random[i]), float(y_random[i])))
+            else:
+                # Usar eval para expresiones condicionales
+                namespace_2d["x"] = x_random[i]
+                namespace_2d["y"] = y_random[i]
+                z_random[i] = float(eval(funcion_str, {"__builtins__": {}}, namespace_2d))
+        except Exception as e:
+            raise ValueError(f"Error evaluando función en (x={x_random[i]}, y={y_random[i]}): {e}")
     
     z_random = z_random.astype(float)
 

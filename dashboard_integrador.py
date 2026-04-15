@@ -6,6 +6,10 @@ from pathlib import Path
 from statistics import NormalDist
 from datetime import datetime
 
+# Importar CASOS_PRACTICOS limpio
+sys.path.insert(0, str(Path(__file__).parent))
+from casos_practicos_limpio import CASOS_PRACTICOS as CASOS_PRACTICOS_CLEAN
+
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
@@ -2392,7 +2396,8 @@ DESGLOSE_COMPLETO_POR_APARTADO = {
 CASOS_PRACTICOS = {
     "Newton-Raphson": {
         "nombre": "🏀 Altura máxima de balón",
-        "descripcion": "Un jugador lanza una pelota. La altura h(t) = 20*t - 5*t² metros a los t segundos. Hallar el tiempo exacto donde la altura es máxima (donde h'(t) = 0, es decir: 20 - 10*t = 0)",
+        "descripcion": "Un jugador lanza una pelota. La altura h(t) = 20*t - 5*t² metros a los t segundos. Hallar el tiempo exacto donde la altura es máxima (donde h'(t) = 0).",
+        "formula_para_copiar": "20 - 10*x",
         "funcion": "20 - 10*x",
         "x0": 1.5,
         "tol": 1e-8,
@@ -2401,7 +2406,8 @@ CASOS_PRACTICOS = {
     },
     "Aitken": {
         "nombre": "🎮 Nivel de jugador videojuego",
-        "descripcion": "Videojuego donde nivel aumenta lentamente: nivel_{n+1} = 0.7*nivel_n + 30. Jugador quiere saber ¿cuál será mi nivel final si sigo jugando? Aitken lo predice rápidamente sin esperar 100 partidas.",
+        "descripcion": "Videojuego donde el nivel aumenta por iteración: nivel = 0.7*nivel_anterior + 30. ¿Cuál será mi nivel final en equilibrio?",
+        "formula_para_copiar": "0.7*x + 30",
         "g": "0.7*x + 30",
         "x0": 0.0,
         "tol": 1e-10,
@@ -2410,7 +2416,7 @@ CASOS_PRACTICOS = {
     },
     "Biseccion": {
         "nombre": "� Nivel de dificultad en videojuego",
-        "descripcion": "Videojuego tiene slider de dificultad 1-100. Muy bajo = ganas siempre, muy alto = imposible. Bisección encuentra el nivel exacto donde tienes 50% de ganar. ¡Tu nivel ideal!",
+        "formula_para_copiar": "sin(x/50 - 1) - 0.3",
         "funcion": "sin(x/50 - 1) - 0.3",
         "a": 1.0,
         "b": 100.0,
@@ -2420,7 +2426,8 @@ CASOS_PRACTICOS = {
     },
     "Punto Fijo": {
         "nombre": "💬 Trending topic en redes",
-        "descripcion": "Hashtag #viral crece y luego decrece. Cada hora: tweets_{n+1} = 0.9*tweets_n + 5000. ¿Cuántos tweets en equilibrio? Itera hasta que el número se estabiliza.",
+        "descripcion": "Hashtag trending: tweets_{n+1} = 0.9*tweets_n + 5000. ¿Cuántos tweets en equilibrio?",
+        "formula_para_copiar": "0.9*x + 5000",
         "g": "0.9*x + 5000",
         "x0": 10000.0,
         "tol": 1e-3,
@@ -2429,7 +2436,7 @@ CASOS_PRACTICOS = {
     },
     "Lagrange + Derivacion": {
         "nombre": "� Velocidad en una carretera",
-        "descripcion": "GPS marca posición cada 10 segundos: (0, 0 km), (10, 2.5 km), (20, 5 km). Lagrange interpola: ¿dónde estabas a los 7 segundos? Derivada = velocidad en ese momento (qué tan rápido ibas).",
+        "formula_para_copiar": "datos_x=[0,10,20]; datos_y=[0,2.5,5]; punto=7.0",
         "datos_x": [0, 10, 20],
         "datos_y": [0, 2.5, 5],
         "punto": 7.0,
@@ -2437,7 +2444,8 @@ CASOS_PRACTICOS = {
     },
     "Integracion Numerica": {
         "nombre": "🏊 Volumen de una piscina irregular",
-        "descripcion": "Piscina con profundidad variable: d(x) = 2 + sin(x). Ancho 10 metros. Integrar profundidad = volumen total de agua. Simpson calcula litros sin medir cada punto.",
+        "descripcion": "Piscina con profundidad variable. Integrar la profundidad para obtener volumen total.",
+        "formula_para_copiar": "2 + sin(x)",
         "funcion": "2 + sin(x)",
         "a": 0.0,
         "b": 10.0,
@@ -2447,6 +2455,7 @@ CASOS_PRACTICOS = {
     "Ajuste de Curvas": {
         "nombre": "🏋️ Progreso en el gimnasio",
         "descripcion": "Peso levantado cada semana: (1, 20kg), (2, 22kg), (3, 25kg), (4, 28kg), (5, 32kg). Ajuste polinomial predice: ¿cuánto levantarás en semana 8?",
+        "formula_para_copiar": "X=[1,2,3,4,5]; Y=[20,22,25,28,32]",
         "datos_x": [1, 2, 3, 4, 5],
         "datos_y": [20, 22, 25, 28, 32],
         "tipo": "polinomial",
@@ -2455,7 +2464,8 @@ CASOS_PRACTICOS = {
     },
     "Monte Carlo": {
         "nombre": "🎲 Probabilidad de ganar la Loto",
-        "descripcion": "Simular 100000 tiradas de Loto. Contar cuántas veces ganas el premio mayor. Monte Carlo estima: ¿cuál es MI probabilidad real de ganar?",
+        "descripcion": "Simular tiradas de Loto. Ganas si el número aleatorio > 0.99 (1% de probabilidad).",
+        "formula_para_copiar": "1 if x > 0.99 else 0",
         "funcion": "1 if x > 0.99 else 0",
         "a": 0.0,
         "b": 1.0,
@@ -2465,6 +2475,7 @@ CASOS_PRACTICOS = {
     "Sistemas Lineales": {
         "nombre": "🍜 Receta con 3 ingredientes",
         "descripcion": "Harina cuesta $2/kg, azúcar $3/kg, mantequilla $5/kg. Necesitas 10 kg total, costo $30, y mantequilla sea el doble de harina. ¿Cuánto de cada uno? 3 ecuaciones, 3 incógnitas.",
+        "formula_para_copiar": "A=[[1,1,1],[2,3,5],[1,0,-2]]; b=[10,30,0]",
         "A": [[1, 1, 1], [2, 3, 5], [1, 0, -2]],
         "b": [10, 30, 0],
         "metodo": "Gauss-Jordan",
@@ -2472,7 +2483,8 @@ CASOS_PRACTICOS = {
     },
     "EDO": {
         "nombre": "💊 Medicamento en sangre",
-        "descripcion": "Tomas una pastilla con 500mg. Tu cuerpo degrada 30% del medicamento cada hora: dM/dt = -0.3*M. RK4 predice: ¿cuántos mg quedan después de 5 horas?",
+        "descripcion": "Pastilla de 500mg. El cuerpo degrada 30% cada hora: dM/dt = -0.3*M.",
+        "formula_para_copiar": "-0.3*y",
         "f": "-0.3*y",
         "x0": 0.0,
         "y0": 500.0,
@@ -2483,6 +2495,7 @@ CASOS_PRACTICOS = {
     "Red Neuronal GD": {
         "nombre": "� Calificación vs horas estudiadas",
         "descripcion": "Datos de varios estudiantes: (2 hrs, 60%), (4 hrs, 75%), (6 hrs, 85%), (8 hrs, 95%). Red neuronal aprende: calificación = w*horas + b. ¿Qué nota obtendrás con 5 horas?",
+        "formula_para_copiar": "generar_datos=lineal; alpha=0.01; epocas=200",
         "generar_datos": "lineal",
         "alpha": 0.01,
         "epocas": 200,
@@ -2492,6 +2505,7 @@ CASOS_PRACTICOS = {
     "Monte Carlo 2D": {
         "nombre": "� Bosque en terreno",
         "descripcion": "Región 10×10 km con bosque irregular. Lanzar 50000 puntos aleatorios, contar cuántos caen en bosque. Monte Carlo calcula: ¿cuántos km² de bosque real?",
+        "formula_para_copiar": "1 if ((x-5)**2 + (y-5)**2) < 16 else 0",
         "funcion": "1 if ((x-5)**2 + (y-5)**2) < 16 else 0",
         "a": 0.0,
         "b": 10.0,
@@ -2505,10 +2519,10 @@ CASOS_PRACTICOS = {
 
 def mostrar_casos_practicos(metodo_nombre):
     """Muestra el caso práctico de forma clara y accesible."""
-    if metodo_nombre not in CASOS_PRACTICOS:
+    if metodo_nombre not in CASOS_PRACTICOS_CLEAN:
         return
     
-    caso = CASOS_PRACTICOS[metodo_nombre]
+    caso = CASOS_PRACTICOS_CLEAN[metodo_nombre]
     
     with st.expander(f"💡 {caso['nombre']}", expanded=True):
         st.markdown(f"**¿Qué hace este caso?**")
@@ -2517,8 +2531,23 @@ def mostrar_casos_practicos(metodo_nombre):
         st.markdown(f"**🔗 Cómo interviene el método:**")
         st.info(caso['aplicacion'])
         
-        st.markdown(f"**📋 Parámetros del caso:**")
-        param_dict = {k: v for k, v in caso.items() if k not in ["nombre", "descripcion", "aplicacion"]}
+        # Destacar la fórmula/datos principales para copiar
+        st.markdown(f"**📋 👉 COPIA Y PEGA ESTO EN LA CALCULADORA:**")
+        
+        # Mostrar formula_para_copiar si existe
+        if 'formula_para_copiar' in caso:
+            st.code(caso['formula_para_copiar'], language='python')
+        # Si no existe, intentar extraer la fórmula principal
+        elif 'funcion' in caso:
+            st.code(caso['funcion'], language='python')
+        elif 'g' in caso:
+            st.code(caso['g'], language='python')
+        elif 'f' in caso:
+            st.code(caso['f'], language='python')
+        
+        # Mostrar todos los demás parámetros
+        st.markdown(f"**📌 Otros parámetros:**")
+        param_dict = {k: v for k, v in caso.items() if k not in ["nombre", "descripcion", "aplicacion", "formula_para_copiar"]}
         
         # Mostrar parámetros en columnas
         cols = st.columns(2)
