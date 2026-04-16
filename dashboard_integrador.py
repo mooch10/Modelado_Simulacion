@@ -286,7 +286,7 @@ def mostrar_machete(metodo_nombre):
         return
     
     machete = MACHETES_TEORICOS[metodo_nombre]
-    with st.expander(f"📚 Machete Teórico: {metodo_nombre}", expanded=False):
+    with st.expander(f"Machete Teorico: {metodo_nombre}", expanded=False):
         st.markdown(f"**DEFINICIÓN**  \n{machete['definicion']}")
         st.markdown(f"**UTILIDAD**  \n{machete['utilidad']}")
         
@@ -2395,7 +2395,7 @@ DESGLOSE_COMPLETO_POR_APARTADO = {
 
 CASOS_PRACTICOS = {
     "Newton-Raphson": {
-        "nombre": "🏀 Altura máxima de balón",
+        "nombre": "Altura maxima de balon",
         "descripcion": "Un jugador lanza una pelota. La altura h(t) = 20*t - 5*t² metros a los t segundos. Hallar el tiempo exacto donde la altura es máxima (donde h'(t) = 0).",
         "formula_para_copiar": "20 - 10*x",
         "funcion": "20 - 10*x",
@@ -2405,7 +2405,7 @@ CASOS_PRACTICOS = {
         "aplicacion": "En deportes y física, encontrar el pico de trayectoria es común. Newton-Raphson resuelve instantáneamente el tiempo exacto del punto más alto sin necesidad de prueba y error."
     },
     "Aitken": {
-        "nombre": "🎮 Nivel de jugador videojuego",
+        "nombre": "Nivel de jugador videojuego",
         "descripcion": "Videojuego donde el nivel aumenta por iteración: nivel = 0.7*nivel_anterior + 30. ¿Cuál será mi nivel final en equilibrio?",
         "formula_para_copiar": "0.7*x + 30",
         "g": "0.7*x + 30",
@@ -2415,7 +2415,7 @@ CASOS_PRACTICOS = {
         "aplicacion": "En videojuegos, apps, y sistemas que convergen lentamente, Aitken predice el resultado final sin esperar. Juega 3 veces rápido y Aitken te dice cuándo llegarás a máximo nivel."
     },
     "Biseccion": {
-        "nombre": "� Nivel de dificultad en videojuego",
+        "nombre": "Nivel de dificultad en videojuego",
         "formula_para_copiar": "sin(x/50 - 1) - 0.3",
         "funcion": "sin(x/50 - 1) - 0.3",
         "a": 1.0,
@@ -2425,7 +2425,7 @@ CASOS_PRACTICOS = {
         "aplicacion": "En diseño de juegos, apps de fitness, y controles inteligentes, bisección encuentra el punto perfecto. Divide el rango a la mitad cada vez hasta encontrar el equilibrio exacto."
     },
     "Punto Fijo": {
-        "nombre": "💬 Trending topic en redes",
+        "nombre": "Trending topic en redes",
         "descripcion": "Hashtag trending: tweets_{n+1} = 0.9*tweets_n + 5000. ¿Cuántos tweets en equilibrio?",
         "formula_para_copiar": "0.9*x + 5000",
         "g": "0.9*x + 5000",
@@ -2435,7 +2435,7 @@ CASOS_PRACTICOS = {
         "aplicacion": "En redes sociales y fenómenos virales, punto fijo predice cuándo un hashtag se estabiliza. Sin fórmulas complejas, solo iterar hasta que el número de tweets no cambie más."
     },
     "Lagrange + Derivacion": {
-        "nombre": "� Velocidad en una carretera",
+        "nombre": "Velocidad en una carretera",
         "formula_para_copiar": "datos_x=[0,10,20]; datos_y=[0,2.5,5]; punto=7.0",
         "datos_x": [0, 10, 20],
         "datos_y": [0, 2.5, 5],
@@ -2443,7 +2443,7 @@ CASOS_PRACTICOS = {
         "aplicacion": "En navegación GPS, apps de fitness y deportes wearables, tienes mediciones cada pocos segundos pero necesitas posición/velocidad precisa entre puntos. Lagrange lo hace suavemente."
     },
     "Integracion Numerica": {
-        "nombre": "🏊 Volumen de una piscina irregular",
+        "nombre": "Volumen de una piscina irregular",
         "descripcion": "Piscina con profundidad variable. Integrar la profundidad para obtener volumen total.",
         "formula_para_copiar": "2 + sin(x)",
         "funcion": "2 + sin(x)",
@@ -2453,7 +2453,7 @@ CASOS_PRACTICOS = {
         "aplicacion": "En construcción, parques acuáticos, y diseño, necesitas volumen total sin levantar cada sección. Integración numérica suma automáticamente usando pocos datos."
     },
     "Ajuste de Curvas": {
-        "nombre": "🏋️ Progreso en el gimnasio",
+        "nombre": "Progreso en el gimnasio",
         "descripcion": "Peso levantado cada semana: (1, 20kg), (2, 22kg), (3, 25kg), (4, 28kg), (5, 32kg). Ajuste polinomial predice: ¿cuánto levantarás en semana 8?",
         "formula_para_copiar": "X=[1,2,3,4,5]; Y=[20,22,25,28,32]",
         "datos_x": [1, 2, 3, 4, 5],
@@ -2463,7 +2463,7 @@ CASOS_PRACTICOS = {
         "aplicacion": "En fitness, salud y deportes, ajuste de curvas predice progreso. Ingresa datos de semanas pasadas, obtén predicción de futuro sin cálculos complejos."
     },
     "Monte Carlo": {
-        "nombre": "🎲 Probabilidad de ganar la Loto",
+        "nombre": "Probabilidad de ganar la Loto",
         "descripcion": "Simular tiradas de Loto. Ganas si el número aleatorio > 0.99 (1% de probabilidad).",
         "formula_para_copiar": "1 if x > 0.99 else 0",
         "funcion": "1 if x > 0.99 else 0",
@@ -2473,7 +2473,7 @@ CASOS_PRACTICOS = {
         "aplicacion": "En juegos de azar, seguros, y riesgos, Monte Carlo simula millones de escenarios para responder \\\"¿cuál es la probabilidad real?\\\". Sin fórmulas complicadas, solo simulación."
     },
     "Sistemas Lineales": {
-        "nombre": "🍜 Receta con 3 ingredientes",
+        "nombre": "Receta con 3 ingredientes",
         "descripcion": "Harina cuesta $2/kg, azúcar $3/kg, mantequilla $5/kg. Necesitas 10 kg total, costo $30, y mantequilla sea el doble de harina. ¿Cuánto de cada uno? 3 ecuaciones, 3 incógnitas.",
         "formula_para_copiar": "A=[[1,1,1],[2,3,5],[1,0,-2]]; b=[10,30,0]",
         "A": [[1, 1, 1], [2, 3, 5], [1, 0, -2]],
@@ -2482,7 +2482,7 @@ CASOS_PRACTICOS = {
         "aplicacion": "En cocina, finanzas personales y mezclas, sistemas lineales resuelven recetas y presupuestos. Especifica restricciones, obtén cantidades exactas de cada ingrediente."
     },
     "EDO": {
-        "nombre": "💊 Medicamento en sangre",
+        "nombre": "Medicamento en sangre",
         "descripcion": "Pastilla de 500mg. El cuerpo degrada 30% cada hora: dM/dt = -0.3*M.",
         "formula_para_copiar": "-0.3*y",
         "f": "-0.3*y",
@@ -2493,7 +2493,7 @@ CASOS_PRACTICOS = {
         "aplicacion": "En farmacología y medicina, ecuaciones diferenciales modelan cómo el cuerpo metaboliza drogas. RK4 predice concentración en sangre sin experimentos, solo matemáticas."
     },
     "Red Neuronal GD": {
-        "nombre": "� Calificación vs horas estudiadas",
+        "nombre": "Calificacion vs horas estudiadas",
         "descripcion": "Datos de varios estudiantes: (2 hrs, 60%), (4 hrs, 75%), (6 hrs, 85%), (8 hrs, 95%). Red neuronal aprende: calificación = w*horas + b. ¿Qué nota obtendrás con 5 horas?",
         "formula_para_copiar": "generar_datos=lineal; alpha=0.01; epocas=200",
         "generar_datos": "lineal",
@@ -2503,7 +2503,7 @@ CASOS_PRACTICOS = {
         "aplicacion": "En educación, descenso de gradiente aprende la relación entre esfuerzo y resultados. Sin fórmula teórica, solo datos históricos suficientes para predecir notas futuras."
     },
     "Monte Carlo 2D": {
-        "nombre": "� Bosque en terreno",
+        "nombre": "Bosque en terreno",
         "descripcion": "Región 10×10 km con bosque irregular. Lanzar 50000 puntos aleatorios, contar cuántos caen en bosque. Monte Carlo calcula: ¿cuántos km² de bosque real?",
         "formula_para_copiar": "1 if ((x-5)**2 + (y-5)**2) < 16 else 0",
         "funcion": "1 if ((x-5)**2 + (y-5)**2) < 16 else 0",
@@ -2524,15 +2524,15 @@ def mostrar_casos_practicos(metodo_nombre):
     
     caso = CASOS_PRACTICOS_CLEAN[metodo_nombre]
     
-    with st.expander(f"💡 {caso['nombre']}", expanded=True):
+    with st.expander(f"{caso['nombre']}", expanded=True):
         st.markdown(f"**¿Qué hace este caso?**")
         st.write(caso['descripcion'])
         
-        st.markdown(f"**🔗 Cómo interviene el método:**")
+        st.markdown(f"**Como interviene el metodo:**")
         st.info(caso['aplicacion'])
         
         # Destacar la fórmula/datos principales para copiar
-        st.markdown(f"**📋 👉 COPIA Y PEGA ESTO EN LA CALCULADORA:**")
+        st.markdown(f"**Copia y pega esto en la calculadora:**")
         
         # Mostrar formula_para_copiar si existe
         if 'formula_para_copiar' in caso:
@@ -2546,18 +2546,46 @@ def mostrar_casos_practicos(metodo_nombre):
             st.code(caso['f'], language='python')
         
         # Mostrar todos los demás parámetros
-        st.markdown(f"**📌 Otros parámetros:**")
+        st.markdown(f"**Otros parametros:**")
         param_dict = {k: v for k, v in caso.items() if k not in ["nombre", "descripcion", "aplicacion", "formula_para_copiar"]}
+        etiquetas_param = {
+            "funcion": "Funcion para f(x)",
+            "g": "Funcion para g(x)",
+            "f": "Funcion para f(x, y)",
+            "x0": "Valor inicial x0",
+            "y0": "Valor inicial y0",
+            "tol": "Tolerancia",
+            "max_iter": "Maximo de iteraciones",
+            "a": "Limite inferior a",
+            "b": "Limite superior b",
+            "c": "Limite inferior en y (c)",
+            "d": "Limite superior en y (d)",
+            "n": "Cantidad de muestras/pasos",
+            "datos_x": "Lista de datos x",
+            "datos_y": "Lista de datos y",
+            "punto": "Punto de evaluacion",
+            "A": "Matriz A",
+            "metodo": "Metodo sugerido",
+            "tipo": "Tipo de ajuste",
+            "grado": "Grado del polinomio",
+            "h": "Paso h",
+            "alpha": "Tasa de aprendizaje",
+            "epocas": "Numero de epocas",
+            "semilla": "Semilla aleatoria",
+            "generar_datos": "Tipo de datos a generar",
+        }
         
         # Mostrar parámetros en columnas
         cols = st.columns(2)
         items = list(param_dict.items())
         for i, (key, value) in enumerate(items):
             with cols[i % 2]:
+                etiqueta = etiquetas_param.get(key, key.replace("_", " ").capitalize())
+                st.caption(f"{etiqueta}")
                 if isinstance(value, (list, tuple)):
-                    st.code(f"{key}:\n" + "\n".join(str(v) for v in value))
+                    st.code("\n".join(str(v) for v in value), language='python')
                 else:
-                    st.code(f"{key}: {value}")
+                    st.code(str(value), language='python')
 
 
 
