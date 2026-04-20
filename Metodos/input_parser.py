@@ -1,6 +1,12 @@
 import math
 import re
 import sympy as sp
+from sympy.parsing.sympy_parser import (
+    convert_xor,
+    implicit_multiplication_application,
+    standard_transformations,
+    parse_expr,
+)
 
 
 _LOCALS = {
@@ -60,7 +66,8 @@ def parse_function_expression(funcion: str, variable: str = "x") -> sp.Expr:
     texto = re.sub(r"(?P<num>\d)(?P<e>e\*\*)", r"\g<num>*\g<e>", texto)
 
     x = sp.Symbol(variable)
-    expr = sp.sympify(texto, locals=_LOCALS)
+    transformations = standard_transformations + (convert_xor, implicit_multiplication_application)
+    expr = parse_expr(texto, local_dict={**_LOCALS, variable: x}, transformations=transformations)
     simbolos_invalidos = expr.free_symbols - {x}
     if simbolos_invalidos:
         raise ValueError(f"Se encontraron variables no permitidas: {simbolos_invalidos}")
