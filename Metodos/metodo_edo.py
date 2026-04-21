@@ -1,4 +1,4 @@
-import numpy as np
+﻿import numpy as np
 import sympy as sp
 
 from Metodos.input_parser import parse_real, parse_real_or_default, parse_int_or_default
@@ -63,6 +63,7 @@ ALLOWED_LOCALS = {
     "exp": sp.exp,
     "log": sp.log,
     "sqrt": sp.sqrt,
+    "cbrt": lambda x: sp.real_root(x, 3),
     "abs": sp.Abs,
 }
 
@@ -239,9 +240,9 @@ def ejecutar_edo():
             print("-" * 90)
             print(f"{'Método':<20}{'x final':>15}{'y final':>25}")
             print("-" * 90)
-            print(f"{'Euler':<20}{x_fin:>15.7g}{y_euler:>25.12g}")
-            print(f"{'Heun':<20}{x_fin:>15.7g}{y_heun:>25.12g}")
-            print(f"{'RK4':<20}{x_fin:>15.7g}{y_rk4:>25.12g}")
+            print(f"{'Euler':<20}{x_fin:>15.6g}{y_euler:>25.12g}")
+            print(f"{'Heun':<20}{x_fin:>15.6g}{y_heun:>25.12g}")
+            print(f"{'RK4':<20}{x_fin:>15.6g}{y_rk4:>25.12g}")
             print("-" * 90)
             print(f"|Heun - Euler| = {abs(y_heun - y_euler):.12g}")
             print(f"|RK4  - Euler| = {abs(y_rk4 - y_euler):.12g}")
@@ -250,7 +251,7 @@ def ejecutar_edo():
             return
 
         ultimo = filas[-1]
-        print(f"\nResultado ({nombre}): y({ultimo['x']:.7g}) = {ultimo['y']:.12g}")
+        print(f"\nResultado ({nombre}): y({ultimo['x']:.6g}) = {ultimo['y']:.12g}")
         print(f"Pasos realizados: {len(filas) - 1}")
 
     except Exception as exc:
@@ -259,3 +260,4 @@ def ejecutar_edo():
 
 if __name__ == "__main__":
     ejecutar_edo()
+

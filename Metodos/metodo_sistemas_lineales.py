@@ -1,4 +1,4 @@
-import numpy as np
+﻿import numpy as np
 
 from Metodos.input_parser import parse_real, parse_real_or_default, parse_int_or_default
 
@@ -70,7 +70,7 @@ def gauss_jordan(A, b, tol=1e-12):
         M[col, :] = M[col, :] / valor_pivote
         pasos.append(
             {
-                "paso": f"Normalizacion F{col + 1} / {valor_pivote:.7g}",
+                "paso": f"Normalizacion F{col + 1} / {valor_pivote:.6g}",
                 "matriz": M.copy(),
             }
         )
@@ -84,7 +84,7 @@ def gauss_jordan(A, b, tol=1e-12):
             M[fila, :] = M[fila, :] - factor * M[col, :]
             pasos.append(
                 {
-                    "paso": f"F{fila + 1} <- F{fila + 1} - ({factor:.7g})*F{col + 1}",
+                    "paso": f"F{fila + 1} <- F{fila + 1} - ({factor:.6g})*F{col + 1}",
                     "matriz": M.copy(),
                 }
             )
@@ -200,3 +200,4 @@ def ejecutar_sistemas_lineales():
 
 if __name__ == "__main__":
     ejecutar_sistemas_lineales()
+

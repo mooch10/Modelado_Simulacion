@@ -45,6 +45,7 @@ def _locals_simbolicos():
         "exp": sp.exp,
         "log": sp.log,
         "sqrt": sp.sqrt,
+        "cbrt": lambda x: sp.real_root(x, 3),
         "abs": sp.Abs,
     }
 
@@ -321,7 +322,7 @@ def _cargar_puntos_interpolacion():
     modo = input("Seleccione modo (1-2): ").strip()
 
     x_vals = _leer_lista_expresiones(
-        "Ingrese x separados por coma (admite expresiones como pi/2, e, sqrt(2)): "
+        "Ingrese x separados por coma (admite expresiones como pi/2, e, sqrt(2), cbrt(8)): "
     )
     funcion_referencia = None
 
@@ -339,7 +340,7 @@ def _cargar_puntos_interpolacion():
         y_vals = [sp.simplify(f_expr.subs(x, xv)) for xv in x_vals]
     else:
         y_vals = _leer_lista_expresiones(
-            "Ingrese y=f(x) separados por coma (admite expresiones numericas como pi, e, sqrt(2)): "
+            "Ingrese y=f(x) separados por coma (admite expresiones numericas como pi, e, sqrt(2), cbrt(8)): "
         )
 
     x_norm, y_norm = normalizar_puntos(x_vals, y_vals)

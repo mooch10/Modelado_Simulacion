@@ -1,4 +1,4 @@
-import io
+﻿import io
 import contextlib
 import sys
 import time
@@ -64,6 +64,7 @@ ALLOWED_LOCALS = {
     "exp": sp.exp,
     "log": sp.log,
     "sqrt": sp.sqrt,
+    "cbrt": lambda x: sp.real_root(x, 3),
     "abs": sp.Abs,
 }
 
@@ -740,8 +741,8 @@ def detalle_cota_truncamiento_integracion(nombre_metodo, a, b, n, max_f2=None, m
         "ok": False,
         "cota": np.nan,
         "pasos": [
-            f"1) h = (b-a)/n = ({b:.7g} - {a:.7g})/{n} = {h:.7g}",
-            f"2) Longitud del intervalo: (b-a) = {longitud:.7g}",
+            f"1) h = (b-a)/n = ({b:.6g} - {a:.6g})/{n} = {h:.6g}",
+            f"2) Longitud del intervalo: (b-a) = {longitud:.6g}",
         ],
         "latex_formula": None,
         "latex_sustitucion": None,
@@ -751,21 +752,21 @@ def detalle_cota_truncamiento_integracion(nombre_metodo, a, b, n, max_f2=None, m
         if max_f2 is None:
             detalle["pasos"].append("3) No se pudo estimar max|f''(x)| en el intervalo.")
             return detalle
-        detalle["pasos"].append(f"3) max|f''(x)| ≈ {float(max_f2):.7g}")
+        detalle["pasos"].append(f"3) max|f''(x)| ≈ {float(max_f2):.6g}")
         detalle["latex_formula"] = r"|E_T| \leq \frac{(b-a)}{24}h^2\max_{x\in[a,b]}|f''(x)|"
         detalle[
             "latex_sustitucion"
-        ] = rf"|E_T| \leq \frac{{{longitud:.7g}}}{{24}}({h:.7g})^2({float(max_f2):.7g})"
+        ] = rf"|E_T| \leq \frac{{{longitud:.6g}}}{{24}}({h:.6g})^2({float(max_f2):.6g})"
 
     elif nombre_metodo == "Trapecio":
         if max_f2 is None:
             detalle["pasos"].append("3) No se pudo estimar max|f''(x)| en el intervalo.")
             return detalle
-        detalle["pasos"].append(f"3) max|f''(x)| ≈ {float(max_f2):.7g}")
+        detalle["pasos"].append(f"3) max|f''(x)| ≈ {float(max_f2):.6g}")
         detalle["latex_formula"] = r"|E_T| \leq \frac{(b-a)}{12}h^2\max_{x\in[a,b]}|f''(x)|"
         detalle[
             "latex_sustitucion"
-        ] = rf"|E_T| \leq \frac{{{longitud:.7g}}}{{12}}({h:.7g})^2({float(max_f2):.7g})"
+        ] = rf"|E_T| \leq \frac{{{longitud:.6g}}}{{12}}({h:.6g})^2({float(max_f2):.6g})"
 
     elif nombre_metodo == "Simpson 1/3":
         if n % 2 != 0:
@@ -774,11 +775,11 @@ def detalle_cota_truncamiento_integracion(nombre_metodo, a, b, n, max_f2=None, m
         if max_f4 is None:
             detalle["pasos"].append("3) No se pudo estimar max|f^(4)(x)| en el intervalo.")
             return detalle
-        detalle["pasos"].append(f"3) max|f^(4)(x)| ≈ {float(max_f4):.7g}")
+        detalle["pasos"].append(f"3) max|f^(4)(x)| ≈ {float(max_f4):.6g}")
         detalle["latex_formula"] = r"|E_T| \leq \frac{(b-a)}{180}h^4\max_{x\in[a,b]}|f^{(4)}(x)|"
         detalle[
             "latex_sustitucion"
-        ] = rf"|E_T| \leq \frac{{{longitud:.7g}}}{{180}}({h:.7g})^4({float(max_f4):.7g})"
+        ] = rf"|E_T| \leq \frac{{{longitud:.6g}}}{{180}}({h:.6g})^4({float(max_f4):.6g})"
 
     elif nombre_metodo == "Simpson 3/8":
         if n % 3 != 0:
@@ -787,11 +788,11 @@ def detalle_cota_truncamiento_integracion(nombre_metodo, a, b, n, max_f2=None, m
         if max_f4 is None:
             detalle["pasos"].append("3) No se pudo estimar max|f^(4)(x)| en el intervalo.")
             return detalle
-        detalle["pasos"].append(f"3) max|f^(4)(x)| ≈ {float(max_f4):.7g}")
+        detalle["pasos"].append(f"3) max|f^(4)(x)| ≈ {float(max_f4):.6g}")
         detalle["latex_formula"] = r"|E_T| \leq \frac{(b-a)}{80}h^4\max_{x\in[a,b]}|f^{(4)}(x)|"
         detalle[
             "latex_sustitucion"
-        ] = rf"|E_T| \leq \frac{{{longitud:.7g}}}{{80}}({h:.7g})^4({float(max_f4):.7g})"
+        ] = rf"|E_T| \leq \frac{{{longitud:.6g}}}{{80}}({h:.6g})^4({float(max_f4):.6g})"
 
     elif nombre_metodo == "Monte Carlo":
         detalle["pasos"].append("3) Monte Carlo es un metodo estocastico; no aplica cota de truncamiento determinista.")
@@ -804,7 +805,7 @@ def detalle_cota_truncamiento_integracion(nombre_metodo, a, b, n, max_f2=None, m
     cota = cota_truncamiento_integracion(nombre_metodo, a, b, n, max_f2=max_f2, max_f4=max_f4)
     detalle["cota"] = cota
     detalle["ok"] = bool(np.isfinite(cota))
-    detalle["pasos"].append(f"4) Cota final: |E_T| <= {float(cota):.7g}" if np.isfinite(cota) else "4) No se pudo calcular la cota final.")
+    detalle["pasos"].append(f"4) Cota final: |E_T| <= {float(cota):.6g}" if np.isfinite(cota) else "4) No se pudo calcular la cota final.")
     return detalle
 
 
@@ -1038,7 +1039,7 @@ def parse_optional_vector_csv(text, n):
     return np.array([float(sp.N(sp.sympify(p, locals=ALLOWED_LOCALS))) for p in parts], dtype=float)
 
 
-def _format_decimal(value, max_decimals=7):
+def _format_decimal(value, max_decimals=6):
     txt = f"{value:.{max_decimals}f}".rstrip("0").rstrip(".")
     return "0" if txt in {"", "-0"} else txt
 
@@ -1054,7 +1055,7 @@ def _is_terminating_denominator(den):
     return d == 1
 
 
-def _format_number_hybrid(value_expr, max_decimals=7, latex=False):
+def _format_number_hybrid(value_expr, max_decimals=6, latex=False):
     """
     Formato mixto:
     - Fraccion para racionales pequenos o decimales periodicos/no terminantes.
@@ -1081,7 +1082,7 @@ def _format_number_hybrid(value_expr, max_decimals=7, latex=False):
     return _format_decimal(float(sp.N(v)), max_decimals)
 
 
-def polynomial_to_decimal_text(expr, variable="x", max_decimals=7):
+def polynomial_to_decimal_text(expr, variable="x", max_decimals=6):
     x = sp.Symbol(variable)
     expr = sp.expand(expr)
 
@@ -1125,7 +1126,7 @@ def polynomial_to_decimal_text(expr, variable="x", max_decimals=7):
     return out
 
 
-def polynomial_to_decimal_latex(expr, variable="x", max_decimals=7):
+def polynomial_to_decimal_latex(expr, variable="x", max_decimals=6):
     x = sp.Symbol(variable)
     expr = sp.expand(expr)
 
@@ -1505,7 +1506,7 @@ def render_newton_charts(func, root, x0, errors):
 
 
 def render_dataframe_comparativo(df, columnas_numericas=None):
-    """Muestra una tabla comparativa con formato numérico de 6 decimales."""
+    """Muestra una tabla comparativa con formato numérico de 7 decimales."""
     if df is None or not isinstance(df, pd.DataFrame):
         return
 
@@ -1515,7 +1516,7 @@ def render_dataframe_comparativo(df, columnas_numericas=None):
 
     column_config = {}
     for columna in columnas_numericas:
-        column_config[columna] = st.column_config.NumberColumn(columna, format="%.6f")
+        column_config[columna] = st.column_config.NumberColumn(columna, format="%.7f")
 
     st.dataframe(df, use_container_width=True, column_config=column_config)
 
@@ -1625,7 +1626,7 @@ def _num(v, dec=6):
         return str(v)
 
 
-DISPLAY_DECIMALS = 6
+DISPLAY_DECIMALS = 7
 
 
 def _format_float_max_decimals(value, decimals=DISPLAY_DECIMALS):
@@ -1679,6 +1680,14 @@ _STREAMLIT_SUCCESS_ORIG = st.success
 
 
 def _dataframe_with_rounded_decimals(data=None, *args, **kwargs):
+    # Si no hay formato explícito por columna, aplicar formato fijo a columnas float
+    # para evitar recortes visuales antes de DISPLAY_DECIMALS.
+    if isinstance(data, pd.DataFrame) and "column_config" not in kwargs:
+        float_cols = list(data.select_dtypes(include=[np.floating]).columns)
+        if float_cols:
+            formatos = {c: f"{{:.{DISPLAY_DECIMALS}f}}" for c in float_cols}
+            return _STREAMLIT_DATAFRAME_ORIG(data.style.format(formatos), *args, **kwargs)
+
     data = _round_dataframe_numeric(data, DISPLAY_DECIMALS)
     return _STREAMLIT_DATAFRAME_ORIG(data, *args, **kwargs)
 
@@ -2728,7 +2737,7 @@ def section_newton():
                 x0_sugerido = sugerir_x0_primera_raiz_positiva(func, x0_run)
                 if x0_sugerido is not None and abs(x0_sugerido - x0_run) > 1e-7:
                     x0_run = float(x0_sugerido)
-                    st.info(f"Se ajusto x0 automaticamente a {x0_run:.7g} para priorizar la primera raiz positiva.")
+                    st.info(f"Se ajusto x0 automaticamente a {x0_run:.6g} para priorizar la primera raiz positiva.")
 
             root, iterations, converged = run_silent(
                 metodo_newton_raphson, func, x0_run, float(tol), int(max_iter)
@@ -2738,7 +2747,18 @@ def section_newton():
                 return
 
             df = pd.DataFrame(iterations)
-            st.dataframe(df, use_container_width=True)
+            columnas_numericas_aitken = [
+                col
+                for col in ["x_(n-1)", "x_n", "x_(n+1)", "x_acelerado", "Error"]
+                if col in df.columns
+            ]
+            if columnas_numericas_aitken:
+                st.dataframe(
+                    df.style.format({col: "{:.6f}" for col in columnas_numericas_aitken}),
+                    use_container_width=True,
+                )
+            else:
+                st.dataframe(df, use_container_width=True)
 
             st.metric("Raiz aproximada", f"{root:.12g}")
             st.metric("Convergencia", "Si" if converged else "No")
@@ -2818,7 +2838,12 @@ def section_aitken():
                 return
 
             df = pd.DataFrame(iterations)
-            st.dataframe(df, use_container_width=True)
+            columnas_num = ["x_(n-1)", "x_n", "x_(n+1)", "x_acelerado", "Error"]
+            formato_aitken = {c: "{:.7f}" for c in columnas_num if c in df.columns}
+            if formato_aitken:
+                st.dataframe(df.style.format(formato_aitken), use_container_width=True)
+            else:
+                st.dataframe(df, use_container_width=True)
 
             st.metric("Raiz aproximada", f"{root:.12g}")
             st.metric("Convergencia", "Si" if converged else "No")
@@ -2922,7 +2947,7 @@ def section_biseccion():
 
             st.metric("Raiz aproximada", f"{root:.12g}")
             st.metric("Iteraciones", len(df))
-            st.metric("Error final |f(c)|", f"{float(df['Error_f(c)'].iloc[-1]):.7f}")
+            st.metric("Error final |f(c)|", f"{float(df['Error_f(c)'].iloc[-1]):.6f}")
             elapsed_ms = (time.perf_counter() - t0) * 1000.0
             st.metric("Tiempo de ejecucion (ms)", elapsed_ms)
 
@@ -3002,7 +3027,7 @@ def section_punto_fijo():
 
             st.metric("Raiz aproximada", f"{root:.12g}")
             st.metric("Iteraciones", len(df))
-            st.metric("Error final", f"{float(df['Error'].iloc[-1]):.7f}")
+            st.metric("Error final", f"{float(df['Error'].iloc[-1]):.6f}")
             elapsed_ms = (time.perf_counter() - t0) * 1000.0
             st.metric("Tiempo de ejecucion (ms)", elapsed_ms)
 
@@ -3535,7 +3560,7 @@ Interpretacion:
         p_lagr, bases_lagr = polinomio_lagrange(x_vals, y_vals)
         p_lagr = sp.expand(p_lagr)
         st.write("Polinomio de Lagrange:")
-        st.latex(f"P(x) = {polynomial_to_decimal_latex(p_lagr, max_decimals=7)}")
+        st.latex(f"P(x) = {polynomial_to_decimal_latex(p_lagr, max_decimals=6)}")
 
         if mostrar_pasos:
             st.write("Bases de Lagrange:")
@@ -3557,7 +3582,7 @@ Interpretacion:
                 x_eval = float(sp.N(sp.sympify(x_eval_text, locals=ALLOWED_LOCALS)))
                 x = sp.Symbol("x")
                 y_eval = float(sp.N(p_lagr.subs(x, x_eval)))
-                st.write(f"P({x_eval:.7f}) = {y_eval:.7f}")
+                st.write(f"P({x_eval:.6f}) = {y_eval:.6f}")
             except Exception as exc:
                 st.error(f"No se pudo evaluar el polinomio en x*: {exc}")
 
@@ -3620,8 +3645,8 @@ Interpretacion:
             calc_local_btn = c_local_2.button("Calcular error local", key="lag_local_btn")
 
             st.write(
-                f"Error global maximo en [{x_min:.7g}, {x_max:.7g}] = {err_global_max:.7f} "
-                f"(en x = {x_global_max:.7f})"
+                f"Error global maximo en [{x_min:.6g}, {x_max:.6g}] = {err_global_max:.6f} "
+                f"(en x = {x_global_max:.6f})"
             )
 
             st.markdown("### Cota teorica global: procedimiento y resultado")
@@ -3650,21 +3675,21 @@ Interpretacion:
                     st.write("No disponible (se requeriria M manual).")
 
                 st.markdown("Paso 4. Maximos en el intervalo")
-                st.write(f"Intervalo usado [a,b] = [{x_min:.7f}, {x_max:.7f}]")
-                st.write(f"M = max|f^(n+1)(x)| = {float(cota_info['M_aprox']):.7f}")
-                st.write(f"W = max|w(x)| = {float(cota_info['Wmax_aprox']):.7f}")
+                st.write(f"Intervalo usado [a,b] = [{x_min:.6f}, {x_max:.6f}]")
+                st.write(f"M = max|f^(n+1)(x)| = {float(cota_info['M_aprox']):.6f}")
+                st.write(f"W = max|w(x)| = {float(cota_info['Wmax_aprox']):.6f}")
 
                 st.markdown("Paso 5. Aplicacion de la formula")
                 st.latex(
-                    rf"\|f-P_n\|_\infty \le \frac{{{float(cota_info['M_aprox']):.7f}}}{{{math.factorial(int(cota_info['n']) + 1)}}}\cdot {float(cota_info['Wmax_aprox']):.7f}"
+                    rf"\|f-P_n\|_\infty \le \frac{{{float(cota_info['M_aprox']):.6f}}}{{{math.factorial(int(cota_info['n']) + 1)}}}\cdot {float(cota_info['Wmax_aprox']):.6f}"
                 )
-                st.write(f"Cota teorica global <= {cota_global:.7f}")
-                st.write(f"Error global numerico (muestreo) = {err_global_max:.7f}")
+                st.write(f"Cota teorica global <= {cota_global:.6f}")
+                st.write(f"Error global numerico (muestreo) = {err_global_max:.6f}")
 
                 if np.isnan(razon_cota_error):
                     st.write("Relacion cota/error: no definida (error global numerico ~ 0)")
                 else:
-                    st.write(f"Relacion cota/error = {razon_cota_error:.7f}")
+                    st.write(f"Relacion cota/error = {razon_cota_error:.6f}")
 
             except Exception as exc:
                 st.warning(f"No se pudo calcular la cota teorica global: {exc}")
@@ -3679,16 +3704,16 @@ Interpretacion:
                     razon = err_local / err_global_max if err_global_max > 1e-15 else np.nan
                     diferencia = err_global_max - err_local
 
-                    st.write(f"f(x*) real = {y_star_real:.7f}")
-                    st.write(f"P(x*) = {y_star_interp:.7f}")
-                    st.write(f"Error local |f(x*) - P(x*)| = {err_local:.7f}")
-                    st.write(f"Error global maximo = {err_global_max:.7f}")
+                    st.write(f"f(x*) real = {y_star_real:.6f}")
+                    st.write(f"P(x*) = {y_star_interp:.6f}")
+                    st.write(f"Error local |f(x*) - P(x*)| = {err_local:.6f}")
+                    st.write(f"Error global maximo = {err_global_max:.6f}")
 
                     if np.isnan(razon):
                         st.write("Comparacion local/global: no definida (error global ~ 0)")
                     else:
-                        st.write(f"Relacion local/global = {razon:.7f}")
-                        st.write(f"Diferencia (global - local) = {diferencia:.7f}")
+                        st.write(f"Relacion local/global = {razon:.6f}")
+                        st.write(f"Diferencia (global - local) = {diferencia:.6f}")
 
                 except Exception as exc:
                     st.error(f"No se pudo calcular el error local en x*: {exc}")
@@ -3943,7 +3968,7 @@ def section_integracion_numerica():
                 max_f4=max_f4,
             )
             if np.isfinite(cota_sel):
-                st.metric("Cota teorica de truncamiento", f"{float(cota_sel):.7f}")
+                st.metric("Cota teorica de truncamiento", f"{float(cota_sel):.6f}")
             else:
                 if es_impropia:
                     st.info("La cota teorica de truncamiento implementada aplica a intervalos finitos.")
@@ -3968,7 +3993,7 @@ def section_integracion_numerica():
                         if detalle_cota["latex_sustitucion"]:
                             st.latex(detalle_cota["latex_sustitucion"])
                         if detalle_cota["ok"]:
-                            st.latex(rf"|E_T| \leq {float(detalle_cota['cota']):.7g}")
+                            st.latex(rf"|E_T| \leq {float(detalle_cota['cota']):.6g}")
             else:
                 st.info("Se utilizo transformacion de variable para resolver integral impropia.")
 
@@ -3977,8 +4002,8 @@ def section_integracion_numerica():
                 err_rel = err_abs / abs(exact_val) if abs(exact_val) > 1e-15 else np.nan
                 c_e1, c_e2, c_e3 = st.columns(3)
                 c_e1.metric(exact_label, f"{exact_val:.12g}")
-                c_e2.metric("Error absoluto", f"{err_abs:.7f}")
-                c_e3.metric("Error relativo", "no definido" if np.isnan(err_rel) else f"{err_rel:.7f}")
+                c_e2.metric("Error absoluto", f"{err_abs:.6f}")
+                c_e3.metric("Error relativo", "no definido" if np.isnan(err_rel) else f"{err_rel:.6f}")
             elif referencia_exacta:
                 st.warning(
                     "No se pudo obtener integral exacta ni referencia numerica de alta precision para esta funcion e intervalo."
@@ -4200,14 +4225,14 @@ def section_montecarlo():
                     
                     progress = min(std / error_max, 1.0)
                     progress_bar.progress(progress)
-                    status_text.info(f"Iteración {iteracion}: {total_puntos} puntos, Error = {std:.7f}, Objetivo = {error_max:.7f}")
+                    status_text.info(f"Iteración {iteracion}: {total_puntos} puntos, Error = {std:.6f}, Objetivo = {error_max:.6f}")
                     
                     if std <= error_max:
                         status_text.success(f"✓ Convergencia alcanzada en iteración {iteracion} con {total_puntos} puntos")
                         break
                     
                     if iteracion > 100:
-                        st.warning(f"Se alcanzó el límite de 100 iteraciones. Error actual: {std:.7f} (objetivo: {error_max:.7f})")
+                        st.warning(f"Se alcanzó el límite de 100 iteraciones. Error actual: {std:.6f} (objetivo: {error_max:.6f})")
                         break
                 
                 # Ordenar puntos para visualizar
@@ -4234,13 +4259,13 @@ def section_montecarlo():
             upper = integral + margin
 
             c_m1, c_m2, c_m3, c_m4 = st.columns(4)
-            c_m1.metric("Integral aproximada", f"{integral:.7g}")
-            c_m2.metric("Desviacion estandar", f"{std:.7g}")
-            c_m3.metric("Error estándar", f"{error_estandar:.7g}")
-            c_m4.metric(f"IC {confianza}%", f"[{lower:.7g}, {upper:.7g}]")
+            c_m1.metric("Integral aproximada", f"{integral:.6g}")
+            c_m2.metric("Desviacion estandar", f"{std:.6g}")
+            c_m3.metric("Error estándar", f"{error_estandar:.6g}")
+            c_m4.metric(f"IC {confianza}%", f"[{lower:.6g}, {upper:.6g}]")
             
             # Mostrar IC en formato ± 
-            st.write(f"### IC {confianza}% (formato ±): {integral:.7g} ± {margin:.7g}")
+            st.write(f"### IC {confianza}% (formato ±): {integral:.6g} ± {margin:.6g}")
 
             # Mostrar puntos
             df_puntos = pd.DataFrame({"x": x_nodes, "f(x)": y_nodes})
@@ -4334,12 +4359,12 @@ def section_montecarlo_2d():
             upper = integral + margin
 
             c_m1, c_m2, c_m3, c_m4 = st.columns(4)
-            c_m1.metric("Integral doble aproximada", f"{integral:.7g}")
-            c_m2.metric("Desviacion estandar", f"{std:.7g}")
-            c_m3.metric("Error estándar", f"{error_estandar:.7g}")
-            c_m4.metric(f"IC {confianza}%", f"[{lower:.7g}, {upper:.7g}]")
+            c_m1.metric("Integral doble aproximada", f"{integral:.6g}")
+            c_m2.metric("Desviacion estandar", f"{std:.6g}")
+            c_m3.metric("Error estándar", f"{error_estandar:.6g}")
+            c_m4.metric(f"IC {confianza}%", f"[{lower:.6g}, {upper:.6g}]")
 
-            st.write(f"### IC {confianza}% (formato ±): {integral:.7g} ± {margin:.7g}")
+            st.write(f"### IC {confianza}% (formato ±): {integral:.6g} ± {margin:.6g}")
 
             # Mostrar puntos
             df_puntos = pd.DataFrame({"x": x_nodes, "y": y_nodes, "f(x,y)": z_nodes})
@@ -4414,7 +4439,7 @@ def section_ajuste_curvas():
 
             st.write(f"Ecuacion de mejor ajuste: {result['ecuacion']}")
             c_r1, c_r2, c_r3 = st.columns(3)
-            c_r1.metric("R^2", f"{result['r2']:.7f}")
+            c_r1.metric("R^2", f"{result['r2']:.6f}")
             c_r2.metric("MAE", f"{mae:.6g}")
             c_r3.metric("RMSE", f"{rmse:.6g}")
 
@@ -4817,9 +4842,9 @@ def section_edo():
 
             x_end = float(x_num_e[-1])
             m1, m2, m3 = st.columns(3)
-            m1.metric("Euler", f"y({x_end:.7g}) = {float(y_num_e[-1]):.12g}")
-            m2.metric("Heun", f"y({x_end:.7g}) = {float(y_num_h[-1]):.12g}")
-            m3.metric("RK4", f"y({x_end:.7g}) = {float(y_num_r[-1]):.12g}")
+            m1.metric("Euler", f"y({x_end:.6g}) = {float(y_num_e[-1]):.12g}")
+            m2.metric("Heun", f"y({x_end:.6g}) = {float(y_num_h[-1]):.12g}")
+            m3.metric("RK4", f"y({x_end:.6g}) = {float(y_num_r[-1]):.12g}")
             elapsed_ms = (time.perf_counter() - t0) * 1000.0
             st.metric("Tiempo de ejecucion (ms)", elapsed_ms)
 
@@ -5134,7 +5159,6 @@ def main():
             "Sistemas Lineales",
             "EDO",
             "Red Neuronal GD",
-            "Historial + Benchmark",
             "Busqueda g(x)",
             "Derivadas Finitas",
         ]
@@ -5308,10 +5332,8 @@ def main():
             "Red Neuronal GD",
         )
     with tabs[13]:
-        section_historial_benchmark()
-    with tabs[14]:
         section_busqueda_g()
-    with tabs[15]:
+    with tabs[14]:
         mostrar_machete("Derivadas Finitas")
         section_derivadas_finitas()
 
@@ -5332,3 +5354,4 @@ if __name__ == "__main__":
         print("Usa este comando desde la carpeta del proyecto:")
         print("streamlit run dashboard_integrador.py")
         sys.exit(0)
+

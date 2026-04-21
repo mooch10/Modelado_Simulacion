@@ -1,4 +1,4 @@
-import numpy as np
+﻿import numpy as np
 import matplotlib.pyplot as plt
 
 from Metodos.input_parser import parse_real, parse_int_or_default
@@ -72,7 +72,7 @@ def regresion_lineal(x_vals, y_vals):
     return {
         "tipo": "lineal",
         "coeficientes": [float(m), float(b)],
-        "ecuacion": f"y = {m:.7g}x + {b:.7g}",
+        "ecuacion": f"y = {m:.6g}x + {b:.6g}",
         "y_pred": y_pred,
         "r2": float(r2),
     }
@@ -95,11 +95,11 @@ def regresion_polinomial(x_vals, y_vals, grado):
     for i, c in enumerate(coef):
         pot = grado - i
         if pot == 0:
-            partes.append(f"{c:.7g}")
+            partes.append(f"{c:.6g}")
         elif pot == 1:
-            partes.append(f"{c:.7g}x")
+            partes.append(f"{c:.6g}x")
         else:
-            partes.append(f"{c:.7g}x^{pot}")
+            partes.append(f"{c:.6g}x^{pot}")
 
     return {
         "tipo": "polinomial",
@@ -163,7 +163,7 @@ def ejecutar_ajuste_curvas():
             titulo = f"Ajuste polinomial (grado {grado})"
 
         print(f"\nEcuacion: {resultado['ecuacion']}")
-        print(f"R^2: {resultado['r2']:.7f}")
+        print(f"R^2: {resultado['r2']:.6f}")
 
         ver_grafico = input("¿Desea ver el grafico del ajuste? (s/n): ").strip().lower()
         if ver_grafico in {"s", "si", "sí"}:
@@ -175,3 +175,4 @@ def ejecutar_ajuste_curvas():
 
 if __name__ == "__main__":
     ejecutar_ajuste_curvas()
+

@@ -682,7 +682,7 @@ def validar_convergencia(g_str, x_sym, punto_prueba=1.0, intervalo=0.5):
     """
     try:
         x = symbols('x')
-        g_expr = sp.sympify(g_str)
+        g_expr = parse_function_expression(g_str, "x")
         
         # Calcular derivada
         g_prima = diff(g_expr, x)
@@ -868,7 +868,7 @@ def menu_interactivo():
             print("\nIngresa la funcion f(x) = 0")
             print("Ejemplos: x**2 - 2*x - 3, sin(x) - x, exp(x) - 3*x")
             print("Operadores: +, -, *, /, ** (potencia)")
-            print("Funciones: sin, cos, tan, exp, log, sqrt, abs, pow")
+            print("Funciones: sin, cos, tan, exp, log, sqrt, cbrt, abs, pow")
             print("Constantes: pi, e")
             
             f_str = input("\nf(x) = ").strip()

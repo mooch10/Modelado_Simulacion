@@ -1,4 +1,4 @@
-import numpy as np
+﻿import numpy as np
 import matplotlib.pyplot as plt
 import sympy as sp
 
@@ -165,7 +165,7 @@ def regla_montecarlo(funcion_str, a, b, n, seed=None):
         # Fallback para expresiones condicionales como "1 if x > 0.99 else 0"
         y_random = np.zeros(n, dtype=float)
         namespace = {"x": None, "np": np, "sin": np.sin, "cos": np.cos, "tan": np.tan, 
-                    "exp": np.exp, "log": np.log, "sqrt": np.sqrt, "abs": np.abs}
+                    "exp": np.exp, "log": np.log, "sqrt": np.sqrt, "cbrt": np.cbrt, "abs": np.abs}
         
         for i, xi in enumerate(x_random):
             namespace["x"] = xi
@@ -211,7 +211,7 @@ def regla_montecarlo_2d(funcion_str, a, b, c, d, n, seed=None):
     allowed_names = {
         "e": sp.E, "pi": sp.pi,
         "sin": sp.sin, "cos": sp.cos, "tan": sp.tan,
-        "exp": sp.exp, "log": sp.log, "sqrt": sp.sqrt,
+        "exp": sp.exp, "log": sp.log, "sqrt": sp.sqrt, "cbrt": lambda z: sp.real_root(z, 3),
         "abs": sp.Abs, "x": x, "y": y
     }
     
@@ -233,7 +233,7 @@ def regla_montecarlo_2d(funcion_str, a, b, c, d, n, seed=None):
     
     z_random = np.zeros(n)
     namespace_2d = {"x": None, "y": None, "np": np, "sin": np.sin, "cos": np.cos, 
-                    "tan": np.tan, "exp": np.exp, "log": np.log, "sqrt": np.sqrt, "abs": np.abs}
+                    "tan": np.tan, "exp": np.exp, "log": np.log, "sqrt": np.sqrt, "cbrt": np.cbrt, "abs": np.abs}
     
     for i in range(n):
         try:
@@ -325,7 +325,7 @@ def ejecutar_integracion_numerica():
 
         print(f"\nResultado ({nombre}): {valor:.12g}")
         if nombre == "Monte Carlo":
-            print(f"Desviacion estandar: {std:.7g}")
+            print(f"Desviacion estandar: {std:.6g}")
 
         mostrar_grafico = input("¿Desea ver el grafico del area? (s/n): ").strip().lower()
         if mostrar_grafico in {"s", "si", "sí"}:
@@ -337,3 +337,4 @@ def ejecutar_integracion_numerica():
 
 if __name__ == "__main__":
     ejecutar_integracion_numerica()
+

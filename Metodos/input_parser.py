@@ -18,6 +18,7 @@ _LOCALS = {
     "exp": sp.exp,
     "log": sp.log,
     "sqrt": sp.sqrt,
+    "cbrt": lambda x: sp.real_root(x, 3),
     "abs": sp.Abs,
 }
 
