@@ -2662,6 +2662,9 @@ CASOS_PRACTICOS = {
 
 def mostrar_casos_practicos(metodo_nombre):
     """Muestra el caso práctico de forma clara y accesible."""
+    if not bool(st.session_state.get("show_practical_cases", False)):
+        return
+
     if metodo_nombre not in CASOS_PRACTICOS_CLEAN:
         return
     
@@ -5097,6 +5100,12 @@ def main():
         value=False,
         key="show_step_by_step_all",
         help="Muestra desglose simbolico y numerico en cada apartado.",
+    )
+    st.sidebar.toggle(
+        "Mostrar casos practicos",
+        value=False,
+        key="show_practical_cases",
+        help="Muestra u oculta los ejemplos practicos de cada metodo.",
     )
     st.sidebar.toggle(
         "Mostrar imagenes del encabezado",
