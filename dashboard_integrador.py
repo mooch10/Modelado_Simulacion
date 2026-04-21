@@ -45,6 +45,12 @@ from Metodos.metodo_red_neuronal_descenso_gradiente import (
     entrenar_descenso_gradiente_lineal,
     figura_tres_subplots_descenso,
 )
+from Metodos.busqueda_G import (
+    _construir_pasos_genericos as construir_pasos_punto_fijo,
+    _puntaje_opcion as puntaje_opcion_punto_fijo,
+    obtener_despejes_punto_fijo,
+    validar_convergencia as validar_convergencia_punto_fijo,
+)
 
 
 ALLOWED_LOCALS = {
@@ -517,6 +523,69 @@ def run_silent(func, *args, **kwargs):
     with contextlib.redirect_stdout(io.StringIO()):
         with contextlib.redirect_stderr(io.StringIO()):
             return func(*args, **kwargs)
+
+
+def _pasos_numericos_g(g_str, g_prima_str, x0_eval, valor_derivada_abs, es_util):
+    if np.isfinite(valor_derivada_abs):
+        return [
+            f"1. Candidato propuesto: g(x) = {g_str}",
+            f"2. Derivada: g'(x) = {g_prima_str}",
+            f"3. Evaluación en x0 = {float(x0_eval):.6f}: |g'(x0)| = {float(valor_derivada_abs):.6f}",
+            f"4. Criterio |g'(x0)| < 1: {'CUMPLE (g útil)' if es_util else 'NO CUMPLE (descartar)'}",
+        ]
+    return [
+        f"1. Candidato propuesto: g(x) = {g_str}",
+        f"2. Derivada: g'(x) = {g_prima_str}",
+        f"3. No se pudo evaluar g'(x) en x0 = {float(x0_eval):.6f}",
+        "4. Criterio |g'(x0)| < 1: NO CUMPLE (descartar)",
+    ]
+
+
+def construir_candidatos_punto_fijo_visual(f_str, x_min, x_max, x0_eval=None, solo_utiles=True):
+    """Genera y ordena opciones de g(x) para mostrarlas en Streamlit."""
+    punto_prueba = float(x0_eval) if x0_eval is not None else (float(x_min) + float(x_max)) / 2.0
+    intervalo = abs(float(x_max) - float(x_min)) / 2.0
+
+    despejes, x_sym, f_expr = run_silent(obtener_despejes_punto_fijo, f_str)
+    if not despejes:
+        return [], None, None
+
+    candidatos = []
+    for idx, despeje in enumerate(despejes, start=1):
+        g_str = str(despeje["g_str"])
+        _, g_prima_str, valor_derivada, max_derivada = run_silent(
+            validar_convergencia_punto_fijo,
+            g_str,
+            x_sym,
+            punto_prueba,
+            intervalo,
+        )
+
+        der_abs = abs(float(valor_derivada)) if valor_derivada is not None and np.isfinite(valor_derivada) else float("inf")
+        es_util = np.isfinite(der_abs) and der_abs < 1.0
+
+        pasos = _pasos_numericos_g(g_str, g_prima_str, punto_prueba, der_abs, es_util)
+
+        if solo_utiles and not es_util:
+            continue
+
+        candidatos.append(
+            {
+                "indice": idx,
+                "g_str": g_str,
+                "metodo": despeje["metodo"],
+                "derivada": g_prima_str,
+                "valor_derivada": valor_derivada,
+                "max_derivada": max_derivada,
+                "es_convergente": es_util,
+                "es_util": es_util,
+                "derivada_abs_x0": der_abs,
+                "pasos": pasos,
+            }
+        )
+
+    candidatos.sort(key=puntaje_opcion_punto_fijo, reverse=True)
+    return candidatos, x_sym, f_expr
 
 
 def safe_eval_expr(expr_text, variable="x"):
@@ -1408,6 +1477,22 @@ def render_newton_charts(func, root, x0, errors):
     fig_e = plot_error_curve(errors, "Error por iteracion (Newton)")
     st.pyplot(fig_e)
     plt.close(fig_e)
+
+
+def render_dataframe_comparativo(df, columnas_numericas=None):
+    """Muestra una tabla comparativa con formato numérico de 6 decimales."""
+    if df is None or not isinstance(df, pd.DataFrame):
+        return
+
+    columnas_numericas = columnas_numericas or [
+        columna for columna in df.columns if pd.api.types.is_numeric_dtype(df[columna])
+    ]
+
+    column_config = {}
+    for columna in columnas_numericas:
+        column_config[columna] = st.column_config.NumberColumn(columna, format="%.6f")
+
+    st.dataframe(df, use_container_width=True, column_config=column_config)
 
 
 def mostrar_imagen_encabezado(nombre_archivo, ancho=120, texto_alternativo="Imagen no cargada"):
@@ -2684,11 +2769,15 @@ def section_aitken():
     st.info(sugerir_metodo("Raices", derivada_disp=False))
     
     mostrar_casos_practicos("Aitken")
+    g_default = "cos(x)"
+    candidatos_globales = st.session_state.get("g_search_candidates", [])
+    if candidatos_globales:
+        g_default = str(candidatos_globales[0].get("g_str", g_default))
 
     with st.form("form_aitken"):
         c1, c2 = st.columns(2)
         with c1:
-            g = st.text_input("g(x)", value="cos(x)")
+            g = st.text_input("g(x)", value=g_default, key="aitken_g_direct")
             x0 = st.number_input("x0", value=0.5, key="aitken_x0")
         with c2:
             tol = st.number_input("Tolerancia", value=1e-6, format="%.1e", key="aitken_tol")
@@ -2698,9 +2787,7 @@ def section_aitken():
     if run_btn:
         try:
             t0 = time.perf_counter()
-            root, iterations, converged = run_silent(
-                metodo_aitken, g, float(x0), float(tol), int(max_iter)
-            )
+            root, iterations, converged = run_silent(metodo_aitken, g, float(x0), float(tol), int(max_iter))
             if root is None or not iterations:
                 st.error("No se pudo obtener resultado para Aitken.")
                 return
@@ -2740,7 +2827,6 @@ def section_aitken():
             cuentas = []
             desglose = []
             for i, fila in enumerate(iterations[:5], start=1):
-                x_n = fila.get("x_n", np.nan)
                 x_n1 = fila.get("x_n1", fila.get("x_(n+1)", np.nan))
                 err = fila.get("Error", np.nan)
                 cuentas.append(rf"x_{{{i}}}=g(x_{{{i-1}}})={_num(x_n1)}")
@@ -2865,29 +2951,21 @@ def section_punto_fijo():
     st.info(sugerir_metodo("Raices", derivada_disp=False))
     
     mostrar_casos_practicos("Punto Fijo")
+    st.caption("Ejecución directa con g(x). Si usas la pestaña 'Busqueda g(x)', puedes copiar/pegar una candidata aquí.")
 
-    with st.form("form_punto_fijo"):
-        c1, c2 = st.columns(2)
-        with c1:
-            f_plot = st.text_input("f(x) para graficar", value="x**2 - 2")
-            g = st.text_input("g(x)", value="(x + 2/x)/2")
-            x0 = st.number_input("x0", value=1.0, key="pf_x0")
-        with c2:
-            tol = st.number_input("Tolerancia", value=1e-6, format="%.1e", key="pf_tol")
-            max_iter = st.number_input("Max iteraciones", value=100, min_value=1, step=1, key="pf_max")
-            xmin = st.number_input("x min grafico", value=-2.0, key="pf_xmin")
-            xmax = st.number_input("x max grafico", value=2.0, key="pf_xmax")
-        run_btn = st.form_submit_button("Ejecutar Punto Fijo")
+    candidatos_globales = st.session_state.get("g_search_candidates", [])
+    g_default = "(x + 2/x)/2"
+    if candidatos_globales:
+        g_default = str(candidatos_globales[0].get("g_str", g_default))
 
-    if run_btn:
-        try:
+    def _ejecutar_punto_fijo_con_g(g_expr, params_local):
             t0 = time.perf_counter()
             root, rows = run_silent(
                 metodo_punto_fijo,
-                g,
-                float(x0),
-                float(tol),
-                int(max_iter),
+                g_expr,
+                float(params_local["x0"]),
+                float(params_local["tol"]),
+                int(params_local["max_iter"]),
             )
             if not rows:
                 st.error("No se generaron iteraciones para Punto Fijo.")
@@ -2903,14 +2981,14 @@ def section_punto_fijo():
             elapsed_ms = (time.perf_counter() - t0) * 1000.0
             st.metric("Tiempo de ejecucion (ms)", elapsed_ms)
 
-            if xmax <= xmin:
+            if params_local["x_max"] <= params_local["x_min"]:
                 st.warning("Para graficar f(x), se requiere x max > x min.")
             else:
                 fig_f = plot_function_with_root(
-                    f_plot,
+                    params_local["f_plot"],
                     float(root),
-                    float(xmin),
-                    float(xmax),
+                    float(params_local["x_min"]),
+                    float(params_local["x_max"]),
                     "Funcion y raiz aproximada (Punto Fijo)",
                 )
                 render_chart(fig_f)
@@ -2922,12 +3000,12 @@ def section_punto_fijo():
             render_export_dataframe("punto_fijo_iteraciones", df)
             evaluar_estabilidad_numerica("Punto Fijo", df=df)
 
-            margin = max(2.0, abs(float(root) - float(x0)) + 1.0)
+            margin = max(2.0, abs(float(root) - float(params_local["x0"])) + 1.0)
             x = np.linspace(float(root) - margin, float(root) + margin, 800)
-            y_g = build_func_plot(g, x)
+            y_g = build_func_plot(g_expr, x)
 
             fig, ax = plt.subplots(figsize=(9, 4.8))
-            ax.plot(x, y_g, linewidth=2, label=f"g(x) = {g}")
+            ax.plot(x, y_g, linewidth=2, label=f"g(x) = {g_expr}")
             ax.plot(x, x, "--", linewidth=1.5, label="y = x")
             ax.plot([root], [root], "ro", label=f"Punto fijo: {root:.8g}")
             ax.set_title("Diagrama de punto fijo")
@@ -2963,8 +3041,136 @@ def section_punto_fijo():
                 tiempo_ms=elapsed_ms,
             )
 
+    with st.form("form_punto_fijo"):
+        c1, c2 = st.columns(2)
+        with c1:
+            f_plot = st.text_input("f(x) para graficar", value="x**2 - 2", key="pf_f")
+            g_direct = st.text_input("g(x)", value=g_default, key="pf_g_direct")
+            x0 = st.number_input("x0", value=1.0, key="pf_x0")
+        with c2:
+            tol = st.number_input("Tolerancia", value=1e-6, format="%.1e", key="pf_tol")
+            max_iter = st.number_input("Max iteraciones", value=100, min_value=1, step=1, key="pf_max")
+            x_min = st.number_input("x min grafico", value=-2.0, key="pf_xmin")
+            x_max = st.number_input("x max grafico", value=2.0, key="pf_xmax")
+        ejecutar_btn = st.form_submit_button("Ejecutar Punto Fijo")
+
+    if ejecutar_btn:
+        try:
+            params_directo = {
+                "f_plot": f_plot,
+                "x0": float(x0),
+                "tol": float(tol),
+                "max_iter": int(max_iter),
+                "x_min": float(x_min),
+                "x_max": float(x_max),
+            }
+            _ejecutar_punto_fijo_con_g(g_direct, params_directo)
         except Exception as exc:
             mostrar_error_guiado("Punto Fijo", exc)
+
+
+def section_busqueda_g():
+    st.subheader("Busqueda de g(x)")
+    st.info("Analiza f(x)=0 y propone g(x) útiles según el criterio |g'(x0)| < 1. x0 es opcional.")
+
+    with st.form("form_busqueda_g"):
+        c1, c2 = st.columns(2)
+        with c1:
+            f_plot = st.text_input("f(x) a analizar", value="x**2 - 2", key="gsearch_f")
+            x0_raw = st.text_input("x0 (opcional)", value="", key="gsearch_x0_optional", placeholder="Ej: 1.0 (dejar vacío para usar punto medio)")
+            x_min = st.number_input("x min del intervalo", value=-2.0, key="gsearch_xmin")
+        with c2:
+            x_max = st.number_input("x max del intervalo", value=2.0, key="gsearch_xmax")
+            manual_g = st.text_input("g(x) manual opcional", value="", key="gsearch_manual")
+        analyze_btn = st.form_submit_button("Buscar opciones de g(x)")
+
+    if analyze_btn:
+        if float(x_max) <= float(x_min):
+            st.error("El intervalo es invalido: x max debe ser mayor que x min.")
+        else:
+            try:
+                x0_eval = None
+                if str(x0_raw).strip():
+                    x0_eval = float(str(x0_raw).replace(",", "."))
+
+                candidatos, x_sym, _ = construir_candidatos_punto_fijo_visual(
+                    f_plot,
+                    float(x_min),
+                    float(x_max),
+                    x0_eval=x0_eval,
+                    solo_utiles=True,
+                )
+
+                punto_validacion = x0_eval if x0_eval is not None else (float(x_min) + float(x_max)) / 2.0
+                if x0_eval is None:
+                    st.caption(f"x0 no especificado: se usó el punto medio del intervalo para evaluar convergencia ({punto_validacion:.6f}).")
+
+                if manual_g.strip():
+                    try:
+                        intervalo = abs(float(x_max) - float(x_min)) / 2.0
+                        _, gprime, valor_der, max_der = run_silent(
+                            validar_convergencia_punto_fijo,
+                            manual_g.strip(),
+                            x_sym,
+                            float(punto_validacion),
+                            intervalo,
+                        )
+                        der_abs = abs(float(valor_der)) if valor_der is not None and np.isfinite(valor_der) else float("inf")
+                        es_util = np.isfinite(der_abs) and der_abs < 1.0
+                        if es_util:
+                            candidatos.insert(
+                                0,
+                                {
+                                    "indice": 0,
+                                    "g_str": manual_g.strip(),
+                                    "metodo": "Manual",
+                                    "derivada": gprime,
+                                    "valor_derivada": valor_der,
+                                    "max_derivada": max_der,
+                                    "es_convergente": es_util,
+                                    "es_util": es_util,
+                                    "derivada_abs_x0": der_abs,
+                                    "pasos": _pasos_numericos_g(manual_g.strip(), gprime, float(punto_validacion), der_abs, es_util),
+                                },
+                            )
+                        else:
+                            st.warning("La g(x) manual no es útil en x0: no cumple |g'(x0)| < 1.")
+                    except Exception as exc:
+                        st.warning(f"No se pudo validar la g(x) manual: {exc}")
+
+                if not candidatos:
+                    st.warning("No se encontraron opciones de g(x) útiles para este intervalo.")
+                else:
+                    st.session_state["g_search_candidates"] = candidatos
+                    st.success(f"Se encontraron {len(candidatos)} opciones útiles.")
+            except Exception as exc:
+                mostrar_error_guiado("Busqueda g(x)", exc)
+
+    candidatos = st.session_state.get("g_search_candidates", [])
+    if candidatos:
+        resumen_df = pd.DataFrame(
+            [
+                {
+                    "Orden": i + 1,
+                    "Metodo": cand["metodo"],
+                    "g(x)": cand["g_str"],
+                    "Util en x0": "Si" if cand.get("es_util", cand["es_convergente"]) else "No",
+                    "|g'(x0)|": None if not np.isfinite(cand.get("derivada_abs_x0", float("inf"))) else float(cand["derivada_abs_x0"]),
+                }
+                for i, cand in enumerate(candidatos)
+            ]
+        )
+        st.dataframe(resumen_df, use_container_width=True)
+
+        idx = st.selectbox(
+            "Ver detalle de una opcion",
+            list(range(len(candidatos))),
+            format_func=lambda i: f"{i + 1}. {candidatos[i]['metodo']} | g(x) = {candidatos[i]['g_str']}",
+            key="gsearch_detail_idx",
+        )
+        with st.expander("Paso a paso numerico", expanded=True):
+            for paso in candidatos[idx].get("pasos", []):
+                st.markdown(f"- {paso}")
 
 
 def section_comparativa():
@@ -3053,7 +3259,7 @@ def section_comparativa():
             return
 
         df = pd.DataFrame(results)
-        st.dataframe(df, use_container_width=True)
+        render_dataframe_comparativo(df, columnas_numericas=["Raiz", "Iteraciones", "Error_final"])
         render_export_dataframe("comparativa_metodos", df)
         evaluar_estabilidad_numerica("Comparativa", df=df)
         elapsed_ms = (time.perf_counter() - t0) * 1000.0
@@ -3562,15 +3768,7 @@ def section_integracion_numerica():
                         comp_rows.append({"Metodo": nombre, "Integral": np.nan, "Cota_trunc": np.nan, "Estado": str(exc)})
 
                 df_comp = pd.DataFrame(comp_rows)
-                st.dataframe(
-                    df_comp,
-                    use_container_width=True,
-                    column_config={
-                        "Integral": st.column_config.NumberColumn("Integral", format="%.6f"),
-                        "Error_abs": st.column_config.NumberColumn("Error_abs", format="%.6f"),
-                        "Cota_trunc": st.column_config.NumberColumn("Cota_trunc", format="%.6f"),
-                    },
-                )
+                render_dataframe_comparativo(df_comp, columnas_numericas=["Integral", "Error_abs", "Cota_trunc"])
                 render_export_dataframe("integracion_comparativa", df_comp)
 
                 fig_c, ax_c = plt.subplots(figsize=(8.5, 4.2))
@@ -4327,7 +4525,26 @@ def section_edo():
                     "k4_rk4": [r.get("k4", np.nan) for r in rows_rk4],
                 }
             )
-            st.dataframe(tabla_comp, use_container_width=True)
+            render_dataframe_comparativo(
+                tabla_comp,
+                columnas_numericas=[
+                    "x",
+                    "y_real",
+                    "y_euler",
+                    "y_heun",
+                    "y_rk4",
+                    "error_euler",
+                    "error_heun",
+                    "error_rk4",
+                    "k_euler",
+                    "k1_heun",
+                    "k2_heun",
+                    "k1_rk4",
+                    "k2_rk4",
+                    "k3_rk4",
+                    "k4_rk4",
+                ],
+            )
 
             x_end = float(x_num_e[-1])
             m1, m2, m3 = st.columns(3)
@@ -4649,6 +4866,7 @@ def main():
             "EDO",
             "Red Neuronal GD",
             "Historial + Benchmark",
+            "Busqueda g(x)",
         ]
     )
 
@@ -4821,6 +5039,8 @@ def main():
         )
     with tabs[13]:
         section_historial_benchmark()
+    with tabs[14]:
+        section_busqueda_g()
 
 
 def _is_streamlit_context():

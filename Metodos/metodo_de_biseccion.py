@@ -66,13 +66,26 @@ def evaluar_funcion(f_num, x):
 def metodo_biseccion(func_str, a, b, tol=1e-6, max_iter=100):
     """
     Encuentra la raíz de f(x) = 0 usando el método de Bisección.
-    Requiere que f(a) * f(b) < 0.
+    Requiere que f(a) * f(b) < 0, salvo cuando a o b ya son raíz.
     Retorna una tupla (raiz, tabla_datos).
     """
     _, f_num = build_numeric_function(func_str)
 
     fa = evaluar_funcion(f_num, a)
     fb = evaluar_funcion(f_num, b)
+
+    # Si uno de los extremos ya es raíz, devolverla sin iterar.
+    if abs(fa) < tol:
+        print(f"En el extremo izquierdo, a = {a} ya es raíz (f(a) = {fa}).")
+        tabla_datos = [(1, a, b, a, fa, fb, fa)]
+        imprimir_tabla(tabla_datos)
+        return a, tabla_datos
+
+    if abs(fb) < tol:
+        print(f"En el extremo derecho, b = {b} ya es raíz (f(b) = {fb}).")
+        tabla_datos = [(1, a, b, b, fa, fb, fb)]
+        imprimir_tabla(tabla_datos)
+        return b, tabla_datos
 
     if fa * fb >= 0:
         raise ValueError("La función debe tener signos opuestos en a y b (f(a) * f(b) < 0)")
