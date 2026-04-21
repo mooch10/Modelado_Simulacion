@@ -59,6 +59,7 @@ ALLOWED_LOCALS = {
     "e": sp.E,
     "pi": sp.pi,
     "sin": sp.sin,
+    "sen": sp.sin,
     "cos": sp.cos,
     "tan": sp.tan,
     "exp": sp.exp,
@@ -690,6 +691,29 @@ def z_score_from_confidence(confianza_pct):
 
 def estimate_max_abs_derivative(expr, variable, order, a, b, points=2001):
     deriv = sp.diff(expr, variable, order)
+
+    def _valor_finito_en_extremo(extremo):
+        extremo = float(extremo)
+        try:
+            valor_directo = float(sp.N(deriv.subs(variable, extremo)))
+            if np.isfinite(valor_directo):
+                return valor_directo
+        except Exception:
+            pass
+
+        try:
+            limite = sp.limit(deriv, variable, extremo)
+            valor_limite = float(sp.N(limite))
+            if np.isfinite(valor_limite):
+                return valor_limite
+        except Exception:
+            pass
+
+        return None
+
+    if _valor_finito_en_extremo(a) is None or _valor_finito_en_extremo(b) is None:
+        return None
+
     f_deriv = sp.lambdify(variable, deriv, modules=["numpy"])
     x_grid = np.linspace(float(a), float(b), int(points))
     vals = np.array(f_deriv(x_grid), dtype=float)

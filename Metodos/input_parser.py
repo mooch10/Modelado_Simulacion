@@ -13,6 +13,7 @@ _LOCALS = {
     "e": sp.E,
     "pi": sp.pi,
     "sin": sp.sin,
+    "sen": sp.sin,
     "cos": sp.cos,
     "tan": sp.tan,
     "exp": sp.exp,
