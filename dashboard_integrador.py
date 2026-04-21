@@ -2,6 +2,7 @@ import io
 import contextlib
 import sys
 import time
+import math
 from pathlib import Path
 from statistics import NormalDist
 from datetime import datetime
@@ -21,6 +22,7 @@ from Metodos.input_parser import build_numeric_function
 from Metodos.metodo_aitken import metodo_aitken
 from Metodos.metodo_de_biseccion import metodo_biseccion
 from Metodos.metodo_lagrange_derivacion import (
+    _cota_error_global_teorica,
     aproximar_derivada_tres_formas,
     polinomio_lagrange,
     polinomio_newton_desde_dd,
@@ -156,24 +158,47 @@ MACHETES_TEORICOS = {
         ]
     },
     "Lagrange + Derivacion": {
-        "definicion": "Interpolación polinomial que construye un polinomio de grado n que pasa por n+1 puntos dados, permitiendo estimar valores intermedios y derivadas.",
-        "utilidad": "Interpolar valores entre puntos conocidos. Aproximar derivadas numéricamente. Reconstruir funciones a partir de datos discretos.",
+        "definicion": "Interpolación polinomial que construye un polinomio de grado n que pasa por n+1 puntos dados, permitiendo estimar valores intermedios.",
+        "utilidad": "Interpolar valores entre puntos conocidos. Reconstruir funciones a partir de datos discretos y estimar errores de interpolacion.",
         "pasos": [
             "1. Obtener n+1 puntos (x_i, y_i) distintos en x",
             "2. Construir bases de Lagrange L_i(x)",
             "3. Polinomio: P(x) = suma de y_i * L_i(x)",
             "4. Evaluar P(x) en puntos deseados",
-            "5. Derivar P(x) para obtener velocidades"
+            "5. Comparar con la funcion exacta cuando exista"
         ],
         "formulas": [
             r"$L_i(x) = \prod_{j \neq i} \frac{x - x_j}{x_i - x_j}$",
-            r"$P(x) = \sum_{i=0}^{n} y_i \cdot L_i(x)$"
+            r"$P(x) = \sum_{i=0}^{n} y_i \cdot L_i(x)$",
+            r"$E(x)=f(x)-P_n(x)$"
         ],
         "requisitos": [
             "• Minimo 2 puntos",
             "• Puntos con x distintos",
             "• Valores y finitos",
             "• Se asume continuidad entre puntos"
+        ]
+    },
+    "Derivadas Finitas": {
+        "definicion": "Aproxima derivadas usando valores de la funcion en una malla local alrededor de un punto especifico.",
+        "utilidad": "Calcular derivadas primera o segunda con esquemas adelante, atras o centrado, usando un paso h definido por el usuario.",
+        "pasos": [
+            "1. Elegir el punto x0 y el paso h",
+            "2. Elegir el orden de la derivada a aproximar",
+            "3. Seleccionar el esquema (adelante, atras o centrado)",
+            "4. Construir el stencil de puntos",
+            "5. Evaluar la funcion y combinar coeficientes"
+        ],
+        "formulas": [
+            r"$f^{(m)}(x_0) \approx \frac{1}{h^m}\sum_i c_i f(x_0+s_i h)$",
+            r"$s_i$: offsets del stencil",
+            r"$c_i$: coeficientes de la derivacion"
+        ],
+        "requisitos": [
+            "• f(x) debe poder evaluarse en los nodos del stencil",
+            "• h > 0",
+            "• Para esquema centrado se recomienda cantidad impar de puntos",
+            "• Debe haber mas puntos que el orden de la derivada"
         ]
     },
     "Integracion Numerica": {
@@ -3299,11 +3324,163 @@ def section_comparativa():
         guardar_cuentas("Comparativa", cuentas)
 
 
+def _estencil_finitas(esquema, cantidad_puntos):
+    """Genera offsets adimensionales para un stencil de diferencias finitas."""
+    esquema = esquema.strip().lower()
+    cantidad_puntos = int(cantidad_puntos)
+
+    if cantidad_puntos < 2:
+        raise ValueError("Se requieren al menos 2 puntos para diferencias finitas")
+
+    if esquema == "adelante":
+        return list(range(0, cantidad_puntos))
+
+    if esquema == "atras":
+        return list(range(-(cantidad_puntos - 1), 1))
+
+    if esquema == "centrada":
+        if cantidad_puntos % 2 == 0:
+            raise ValueError("La forma centrada requiere una cantidad impar de puntos")
+        mitad = cantidad_puntos // 2
+        return list(range(-mitad, mitad + 1))
+
+    raise ValueError("Tipo de esquema no valido. Use: adelante, atras o centrada")
+
+
+def _coeficientes_derivada_finitas(offsets, orden_derivada):
+    """Calcula coeficientes de derivadas finitas desde la interpolacion de Lagrange."""
+    t = sp.Symbol("t")
+    bases = []
+
+    for i, si in enumerate(offsets):
+        li = 1
+        for j, sj in enumerate(offsets):
+            if i != j:
+                li *= (t - sj) / (si - sj)
+        bases.append(sp.simplify(li))
+
+    coeffs = [sp.simplify(sp.diff(li, t, int(orden_derivada)).subs(t, 0)) for li in bases]
+    return bases, coeffs
+
+
+def _coeficientes_derivada_finitas_puntos(x_nodes, x0, orden_derivada):
+    """Calcula coeficientes de derivadas finitas para nodos manuales arbitrarios."""
+    t = sp.Symbol("t")
+    bases = []
+
+    for i, xi in enumerate(x_nodes):
+        li = 1
+        for j, xj in enumerate(x_nodes):
+            if i != j:
+                if sp.simplify(xi - xj) == 0:
+                    raise ValueError("Los puntos manuales deben ser distintos")
+                li *= (t - xj) / (xi - xj)
+        bases.append(sp.simplify(li))
+
+    coeffs = [sp.simplify(sp.diff(li, t, int(orden_derivada)).subs(t, x0)) for li in bases]
+    return bases, coeffs
+
+
+def aproximar_derivada_finitas(f_expr, x0, h, orden_derivada, esquema, cantidad_puntos):
+    """Aproxima una derivada con un stencil de diferencias finitas construido por Lagrange."""
+    x = sp.Symbol("x")
+    x0 = sp.sympify(x0)
+    h = sp.sympify(h)
+    orden_derivada = int(orden_derivada)
+    offsets = _estencil_finitas(esquema, cantidad_puntos)
+
+    if len(offsets) <= orden_derivada:
+        raise ValueError("Se necesitan mas puntos que el orden de la derivada")
+
+    bases, coeffs = _coeficientes_derivada_finitas(offsets, orden_derivada)
+    x_nodes = [sp.simplify(x0 + sp.Integer(off) * h) for off in offsets]
+    y_vals = [sp.simplify(f_expr.subs(x, xn)) for xn in x_nodes]
+
+    aproximacion = sp.simplify(
+        sum(ci * yi for ci, yi in zip(coeffs, y_vals)) / (h ** orden_derivada)
+    )
+
+    return {
+        "orden_derivada": orden_derivada,
+        "esquema": esquema.strip().lower(),
+        "cantidad_puntos": len(offsets),
+        "offsets": offsets,
+        "bases": bases,
+        "coeficientes": coeffs,
+        "x_nodes": x_nodes,
+        "y_vals": y_vals,
+        "x0": x0,
+        "h": h,
+        "aproximacion": aproximacion,
+    }
+
+
+def aproximar_derivada_finitas_manual(f_expr, x0, orden_derivada, x_nodes):
+    """Aproxima una derivada usando nodos manuales arbitrarios."""
+    x = sp.Symbol("x")
+    x0 = sp.sympify(x0)
+    x_nodes = [sp.sympify(v) for v in x_nodes]
+    orden_derivada = int(orden_derivada)
+
+    if len(x_nodes) < 2:
+        raise ValueError("Se requieren al menos 2 puntos manuales")
+
+    if len(set(map(sp.simplify, x_nodes))) != len(x_nodes):
+        raise ValueError("Los puntos manuales deben ser distintos")
+
+    if len(x_nodes) <= orden_derivada:
+        raise ValueError("Se necesitan mas puntos que el orden de la derivada")
+
+    bases, coeffs = _coeficientes_derivada_finitas_puntos(x_nodes, x0, orden_derivada)
+    y_vals = [sp.simplify(f_expr.subs(x, xn)) for xn in x_nodes]
+
+    aproximacion = sp.simplify(sum(ci * yi for ci, yi in zip(coeffs, y_vals)))
+
+    return {
+        "orden_derivada": orden_derivada,
+        "esquema": "manual",
+        "cantidad_puntos": len(x_nodes),
+        "offsets": None,
+        "bases": bases,
+        "coeficientes": coeffs,
+        "x_nodes": x_nodes,
+        "y_vals": y_vals,
+        "x0": x0,
+        "h": None,
+        "aproximacion": aproximacion,
+    }
+
+
 def section_lagrange():
-    st.subheader("Lagrange, derivacion y error")
+    st.subheader("Lagrange e interpolacion")
     mostrar_pasos = mostrar_pasos_activo(False)
     
     mostrar_casos_practicos("Lagrange + Derivacion")
+
+    with st.expander("Procedimiento completo: cota de error global (teorica)", expanded=False):
+        st.markdown(r"""
+Paso a paso para obtener la cota global del error de interpolacion de Lagrange:
+
+1. Construir el interpolante con n+1 nodos \(x_0,\dots,x_n\).
+2. Definir el polinomio nodal:
+    \(w(x)=\prod_{i=0}^{n}(x-x_i)\).
+3. Calcular la derivada de orden \(n+1\) de la funcion exacta \(f(x)\):
+    \(f^{(n+1)}(x)\).
+4. Obtener \(M=\max_{x\in[a,b]}|f^{(n+1)}(x)|\).
+5. Obtener \(W=\max_{x\in[a,b]}|w(x)|\).
+6. Aplicar la cota teorica:
+    \(\|f-P_n\|_\infty \le \dfrac{M}{(n+1)!}\,W\).
+
+Interpretacion:
+
+- Esta expresion es una cota superior garantizada (teorica).
+- El error global numerico (muestreado) suele ser menor o igual.
+""")
+
+    st.latex(r"E(x)=f(x)-P_n(x)")
+    st.latex(r"E(x)=\frac{f^{(n+1)}(\xi_x)}{(n+1)!}\prod_{i=0}^{n}(x-x_i)")
+    st.latex(r"\|f-P_n\|_{\infty,[a,b]}\le \frac{M}{(n+1)!}\max_{x\in[a,b]}|w(x)|")
+    st.latex(r"M=\max_{x\in[a,b]}|f^{(n+1)}(x)|,\quad w(x)=\prod_{i=0}^{n}(x-x_i)")
 
     st.markdown("Ingresa datos para interpolacion. Puedes cargar y manualmente o desde f(x).")
 
@@ -3447,6 +3624,51 @@ def section_lagrange():
                 f"(en x = {x_global_max:.7f})"
             )
 
+            st.markdown("### Cota teorica global: procedimiento y resultado")
+            try:
+                cota_info = _cota_error_global_teorica(
+                    x_vals,
+                    f_exact_expr,
+                    x_min,
+                    x_max,
+                    muestras=8000,
+                )
+
+                cota_global = float(cota_info["cota_global"])
+                razon_cota_error = cota_global / err_global_max if err_global_max > 1e-15 else np.nan
+
+                st.markdown("Paso 1. Grado y orden de derivada")
+                st.write(f"n = {int(cota_info['n'])}, por lo tanto se usa f^(n+1) = f^({int(cota_info['n']) + 1})")
+
+                st.markdown("Paso 2. Polinomio nodal")
+                st.latex(rf"w(x) = {sp.latex(cota_info['w_expr'])}")
+
+                st.markdown("Paso 3. Derivada de orden n+1")
+                if cota_info["derivada_orden"] is not None:
+                    st.latex(rf"f^{{(n+1)}}(x) = {sp.latex(cota_info['derivada_orden'])}")
+                else:
+                    st.write("No disponible (se requeriria M manual).")
+
+                st.markdown("Paso 4. Maximos en el intervalo")
+                st.write(f"Intervalo usado [a,b] = [{x_min:.7f}, {x_max:.7f}]")
+                st.write(f"M = max|f^(n+1)(x)| = {float(cota_info['M_aprox']):.7f}")
+                st.write(f"W = max|w(x)| = {float(cota_info['Wmax_aprox']):.7f}")
+
+                st.markdown("Paso 5. Aplicacion de la formula")
+                st.latex(
+                    rf"\|f-P_n\|_\infty \le \frac{{{float(cota_info['M_aprox']):.7f}}}{{{math.factorial(int(cota_info['n']) + 1)}}}\cdot {float(cota_info['Wmax_aprox']):.7f}"
+                )
+                st.write(f"Cota teorica global <= {cota_global:.7f}")
+                st.write(f"Error global numerico (muestreo) = {err_global_max:.7f}")
+
+                if np.isnan(razon_cota_error):
+                    st.write("Relacion cota/error: no definida (error global numerico ~ 0)")
+                else:
+                    st.write(f"Relacion cota/error = {razon_cota_error:.7f}")
+
+            except Exception as exc:
+                st.warning(f"No se pudo calcular la cota teorica global: {exc}")
+
             if calc_local_btn:
                 try:
                     x_star = float(sp.N(sp.sympify(x_local_text, locals=ALLOWED_LOCALS)))
@@ -3473,93 +3695,140 @@ def section_lagrange():
         else:
             st.markdown("---")
             st.info("Para calcular y comparar error local vs global, debes ingresar f(x) exacta.")
-
     except Exception as exc:
         st.error(f"Error al construir la interpolacion: {exc}")
         return
 
-    st.markdown("---")
-    st.markdown("Derivacion por aproximacion")
+
+def section_derivadas_finitas():
+    st.subheader("Derivadas finitas")
+    mostrar_pasos = mostrar_pasos_activo(False)
+
+    mostrar_casos_practicos("Derivadas Finitas")
+
+    st.markdown("Ingresa una funcion exacta, el punto especifico, el paso h, el tipo de derivada y la cantidad de puntos del stencil.")
+
+    f_text = st.text_input("f(x) exacta", value="sin(x)", key="df_f_text")
 
     c1, c2, c3 = st.columns(3)
-    forma = c1.selectbox("Forma", ["adelante", "atras", "centrada"])
-    x_obj_text = c2.text_input("x objetivo (opcional)", value="")
-    deriv_btn = c3.button("Calcular derivada")
+    orden_txt = c1.selectbox("Tipo de derivada", ["Primera derivada", "Segunda derivada"], key="df_orden")
+    modo_puntos = c2.radio("Puntos del stencil", ["Automático", "Manual"], horizontal=True, key="df_modo_puntos")
+    esquema = c3.selectbox("Esquema", ["adelante", "atras", "centrada"], key="df_esquema")
 
-    if deriv_btn:
-        try:
-            x_obj = None
-            if x_obj_text.strip():
-                x_obj = float(sp.N(sp.sympify(x_obj_text, locals=ALLOWED_LOCALS)))
+    cantidad_puntos = None
+    puntos_manual_text = None
 
-            result = aproximar_derivada_tres_formas(x_vals, y_vals, forma, x_obj)
-            x_eval = float(result["x_evaluacion"])
-            d_aprox = float(result["derivada"])
+    if modo_puntos == "Automático":
+        cantidad_puntos = st.number_input(
+            "Cantidad de puntos",
+            value=3,
+            min_value=2,
+            max_value=9,
+            step=1,
+            key="df_puntos",
+        )
+    else:
+        puntos_manual_text = st.text_input(
+            "Puntos manuales x_i (separados por coma)",
+            value="0.8, 0.9, 1.0, 1.1, 1.2",
+            key="df_puntos_manual",
+        )
 
-            # Si el usuario ingresa x objetivo, evaluamos la derivada del polinomio local
-            # en ese punto para que el valor responda al input de la interfaz.
-            if x_obj is not None:
-                x = sp.Symbol("x")
-                d_poly_local = result["derivada_polinomio_local"]
-                d_aprox = float(sp.N(d_poly_local.subs(x, x_obj)))
-                x_eval = float(x_obj)
+    c4, c5 = st.columns(2)
+    x0_text = c4.text_input("Punto especifico x0", value="1", key="df_x0")
+    h_text = c5.text_input("Paso h", value="0.1", key="df_h")
 
-            st.write(f"Derivada aproximada en x = {x_eval:.12g}")
-            st.write(f"f'(x) aprox = {d_aprox:.12g}")
-            st.write(f"Puntos usados para aproximar: {list(result['x_sub'])}")
+    calcular_btn = st.button("Calcular derivada finita", key="df_calcular")
 
-            if f_exact_expr is not None:
-                x = sp.Symbol("x")
-                d_real_expr = sp.diff(f_exact_expr, x)
-                d_real = float(sp.N(d_real_expr.subs(x, x_eval)))
-                err_abs = abs(d_aprox - d_real)
-                err_rel = err_abs / abs(d_real) if abs(d_real) > 1e-15 else np.nan
+    with st.expander("Procedimiento y formulas", expanded=False):
+        st.markdown(
+            """
+Paso a paso para derivadas finitas:
 
-                st.write(f"f'(x) real = {d_real:.12g}")
-                st.write(f"Error absoluto = {err_abs:.7f}")
-                if np.isnan(err_rel):
-                    st.write("Error relativo = no definido (derivada real cercana a 0)")
-                else:
-                    st.write(f"Error relativo = {err_rel:.7f}")
-            else:
-                st.info("No hay f(x) exacta, por eso no se puede calcular el error con la derivada real.")
+1. Elegir el punto x0 y el paso h.
+    2. Elegir el orden de derivada a aproximar.
+    3. Elegir nodos automáticos o ingresar los puntos manualmente.
+    4. Evaluar f en cada nodo.
+    5. Obtener los coeficientes por interpolacion de Lagrange.
+    6. Combinar los valores para aproximar la derivada.
+    7. Comparar con la derivada exacta si existe.
+"""
+        )
+        st.latex(r"f^{(m)}(x_0) \approx \sum_{i=0}^{p-1} c_i f(x_i)")
+        st.latex(r"x_i = x_0 + s_i h \text{ (modo automatico) }\quad \text{o nodos manuales } x_i")
+        st.latex(r"s_i: \text{ offsets del stencil},\quad c_i: \text{ coeficientes de derivacion}")
 
-        except Exception as exc:
-            st.error(f"Error al aproximar derivada: {exc}")
+    if not calcular_btn:
+        return
 
-    st.markdown("---")
-    st.markdown("Diferencias divididas y polinomio de Newton")
+    try:
+        x = sp.Symbol("x")
+        f_expr = safe_eval_expr(f_text, "x")
+        x0 = float(sp.N(sp.sympify(x0_text, locals=ALLOWED_LOCALS)))
+        h = float(sp.N(sp.sympify(h_text, locals=ALLOWED_LOCALS)))
+        if h <= 0:
+            raise ValueError("h debe ser positivo")
 
-    if st.button("Construir tabla DD"):
-        try:
-            x_dd, table = tabla_diferencias_divididas(x_vals, y_vals)
+        orden_derivada = 1 if orden_txt == "Primera derivada" else 2
+        if modo_puntos == "Manual":
+            x_nodes_manual = parse_expr_list(puntos_manual_text)
+            resultado = aproximar_derivada_finitas_manual(
+                f_expr,
+                x0,
+                orden_derivada,
+                x_nodes_manual,
+            )
+        else:
+            resultado = aproximar_derivada_finitas(
+                f_expr,
+                x0,
+                h,
+                orden_derivada,
+                esquema,
+                int(cantidad_puntos),
+            )
 
-            n = len(x_dd)
-            columns = ["x_i", "f[x_i]"] + [f"DD orden {k}" for k in range(1, n)]
-            rows = []
-            for i in range(n):
-                row = [x_dd[i]]
-                for j in range(n):
-                    if i <= n - j - 1:
-                        row.append(table[i, j])
-                    else:
-                        row.append(np.nan)
-                rows.append(row)
-
-            df = pd.DataFrame(rows, columns=columns)
-            st.dataframe(df, use_container_width=True)
-
-            p_newton = sp.expand(polinomio_newton_desde_dd(x_dd, table))
-            st.code(f"P_N(x) = {polynomial_to_decimal_text(p_newton, max_decimals=7)}")
-
-            cuentas = [
-                rf"P_n(x) = {sp.latex(p_lagr)}",
-                rf"P_n(x^*)\ \text{{evaluado en datos del usuario}}",
+        if mostrar_pasos:
+            st.markdown("### Pasos calculados")
+            pasos = [
+                f"Punto especifico: x0 = {x0:.12g}",
+                f"Paso: h = {h:.12g}",
+                f"Modo de puntos: {modo_puntos}",
+                f"Stencil ({resultado['esquema']}): {resultado['offsets'] if resultado['offsets'] is not None else 'manual'}",
+                f"Cantidad de puntos: {resultado['cantidad_puntos']}",
+                f"Orden de derivada: {resultado['orden_derivada']}",
             ]
-            guardar_cuentas("Lagrange + Derivacion", cuentas)
+            for paso, texto in enumerate(pasos, start=1):
+                st.write(f"{paso}. {texto}")
 
-        except Exception as exc:
-            st.error(f"Error en diferencias divididas: {exc}")
+        st.markdown("### Formula particular del stencil")
+        if resultado["offsets"] is None:
+            st.latex(rf"f^{{({resultado['orden_derivada']})}}(x_0) \approx \sum_i c_i f(x_i)")
+        else:
+            st.latex(
+                rf"f^{{({resultado['orden_derivada']})}}(x_0) \approx \frac{{1}}{{h^{{{resultado['orden_derivada']}}}}}\sum_i c_i f(x_0+s_i h)"
+            )
+            st.write(f"Offsets s_i: {resultado['offsets']}")
+        st.write(f"Coeficientes c_i: {[sp.simplify(c) for c in resultado['coeficientes']]}")
+        st.write(f"Puntos evaluados x_i: {[float(sp.N(v)) for v in resultado['x_nodes']]}")
+
+        approx_num = float(sp.N(resultado["aproximacion"]))
+        st.write(f"Derivada aproximada = {approx_num:.12g}")
+
+        d_real_expr = sp.diff(f_expr, x, orden_derivada)
+        d_real = float(sp.N(d_real_expr.subs(x, x0)))
+        err_abs = abs(approx_num - d_real)
+        err_rel = err_abs / abs(d_real) if abs(d_real) > 1e-15 else np.nan
+
+        st.write(f"Derivada exacta = {d_real:.12g}")
+        st.write(f"Error absoluto = {err_abs:.12g}")
+        if np.isnan(err_rel):
+            st.write("Error relativo = no definido (derivada exacta cercana a 0)")
+        else:
+            st.write(f"Error relativo = {err_rel:.12g}")
+
+    except Exception as exc:
+        st.error(f"No se pudo calcular la derivada finita: {exc}")
 
 
 def section_integracion_numerica():
@@ -4857,7 +5126,7 @@ def main():
             "Biseccion",
             "Punto Fijo",
             "Comparativa",
-            "Lagrange + Derivacion",
+            "Lagrange",
             "Integracion Numerica",
             "Monte Carlo",
             "Monte Carlo 2D",
@@ -4867,6 +5136,7 @@ def main():
             "Red Neuronal GD",
             "Historial + Benchmark",
             "Busqueda g(x)",
+            "Derivadas Finitas",
         ]
     )
 
@@ -5041,6 +5311,9 @@ def main():
         section_historial_benchmark()
     with tabs[14]:
         section_busqueda_g()
+    with tabs[15]:
+        mostrar_machete("Derivadas Finitas")
+        section_derivadas_finitas()
 
 
 def _is_streamlit_context():
