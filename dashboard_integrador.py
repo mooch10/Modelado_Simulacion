@@ -624,8 +624,12 @@ def safe_eval_expr(expr_text, variable="x"):
     return expr
 
 
-def resolver_y_exacta_edo(funcion_str, x0, y0):
-    """Intenta resolver analiticamente y' = f(x,y) con y(x0)=y0."""
+def resolver_y_exacta_edo(funcion_str, x0, y0, include_steps=False):
+    """Intenta resolver analiticamente y' = f(x,y) con y(x0)=y0.
+
+    Si include_steps=True, retorna ademas un detalle con pasos simbolicos
+    para copiar la resolucion analitica.
+    """
     x = sp.Symbol("x")
     y_sym = sp.Symbol("y")
     y_fun = sp.Function("y")
@@ -637,10 +641,180 @@ def resolver_y_exacta_edo(funcion_str, x0, y0):
 
     rhs = expr.subs({y_sym: y_fun(x)})
     ode = sp.Eq(sp.diff(y_fun(x), x), rhs)
-    sol = sp.dsolve(ode, ics={y_fun(float(x0)): float(y0)})
-    y_expr = sp.simplify(sol.rhs)
+    x0_sym = sp.nsimplify(float(x0))
+    y0_sym = sp.nsimplify(float(y0))
+
+    pasos_texto = []
+    pasos_latex = []
+
+    def _agregar_paso(texto, latex=None):
+        idx = len(pasos_texto) + 1
+        pasos_texto.append(f"{idx}) {texto}")
+        if latex is not None:
+            pasos_latex.append(latex)
+
+    _agregar_paso(
+        f"EDO planteada: y' = {sp.sstr(expr)}",
+        rf"\frac{{dy}}{{dx}} = {sp.latex(expr)}",
+    )
+    _agregar_paso(
+        f"Condicion inicial: y({sp.sstr(x0_sym)}) = {sp.sstr(y0_sym)}",
+        rf"y({sp.latex(x0_sym)}) = {sp.latex(y0_sym)}",
+    )
+
+    # Clasificacion orientativa para mostrar el tipo de metodo analitico.
+    try:
+        clases = list(sp.classify_ode(ode))
+    except Exception:
+        clases = []
+
+    if clases:
+        clase_txt = ", ".join(clases[:4])
+        if len(clases) > 4:
+            clase_txt += ", ..."
+        _agregar_paso(f"Clasificacion aproximada de Sympy: {clase_txt}")
+
+    y_expr = None
+
+    # Si la EDO es lineal de primer orden, mostrar forma estandar y factor integrante.
+    try:
+        a1 = sp.simplify(sp.diff(expr, y_sym))
+        a0 = sp.simplify(expr.subs(y_sym, 0))
+        es_lineal = sp.simplify(expr - (a1 * y_sym + a0)) == 0
+    except Exception:
+        es_lineal = False
+        a1 = None
+        a0 = None
+
+    if es_lineal and a1 is not None and a0 is not None:
+        p_x = sp.simplify(-a1)
+        q_x = sp.simplify(a0)
+        _agregar_paso(
+            "Se identifica EDO lineal de 1er orden y se lleva a forma y' + P(x)y = Q(x).",
+            rf"\frac{{dy}}{{dx}} + ({sp.latex(p_x)})y = {sp.latex(q_x)}",
+        )
+        try:
+            mu = sp.simplify(sp.exp(sp.integrate(p_x, x)))
+            _agregar_paso(
+                "Factor integrante mu(x) = exp(integral(P(x)dx)).",
+                rf"\mu(x) = e^{{\int ({sp.latex(p_x)})dx}} = {sp.latex(mu)}",
+            )
+
+            _agregar_paso(
+                "Multiplicar toda la ecuacion por mu(x).",
+                rf"{sp.latex(mu)}\frac{{dy}}{{dx}} + ({sp.latex(mu)})( {sp.latex(p_x)} )y = {sp.latex(mu)}({sp.latex(q_x)})",
+            )
+
+            _agregar_paso(
+                "Reconocer derivada de producto en el lado izquierdo.",
+                rf"\frac{{d}}{{dx}}\left({sp.latex(mu)}\,y\right) = {sp.latex(sp.simplify(mu * q_x))}",
+            )
+
+            integral_mu_q = sp.simplify(sp.integrate(sp.simplify(mu * q_x), x))
+            _agregar_paso(
+                "Integrar ambos lados respecto de x.",
+                rf"{sp.latex(mu)}\,y = \int {sp.latex(sp.simplify(mu * q_x))}\,dx = {sp.latex(integral_mu_q)} + C",
+            )
+
+            c_lin = sp.Symbol("C")
+            y_metodo_lineal = sp.simplify((integral_mu_q + c_lin) / mu)
+            _agregar_paso(
+                "Despejar y para obtener la solucion general por factor integrante.",
+                rf"y(x) = \frac{{{sp.latex(integral_mu_q)} + C}}{{{sp.latex(mu)}}} = {sp.latex(y_metodo_lineal)}",
+            )
+        except Exception:
+            _agregar_paso("No se pudo simplificar explicitamente el factor integrante, pero se aplica el metodo lineal.")
+
+    # Intento preferido: obtener solucion general y aplicar condicion inicial.
+    try:
+        sol_general = sp.dsolve(ode)
+        y_general = sp.simplify(sol_general.rhs)
+        _agregar_paso(
+            f"Solucion general obtenida: y(x) = {sp.sstr(y_general)}",
+            rf"y(x) = {sp.latex(y_general)}",
+        )
+
+        constantes = sorted(
+            [
+                s
+                for s in y_general.free_symbols
+                if s != x and isinstance(s, sp.Symbol) and str(s).startswith("C")
+            ],
+            key=lambda s: str(s),
+        )
+
+        if constantes:
+            ecuacion_ci = sp.Eq(y_general.subs(x, x0_sym), y0_sym)
+            _agregar_paso(
+                f"Sustituir la condicion inicial para resolver constantes: {sp.sstr(ecuacion_ci.lhs)} = {sp.sstr(ecuacion_ci.rhs)}",
+                rf"{sp.latex(ecuacion_ci.lhs)} = {sp.latex(ecuacion_ci.rhs)}",
+            )
+
+            sol_const = sp.solve([ecuacion_ci], constantes, dict=True)
+            if sol_const:
+                reemplazo = sol_const[0]
+                const_txt = ", ".join(f"{str(k)} = {sp.sstr(v)}" for k, v in reemplazo.items())
+                _agregar_paso(
+                    f"Constantes encontradas: {const_txt}",
+                    r",\ ".join(rf"{sp.latex(k)} = {sp.latex(v)}" for k, v in reemplazo.items()),
+                )
+                y_expr = sp.simplify(y_general.subs(reemplazo))
+            else:
+                _agregar_paso(
+                    "No se pudieron despejar constantes de forma explicita; se usa solucion con CI directa."
+                )
+
+        if y_expr is None:
+            sol_ci = sp.dsolve(ode, ics={y_fun(x0_sym): y0_sym})
+            y_expr = sp.simplify(sol_ci.rhs)
+            _agregar_paso(
+                "Se aplica dsolve con condicion inicial incorporada para obtener la particular.",
+                rf"y(x) = {sp.latex(y_expr)}",
+            )
+
+    except Exception:
+        # Fallback robusto cuando no se obtiene forma general util.
+        sol_ci = sp.dsolve(ode, ics={y_fun(float(x0)): float(y0)})
+        y_expr = sp.simplify(sol_ci.rhs)
+        _agregar_paso(
+            "Sympy resolvio la EDO directamente con la condicion inicial (fallback robusto).",
+            rf"y(x) = {sp.latex(y_expr)}",
+        )
+
+    _agregar_paso(
+        f"Solucion particular final: y(x) = {sp.sstr(y_expr)}",
+        rf"y(x) = {sp.latex(y_expr)}",
+    )
+
+    # Verificacion de la condicion inicial y de la ecuacion diferencial.
+    try:
+        y_x0 = sp.simplify(y_expr.subs(x, x0_sym))
+        _agregar_paso(
+            f"Verificacion CI: y({sp.sstr(x0_sym)}) = {sp.sstr(y_x0)} (debe ser {sp.sstr(y0_sym)}).",
+            rf"y({sp.latex(x0_sym)}) = {sp.latex(y_x0)}",
+        )
+    except Exception:
+        pass
+
+    try:
+        residuo = sp.simplify(sp.diff(y_expr, x) - expr.subs(y_sym, y_expr))
+        _agregar_paso(
+            f"Verificacion EDO (residuo): y'(x) - f(x,y(x)) = {sp.sstr(residuo)}",
+            rf"\frac{{d}}{{dx}}y(x) - f(x,y(x)) = {sp.latex(residuo)}",
+        )
+    except Exception:
+        pass
+
     y_eval = sp.lambdify(x, y_expr, "numpy")
-    return y_expr, y_eval
+    if not include_steps:
+        return y_expr, y_eval
+
+    detalle = {
+        "pasos_texto": pasos_texto,
+        "pasos_latex": pasos_latex,
+        "texto_copiable": "\n".join(pasos_texto),
+    }
+    return y_expr, y_eval, detalle
 
 
 def referencia_edo_alta_precision(funcion_str, x0, y0, h, n, factor=20):
@@ -1265,9 +1439,9 @@ def sugerir_x0_primera_raiz_positiva(func_text, x0_usuario, muestras=4000):
     return None
 
 
-def render_chart(fig):
+def render_chart(fig, force_static=False):
     """Renderiza Matplotlib en modo interactivo (Plotly) cuando esta disponible."""
-    interactive = st.session_state.get("interactive_charts", True)
+    interactive = st.session_state.get("interactive_charts", True) and (not force_static)
     paleta = paleta_activa()
     paleta_series = paleta["series"]
 
@@ -4770,13 +4944,27 @@ def section_edo():
 
             exact_vals = None
             expr_exact = None
+            detalle_analitico = None
 
             # Primero se intenta resolver la EDO exacta automaticamente.
             try:
-                expr_exact, exact_fun = resolver_y_exacta_edo(fxy, x0, y0)
+                expr_exact, exact_fun, detalle_analitico = resolver_y_exacta_edo(
+                    fxy,
+                    x0,
+                    y0,
+                    include_steps=True,
+                )
                 exact_vals = np.array(exact_fun(x_num_r), dtype=float)
                 st.info("Se calculo automaticamente la solucion exacta y(x) para la comparacion.")
                 st.latex(r"y(x)=" + sp.latex(expr_exact))
+
+                with st.expander("Ver resolucion analitica paso a paso", expanded=False):
+                    for paso in detalle_analitico.get("pasos_texto", []):
+                        st.write(paso)
+                    for paso_latex in detalle_analitico.get("pasos_latex", []):
+                        st.latex(paso_latex)
+                    st.markdown("**Texto copiable de la resolucion:**")
+                    st.code(detalle_analitico.get("texto_copiable", ""), language="text")
             except Exception as exc_auto:
                 # Si no se puede resolver automaticamente, se permite ingreso manual.
                 if y_exact_text.strip():
@@ -4875,6 +5063,14 @@ def section_edo():
             elapsed_ms = (time.perf_counter() - t0) * 1000.0
             st.metric("Tiempo de ejecucion (ms)", elapsed_ms)
 
+            st.markdown("#### Leyenda de graficos (EDO)")
+            st.info(
+                "Trayectoria de solucion numerica: compara como evoluciona y(x) con Euler, Heun y RK4.\n"
+                "Error absoluto vs x: muestra en que zonas del dominio cada metodo se aleja de la referencia.\n"
+                "Campo director: muestra la direccion local de las pendientes dy/dx=f(x,y) en cada punto.\n"
+                "Campo de pendientes y trayectorias: superpone las curvas numericas sobre el campo para validar coherencia dinamica."
+            )
+
             fig, ax = plt.subplots(figsize=(9.5, 4.8))
             if comparar_metodos:
                 ax.plot(x_num_e, y_num_e, "o-", linewidth=1.8, label="Euler")
@@ -4939,6 +5135,15 @@ def section_edo():
                 U = U / np.where(N == 0, 1, N)
                 V = V / np.where(N == 0, 1, N)
 
+                fig_dir, ax_dir = plt.subplots(figsize=(9.2, 4.8))
+                ax_dir.quiver(Xg, Yg, U, V, N, cmap="plasma", alpha=0.8)
+                ax_dir.set_title("Campo director (solo pendientes locales)")
+                ax_dir.set_xlabel("x")
+                ax_dir.set_ylabel("y")
+                ax_dir.grid(alpha=0.25)
+                render_chart(fig_dir, force_static=True)
+                plt.close(fig_dir)
+
                 fig_fld, ax_fld = plt.subplots(figsize=(9.2, 4.8))
                 ax_fld.quiver(Xg, Yg, U, V, N, cmap="viridis", alpha=0.75)
                 if comparar_metodos:
@@ -4954,7 +5159,7 @@ def section_edo():
                 ax_fld.set_ylabel("y")
                 ax_fld.grid(alpha=0.25)
                 ax_fld.legend()
-                render_chart(fig_fld)
+                render_chart(fig_fld, force_static=True)
                 plt.close(fig_fld)
 
             cuentas = [
