@@ -106,6 +106,56 @@ def regla_trapecio(funcion_str, a, b, n):
     return float(integral), x, y
 
 
+def regla_trapecio_con_desglose(funcion_str, a, b, n):
+    """Regla del trapecio con desglose de iteraciones para visualización pedagógica."""
+    x, y, h = _evaluar_malla(funcion_str, a, b, n)
+    desglose = []
+    
+    # Iteración inicial: f(x_0)
+    suma_acumulada = 0.5 * y[0]
+    desglose.append({
+        "iteracion": 0,
+        "x_i": float(x[0]),
+        "f_x_i": float(y[0]),
+        "peso": 0.5,
+        "suma_acumulada": float(suma_acumulada),
+        "integral_iterativa": float(h * suma_acumulada),
+        "formula": r"I_{aprox} = h \left[ \frac{f(x_0)}{2} + ...",
+        "cuenta": rf"f({float(x[0]):.6f}) = {float(y[0]):.6f}, peso=0.5, acum={float(suma_acumulada):.6f}"
+    })
+    
+    # Puntos interiores: 2*f(x_i)
+    for i in range(1, len(y) - 1):
+        suma_acumulada += y[i]
+        integral_iterativa = h * (0.5 * y[0] + suma_acumulada + 0.5 * y[-1])
+        desglose.append({
+            "iteracion": i,
+            "x_i": float(x[i]),
+            "f_x_i": float(y[i]),
+            "peso": 1.0,
+            "suma_acumulada": float(suma_acumulada),
+            "integral_iterativa": float(integral_iterativa),
+            "formula": r"I_{aprox} = h \left[ \frac{f(x_0)}{2} + \sum_{i=1}^{n-1} f(x_i) + \frac{f(x_n)}{2} \right]",
+            "cuenta": rf"f({float(x[i]):.6f}) = {float(y[i]):.6f}, peso=1, acum={float(suma_acumulada):.6f}, I_{{{i}}} ≈ {float(integral_iterativa):.6f}"
+        })
+    
+    # Punto final: f(x_n)
+    suma_acumulada += 0.5 * y[-1]
+    integral_final = h * suma_acumulada
+    desglose.append({
+        "iteracion": len(y) - 1,
+        "x_i": float(x[-1]),
+        "f_x_i": float(y[-1]),
+        "peso": 0.5,
+        "suma_acumulada": float(suma_acumulada),
+        "integral_iterativa": float(integral_final),
+        "formula": r"I = h \left[ \frac{f(x_0)}{2} + \sum_{i=1}^{n-1} f(x_i) + \frac{f(x_n)}{2} \right]",
+        "cuenta": rf"f({float(x[-1]):.6f}) = {float(y[-1]):.6f}, peso=0.5, acum={float(suma_acumulada):.6f}, I_final ≈ {float(integral_final):.6f}"
+    })
+    
+    return float(integral_final), x, y, desglose
+
+
 def regla_rectangulo(funcion_str, a, b, n):
     if n <= 0:
         raise ValueError("n debe ser un entero positivo")
@@ -124,6 +174,42 @@ def regla_rectangulo(funcion_str, a, b, n):
     return float(integral), x_nodes, y_nodes
 
 
+def regla_rectangulo_con_desglose(funcion_str, a, b, n):
+    """Regla de rectángulos con desglose de iteraciones para visualización pedagógica."""
+    if n <= 0:
+        raise ValueError("n debe ser un entero positivo")
+    if b <= a:
+        raise ValueError("Se requiere que b > a")
+
+    h = (b - a) / n
+    x_mid = a + (np.arange(n) + 0.5) * h
+    y_mid = np.array(evaluar_funcion_robusta(funcion_str, x_mid), dtype=float)
+    
+    desglose = []
+    suma_acumulada = 0.0
+    
+    for i in range(n):
+        suma_acumulada += y_mid[i]
+        integral_iterativa = h * suma_acumulada
+        desglose.append({
+            "iteracion": i,
+            "x_i": float(x_mid[i]),
+            "f_x_i": float(y_mid[i]),
+            "h": float(h),
+            "suma_acumulada": float(suma_acumulada),
+            "integral_iterativa": float(integral_iterativa),
+            "formula": r"I_{aprox} = h \cdot \sum_{i=0}^{n-1} f(x_{{i+1/2}})",
+            "cuenta": rf"f({float(x_mid[i]):.6f}) = {float(y_mid[i]):.6f}, acum={float(suma_acumulada):.6f}, I_{{{i}}} ≈ {float(integral_iterativa):.6f}"
+        })
+    
+    integral = h * np.sum(y_mid)
+    
+    # Nodos de extremos para visualizar el intervalo en el dashboard.
+    x_nodes = np.linspace(a, b, n + 1)
+    y_nodes = np.array(evaluar_funcion_robusta(funcion_str, x_nodes), dtype=float)
+    return float(integral), x_nodes, y_nodes, desglose
+
+
 def regla_simpson_13(funcion_str, a, b, n):
     if n % 2 != 0:
         raise ValueError("Simpson 1/3 requiere n par")
@@ -133,6 +219,63 @@ def regla_simpson_13(funcion_str, a, b, n):
         y[0] + y[-1] + 4.0 * np.sum(y[1:-1:2]) + 2.0 * np.sum(y[2:-1:2])
     )
     return float(integral), x, y
+
+
+def regla_simpson_13_con_desglose(funcion_str, a, b, n):
+    """Simpson 1/3 con desglose de iteraciones para visualización pedagógica."""
+    if n % 2 != 0:
+        raise ValueError("Simpson 1/3 requiere n par")
+
+    x, y, h = _evaluar_malla(funcion_str, a, b, n)
+    desglose = []
+    
+    # Primer punto (f(x_0) con peso 1)
+    suma_ponderada = y[0]
+    desglose.append({
+        "iteracion": 0,
+        "x_i": float(x[0]),
+        "f_x_i": float(y[0]),
+        "peso": 1,
+        "suma_ponderada": float(suma_ponderada),
+        "integral_iterativa": float((h / 3.0) * suma_ponderada),
+        "formula": r"I \approx \frac{h}{3} \left[ f(x_0) + 4 \sum_{i \text{ impar}} f(x_i) + 2 \sum_{i \text{ par}} f(x_i) + f(x_n) \right]",
+        "cuenta": rf"f({float(x[0]):.6f}) = {float(y[0]):.6f}, peso=1"
+    })
+    
+    # Puntos intermedios
+    for i in range(1, len(y) - 1):
+        if i % 2 == 1:  # Índice impar: peso 4
+            peso = 4
+        else:  # Índice par (pero no primero ni último): peso 2
+            peso = 2
+        suma_ponderada += peso * y[i]
+        integral_iterativa = (h / 3.0) * suma_ponderada
+        desglose.append({
+            "iteracion": i,
+            "x_i": float(x[i]),
+            "f_x_i": float(y[i]),
+            "peso": peso,
+            "suma_ponderada": float(suma_ponderada),
+            "integral_iterativa": float(integral_iterativa),
+            "formula": r"I \approx \frac{h}{3} \left[ ... \right]",
+            "cuenta": rf"f({float(x[i]):.6f}) = {float(y[i]):.6f}, peso={peso}, suma_pond={float(suma_ponderada):.6f}"
+        })
+    
+    # Último punto
+    suma_ponderada += y[-1]
+    integral_final = (h / 3.0) * suma_ponderada
+    desglose.append({
+        "iteracion": len(y) - 1,
+        "x_i": float(x[-1]),
+        "f_x_i": float(y[-1]),
+        "peso": 1,
+        "suma_ponderada": float(suma_ponderada),
+        "integral_iterativa": float(integral_final),
+        "formula": r"I = \frac{h}{3} \left[ f(x_0) + 4 \sum_{i \text{ impar}} f(x_i) + 2 \sum_{i \text{ par}} f(x_i) + f(x_n) \right]",
+        "cuenta": rf"f({float(x[-1]):.6f}) = {float(y[-1]):.6f}, peso=1, I_final ≈ {float(integral_final):.6f}"
+    })
+    
+    return float(integral_final), x, y, desglose
 
 
 def regla_simpson_38(funcion_str, a, b, n):
@@ -145,6 +288,40 @@ def regla_simpson_38(funcion_str, a, b, n):
     pesos[3:-1:3] = 2
     integral = (3.0 * h / 8.0) * np.sum(pesos * y)
     return float(integral), x, y
+
+
+def regla_simpson_38_con_desglose(funcion_str, a, b, n):
+    """Simpson 3/8 con desglose de iteraciones para visualización pedagógica."""
+    if n % 3 != 0:
+        raise ValueError("Simpson 3/8 requiere n multiplo de 3")
+
+    x, y, h = _evaluar_malla(funcion_str, a, b, n)
+    desglose = []
+    
+    # Construir pesos según Simpson 3/8
+    pesos = np.ones_like(y)
+    pesos[1:-1] = 3
+    pesos[3:-1:3] = 2
+    
+    suma_ponderada = 0.0
+    
+    for i in range(len(y)):
+        suma_ponderada += pesos[i] * y[i]
+        integral_iterativa = (3.0 * h / 8.0) * suma_ponderada
+        desglose.append({
+            "iteracion": i,
+            "x_i": float(x[i]),
+            "f_x_i": float(y[i]),
+            "peso": int(pesos[i]),
+            "suma_ponderada": float(suma_ponderada),
+            "integral_iterativa": float(integral_iterativa),
+            "formula": r"I \approx \frac{3h}{8} \left[ f(x_0) + 3 \sum_{i \not\equiv 0 \pmod 3} f(x_i) + 2 \sum_{i \equiv 0 \pmod 3, i>0} f(x_i) \right]",
+            "cuenta": rf"f({float(x[i]):.6f}) = {float(y[i]):.6f}, peso={int(pesos[i])}, suma_pond={float(suma_ponderada):.6f}, I_{{{i}}} ≈ {float(integral_iterativa):.6f}"
+        })
+    
+    integral_final = (3.0 * h / 8.0) * suma_ponderada
+    
+    return float(integral_final), x, y, desglose
 
 
 def regla_montecarlo(funcion_str, a, b, n, seed=None):

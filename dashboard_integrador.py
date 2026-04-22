@@ -38,6 +38,10 @@ from Metodos.metodo_integracion_numerica import (
     regla_simpson_38,
     regla_montecarlo,
     regla_montecarlo_2d,
+    regla_rectangulo_con_desglose,
+    regla_trapecio_con_desglose,
+    regla_simpson_13_con_desglose,
+    regla_simpson_38_con_desglose,
 )
 from Metodos.metodo_ajuste_curvas import regresion_lineal, regresion_polinomial
 from Metodos.metodo_sistemas_lineales import gauss_jordan, gauss_seidel
@@ -897,6 +901,28 @@ def estimate_max_abs_derivative(expr, variable, order, a, b, points=2001):
     return float(np.max(np.abs(vals[finite_mask])))
 
 
+def estimate_abs_derivative_at_point(expr, variable, order, x0):
+    deriv = sp.diff(expr, variable, order)
+    x0 = float(x0)
+
+    try:
+        valor_directo = float(sp.N(deriv.subs(variable, x0)))
+        if np.isfinite(valor_directo):
+            return abs(valor_directo)
+    except Exception:
+        pass
+
+    try:
+        limite = sp.limit(deriv, variable, x0)
+        valor_limite = float(sp.N(limite))
+        if np.isfinite(valor_limite):
+            return abs(valor_limite)
+    except Exception:
+        pass
+
+    return None
+
+
 def cota_truncamiento_integracion(nombre_metodo, a, b, n, max_f2=None, max_f4=None):
     h = (float(b) - float(a)) / int(n)
     longitud = float(b) - float(a)
@@ -928,7 +954,16 @@ def cota_truncamiento_integracion(nombre_metodo, a, b, n, max_f2=None, max_f4=No
     return np.nan
 
 
-def detalle_cota_truncamiento_integracion(nombre_metodo, a, b, n, max_f2=None, max_f4=None):
+def detalle_cota_truncamiento_integracion(
+    nombre_metodo,
+    a,
+    b,
+    n,
+    max_f2=None,
+    max_f4=None,
+    desc_f2=None,
+    desc_f4=None,
+):
     a = float(a)
     b = float(b)
     n = int(n)
@@ -950,7 +985,8 @@ def detalle_cota_truncamiento_integracion(nombre_metodo, a, b, n, max_f2=None, m
         if max_f2 is None:
             detalle["pasos"].append("3) No se pudo estimar max|f''(x)| en el intervalo.")
             return detalle
-        detalle["pasos"].append(f"3) max|f''(x)| ≈ {float(max_f2):.6g}")
+        desc_f2 = desc_f2 or "max|f''(x)|"
+        detalle["pasos"].append(f"3) {desc_f2} ≈ {float(max_f2):.6g}")
         detalle["latex_formula"] = r"|E_T| \leq \frac{(b-a)}{24}h^2\max_{x\in[a,b]}|f''(x)|"
         detalle[
             "latex_sustitucion"
@@ -960,7 +996,8 @@ def detalle_cota_truncamiento_integracion(nombre_metodo, a, b, n, max_f2=None, m
         if max_f2 is None:
             detalle["pasos"].append("3) No se pudo estimar max|f''(x)| en el intervalo.")
             return detalle
-        detalle["pasos"].append(f"3) max|f''(x)| ≈ {float(max_f2):.6g}")
+        desc_f2 = desc_f2 or "max|f''(x)|"
+        detalle["pasos"].append(f"3) {desc_f2} ≈ {float(max_f2):.6g}")
         detalle["latex_formula"] = r"|E_T| \leq \frac{(b-a)}{12}h^2\max_{x\in[a,b]}|f''(x)|"
         detalle[
             "latex_sustitucion"
@@ -973,7 +1010,8 @@ def detalle_cota_truncamiento_integracion(nombre_metodo, a, b, n, max_f2=None, m
         if max_f4 is None:
             detalle["pasos"].append("3) No se pudo estimar max|f^(4)(x)| en el intervalo.")
             return detalle
-        detalle["pasos"].append(f"3) max|f^(4)(x)| ≈ {float(max_f4):.6g}")
+        desc_f4 = desc_f4 or "max|f^(4)(x)|"
+        detalle["pasos"].append(f"3) {desc_f4} ≈ {float(max_f4):.6g}")
         detalle["latex_formula"] = r"|E_T| \leq \frac{(b-a)}{180}h^4\max_{x\in[a,b]}|f^{(4)}(x)|"
         detalle[
             "latex_sustitucion"
@@ -986,7 +1024,8 @@ def detalle_cota_truncamiento_integracion(nombre_metodo, a, b, n, max_f2=None, m
         if max_f4 is None:
             detalle["pasos"].append("3) No se pudo estimar max|f^(4)(x)| en el intervalo.")
             return detalle
-        detalle["pasos"].append(f"3) max|f^(4)(x)| ≈ {float(max_f4):.6g}")
+        desc_f4 = desc_f4 or "max|f^(4)(x)|"
+        detalle["pasos"].append(f"3) {desc_f4} ≈ {float(max_f4):.6g}")
         detalle["latex_formula"] = r"|E_T| \leq \frac{(b-a)}{80}h^4\max_{x\in[a,b]}|f^{(4)}(x)|"
         detalle[
             "latex_sustitucion"
@@ -1013,14 +1052,16 @@ def integrar_numerica_soporte_infinito(funcion_str, a, b, n, metodo, eps=1e-6):
     b = float(b)
 
     if np.isfinite(a) and np.isfinite(b):
+        # Usar versiones con desglose para capturar iteraciones
+        desglose = []
         if metodo == "Rectangulo":
-            valor, x_nodes, y_nodes = regla_rectangulo(funcion_str, a, b, n)
+            valor, x_nodes, y_nodes, desglose = regla_rectangulo_con_desglose(funcion_str, a, b, n)
         elif metodo == "Trapecio":
-            valor, x_nodes, y_nodes = regla_trapecio(funcion_str, a, b, n)
+            valor, x_nodes, y_nodes, desglose = regla_trapecio_con_desglose(funcion_str, a, b, n)
         elif metodo == "Simpson 1/3":
-            valor, x_nodes, y_nodes = regla_simpson_13(funcion_str, a, b, n)
+            valor, x_nodes, y_nodes, desglose = regla_simpson_13_con_desglose(funcion_str, a, b, n)
         elif metodo == "Simpson 3/8":
-            valor, x_nodes, y_nodes = regla_simpson_38(funcion_str, a, b, n)
+            valor, x_nodes, y_nodes, desglose = regla_simpson_38_con_desglose(funcion_str, a, b, n)
         else:
             raise ValueError("Metodo no valido")
 
@@ -1032,6 +1073,7 @@ def integrar_numerica_soporte_infinito(funcion_str, a, b, n, metodo, eps=1e-6):
             "u_nodes": None,
             "g_nodes": None,
             "tipo": "finita",
+            "desglose": desglose,
         }
 
     if np.isfinite(a) and np.isposinf(b):
@@ -1099,7 +1141,9 @@ def integrar_numerica_soporte_infinito(funcion_str, a, b, n, metodo, eps=1e-6):
         "u_nodes": u_nodes,
         "g_nodes": g_nodes,
         "tipo": tipo,
+        "desglose": [],  # Las integrales impropias no tienen desglose por ahora
     }
+
 
 
 def plot_integracion_impropia_transformada(u_nodes, g_nodes, metodo, tipo):
@@ -1946,6 +1990,82 @@ def guardar_desglose_iteraciones(apartado_clave, filas):
     st.session_state["desglose_iteraciones"][apartado_clave] = list(filas)
 
 
+def _desglose_montecarlo_1d(x_vals, f_vals, a, b, max_filas=25):
+    """Construye paso a paso Monte Carlo 1D mostrando primeras iteraciones."""
+    x_arr = np.array(x_vals, dtype=float)
+    f_arr = np.array(f_vals, dtype=float)
+    n_total = int(min(len(x_arr), len(f_arr)))
+    if n_total <= 0:
+        return []
+
+    n_show = int(min(max_filas, n_total))
+    ancho = float(b) - float(a)
+    filas = []
+
+    for i in range(1, n_show + 1):
+        f_i = float(f_arr[i - 1])
+        x_i = float(x_arr[i - 1])
+        prom_i = float(np.mean(f_arr[:i]))
+        integral_i = float(ancho * prom_i)
+        filas.append(
+            {
+                "iteracion": i,
+                "formula": r"I_i=(b-a)\cdot\bar f_i,\ \bar f_i=\frac{1}{i}\sum_{k=1}^i f(x_k)",
+                "cuenta": rf"x_{{{i}}}={_num(x_i, 12)},\ f(x_{{{i}}})={_num(f_i, 12)},\ \bar f_{{{i}}}={_num(prom_i, 12)},\ I_{{{i}}}={_num(integral_i, 12)}",
+            }
+        )
+
+    if n_total > n_show:
+        filas.append(
+            {
+                "iteracion": "...",
+                "formula": "",
+                "cuenta": rf"\text{{Se muestran las primeras }}{n_show}\text{{ iteraciones de }}{n_total}\text{{ totales.}}",
+            }
+        )
+
+    return filas
+
+
+def _desglose_montecarlo_2d(x_vals, y_vals, z_vals, a, b, c, d, max_filas=25):
+    """Construye paso a paso Monte Carlo 2D mostrando primeras iteraciones."""
+    x_arr = np.array(x_vals, dtype=float)
+    y_arr = np.array(y_vals, dtype=float)
+    z_arr = np.array(z_vals, dtype=float)
+    n_total = int(min(len(x_arr), len(y_arr), len(z_arr)))
+    if n_total <= 0:
+        return []
+
+    n_show = int(min(max_filas, n_total))
+    area = (float(b) - float(a)) * (float(d) - float(c))
+    filas = []
+
+    for i in range(1, n_show + 1):
+        x_i = float(x_arr[i - 1])
+        y_i = float(y_arr[i - 1])
+        z_i = float(z_arr[i - 1])
+        prom_i = float(np.mean(z_arr[:i]))
+        integral_i = float(area * prom_i)
+        filas.append(
+            {
+                "iteracion": i,
+                "formula": r"I_i=A\cdot\bar f_i,\ A=(b-a)(d-c),\ \bar f_i=\frac{1}{i}\sum_{k=1}^i f(x_k,y_k)",
+                "cuenta": rf"(x_{{{i}}},y_{{{i}}})=({_num(x_i, 12)},\ {_num(y_i, 12)}),\ f_{{{i}}}={_num(z_i, 12)},\ \bar f_{{{i}}}={_num(prom_i, 12)},\ I_{{{i}}}={_num(integral_i, 12)}",
+            }
+        )
+
+    if n_total > n_show:
+        filas.append(
+            {
+                "iteracion": "...",
+                "formula": "",
+                "cuenta": rf"\text{{Se muestran las primeras }}{n_show}\text{{ iteraciones de }}{n_total}\text{{ totales.}}",
+            }
+        )
+
+    return filas
+
+
 def mostrar_pasos_activo(local_flag=False):
     """Activa paso a paso si el toggle global esta ON o si el local esta marcado."""
     return bool(st.session_state.get("show_step_by_step_all", False) or local_flag)
@@ -2152,6 +2272,13 @@ FORMULAS_POR_APARTADO = {
         r"f'(x)\approx\frac{f(x+h)-f(x)}{h},\ \frac{f(x)-f(x-h)}{h},\ \frac{f(x+h)-f(x-h)}{2h}",
         r"E(x)=|f(x)-P_n(x)|",
     ],
+    "Derivadas Finitas": [
+        r"f^{(m)}(x_0)\approx\frac{1}{h^m}\sum_i c_i f(x_0+s_i h)",
+        r"f'(x_0)\approx\frac{f(x_0+h)-f(x_0)}{h}\ \text{(adelante, 2 puntos)}",
+        r"f'(x_0)\approx\frac{f(x_0)-f(x_0-h)}{h}\ \text{(atras, 2 puntos)}",
+        r"f'(x_0)\approx\frac{f(x_0+h)-f(x_0-h)}{2h}\ \text{(centrada, 3 puntos)}",
+        r"f''(x_0)\approx\frac{f(x_0+h)-2f(x_0)+f(x_0-h)}{h^2}\ \text{(centrada, 3 puntos)}",
+    ],
     "Integracion Numerica": [
         r"I\approx h\sum_{i=1}^{n} f\!\left(a+\left(i-\frac12\right)h\right)\ \text{(Rectangulo)}",
         r"I\approx h\left[\frac{f(a)+f(b)}{2}+\sum_{i=1}^{n-1}f(x_i)\right]\ \text{(Trapecio)}",
@@ -2162,13 +2289,13 @@ FORMULAS_POR_APARTADO = {
         r"I\approx(b-a)\,\frac{1}{n}\sum_{i=1}^{n}f(x_i),\quad x_i\sim U(a,b)",
         r"\widehat{\sigma}_I=\sqrt{\frac{(b-a)^2}{n}\,\widehat{\mathrm{Var}}(f(x_i))}",
         r"IC_{1-\alpha}:\ I\pm z_{1-\alpha/2}\,\widehat{\sigma}_I",
-        r"\widehat{e}_{MC}=\mathcal{O}(n^{-1/2})",
+        r"E=\frac{\sigma}{\sqrt{n}}",
     ],
     "Monte Carlo 2D": [
         r"I\approx(b-a)(d-c)\,\frac{1}{n}\sum_{i=1}^{n}f(x_i,y_i),\ (x_i,y_i)\sim U([a,b]\times[c,d])",
         r"\widehat{\sigma}_I=\sqrt{\frac{[(b-a)(d-c)]^2}{n}\,\widehat{\mathrm{Var}}(f(x_i,y_i))}",
         r"IC_{1-\alpha}:\ I\pm z_{1-\alpha/2}\,\widehat{\sigma}_I",
-        r"\widehat{e}_{MC}=\mathcal{O}(n^{-1/2})",
+        r"E=\frac{\sigma}{\sqrt{n}}",
     ],
     "Ajuste de Curvas": [
         r"\hat{y}=a x+b\ \text{(lineal)}",
@@ -2237,6 +2364,13 @@ SIMBOLOS_POR_APARTADO = {
         r"$x_i,y_i$: nodos de interpolacion",
         r"$h$: paso para diferencias finitas",
         r"$E(x)$: error de interpolacion",
+    ],
+    "Derivadas Finitas": [
+        r"$x_0$: punto donde se aproxima la derivada",
+        r"$h$: paso del stencil",
+        r"$s_i$: offset entero o racional del stencil",
+        r"$c_i$: coeficientes de diferencias finitas",
+        r"$m$: orden de derivada ($m=1$ o $m=2$)",
     ],
     "Integracion Numerica": [
         r"$I$: integral aproximada",
@@ -2319,6 +2453,12 @@ CONDICIONES_POR_APARTADO = {
         "Los nodos x_i deben ser distintos.",
         "Para error exacto se requiere disponer de f(x) real.",
         "En diferencias finitas, h no debe ser demasiado grande ni demasiado pequeño.",
+    ],
+    "Derivadas Finitas": [
+        "h debe ser positivo.",
+        "Se requieren mas nodos que el orden de derivada.",
+        "Para esquema centrada, la cantidad de puntos debe ser impar.",
+        "Los nodos manuales deben ser distintos y cubrir una vecindad de x0 cuando sea posible.",
     ],
     "Integracion Numerica": [
         "Rectangulo/Trapecio: n entero positivo.",
@@ -2458,6 +2598,23 @@ PASOS_POR_APARTADO = {
             "titulo": "Derivada numerica",
             "simbolico": r"$f'(x)\approx\frac{f(x+h)-f(x-h)}{2h}$",
             "numerico": "Si h=0.1, usar valores en x+0.1 y x-0.1.",
+        },
+    ],
+    "Derivadas Finitas": [
+        {
+            "titulo": "Definir stencil",
+            "simbolico": r"$x_i=x_0+s_i h$",
+            "numerico": "Ejemplo centrada de 3 puntos: s_i={-1,0,1}.",
+        },
+        {
+            "titulo": "Calcular coeficientes",
+            "simbolico": r"$f^{(m)}(x_0)\approx\frac{1}{h^m}\sum_i c_i f(x_0+s_i h)$",
+            "numerico": "Para m=1, centrada 3 puntos: c={-1/2,0,1/2}.",
+        },
+        {
+            "titulo": "Aproximar y comparar",
+            "simbolico": r"$e_{abs}=|f^{(m)}_{aprox}(x_0)-f^{(m)}_{exacta}(x_0)|$",
+            "numerico": "Se evalua la derivada exacta (si existe) y se reporta error absoluto/relativo.",
         },
     ],
     "Integracion Numerica": [
@@ -2644,6 +2801,15 @@ DESGLOSE_COMPLETO_POR_APARTADO = {
         "Calcular error puntual y error global en intervalo.",
         "Para derivacion: aplicar formula adelante/atras/centrada.",
         "Comparar con derivada exacta cuando este disponible.",
+    ],
+    "Derivadas Finitas": [
+        "Elegir f(x), x0, h, orden de derivada y esquema (adelante/atras/centrada).",
+        "Construir offsets s_i del stencil y nodos x_i=x0+s_i h (o usar nodos manuales).",
+        "Calcular coeficientes c_i via bases de Lagrange derivadas en el punto objetivo.",
+        "Evaluar f(x_i) y formar cada termino c_i f(x_i).",
+        "Combinar suma y dividir por h^m (si aplica) para obtener f^(m)(x0).",
+        "Comparar con derivada exacta, reportar error absoluto y relativo.",
+        "Mostrar desglose por iteracion con nodos, coeficientes, terminos y suma acumulada.",
     ],
     "Integracion Numerica": [
         "Definir f(x), a, b, n y metodo.",
@@ -3891,6 +4057,27 @@ Interpretacion:
                     st.write("Relacion cota/error: no definida (error global numerico ~ 0)")
                 else:
                     st.write(f"Relacion cota/error = {razon_cota_error:.6f}")
+                
+                # Información adicional
+                with st.expander("📊 Interpretación de la cota"):
+                    st.markdown("""
+                    **¿Qué significa la cota teórica?**
+                    
+                    - Es un **límite superior garantizado** del error máximo en todo el intervalo
+                    - La cota SIEMPRE será ≥ error real máximo
+                    - Una cota conservadora (más grande) es válida pero menos informativa
+                    - Fórmula: cota ≤ (M · W) / (n+1)!
+                      - M = máximo de la derivada |f^(n+1)(x)|
+                      - W = máximo del polinomio nodal |w(x)| 
+                      - n = grado del polinomio (número de nodos - 1)
+                    
+                    **Comparación con error real:**
+                    - Cota teórica = {:.6f} (cálculo analítico)
+                    - Error real máximo = {:.6f} (muestreo denso)
+                    - Factor de conservadurismo = {:.2f}x
+                    
+                    El factor >1 es NORMAL. Indica que la cota es válida.
+                    """.format(cota_global, err_global_max, razon_cota_error if not np.isnan(razon_cota_error) else 0))
 
             except Exception as exc:
                 st.warning(f"No se pudo calcular la cota teorica global: {exc}")
@@ -3909,6 +4096,13 @@ Interpretacion:
                     st.write(f"P(x*) = {y_star_interp:.6f}")
                     st.write(f"Error local |f(x*) - P(x*)| = {err_local:.6f}")
                     st.write(f"Error global maximo = {err_global_max:.6f}")
+                    
+                    # Comparación con la cota
+                    st.markdown("**Comparación:**")
+                    st.write(f"- Error en x*: {err_local:.6f}")
+                    st.write(f"- Error máximo (cualquier punto): {err_global_max:.6f}")
+                    st.write(f"- Cota teórica (garantía): {cota_global:.6f}")
+                    st.write(f"- El error en x* es {(err_local/cota_global*100):.2f}% de la cota")
 
                     if np.isnan(razon):
                         st.write("Comparacion local/global: no definida (error global ~ 0)")
@@ -3980,6 +4174,15 @@ Paso a paso para derivadas finitas:
     7. Comparar con la derivada exacta si existe.
 """
         )
+        st.markdown("**Formulas clasicas (primer orden):**")
+        st.latex(r"f'(x_0) \approx \frac{f(x_0+h)-f(x_0)}{h} \quad \text{(adelante)}")
+        st.latex(r"f'(x_0) \approx \frac{f(x_0)-f(x_0-h)}{h} \quad \text{(atras)}")
+        st.latex(r"f'(x_0) \approx \frac{f(x_0+h)-f(x_0-h)}{2h} \quad \text{(centrada)}")
+        st.markdown("**Formulas clasicas (segunda derivada):**")
+        st.latex(r"f''(x_0) \approx \frac{f(x_0)-2f(x_0+h)+f(x_0+2h)}{h^2} \quad \text{(adelante, 3 puntos)}")
+        st.latex(r"f''(x_0) \approx \frac{f(x_0)-2f(x_0-h)+f(x_0-2h)}{h^2} \quad \text{(atras, 3 puntos)}")
+        st.latex(r"f''(x_0) \approx \frac{f(x_0+h)-2f(x_0)+f(x_0-h)}{h^2} \quad \text{(centrada, 3 puntos)}")
+        st.markdown("**Forma general por stencil (la que usa el modulo):**")
         st.latex(r"f^{(m)}(x_0) \approx \sum_{i=0}^{p-1} c_i f(x_i)")
         st.latex(r"x_i = x_0 + s_i h \text{ (modo automatico) }\quad \text{o nodos manuales } x_i")
         st.latex(r"s_i: \text{ offsets del stencil},\quad c_i: \text{ coeficientes de derivacion}")
@@ -4053,6 +4256,73 @@ Paso a paso para derivadas finitas:
         else:
             st.write(f"Error relativo = {err_rel:.12g}")
 
+        # Guardar cuentas y desglose por iteracion para panel unificado de paso a paso.
+        cuentas = []
+        if resultado["offsets"] is None:
+            cuentas.append(rf"f^{{({resultado['orden_derivada']})}}(x_0)\approx \sum_i c_i f(x_i)")
+        else:
+            cuentas.append(
+                rf"f^{{({resultado['orden_derivada']})}}(x_0)\approx\frac{{1}}{{h^{{{resultado['orden_derivada']}}}}}\sum_i c_i f(x_0+s_i h)"
+            )
+            cuentas.append(rf"h={_num(h, 12)}")
+        cuentas.append(rf"x_0={_num(x0, 12)}")
+        cuentas.append(rf"f^{{({orden_derivada})}}_{{aprox}}(x_0)={_num(approx_num, 12)}")
+        cuentas.append(rf"f^{{({orden_derivada})}}_{{exacta}}(x_0)={_num(d_real, 12)}")
+        cuentas.append(rf"|E|={_num(err_abs, 12)}")
+        if not np.isnan(err_rel):
+            cuentas.append(rf"e_r={_num(err_rel, 12)}")
+        guardar_cuentas("Derivadas Finitas", cuentas)
+
+        desglose = []
+        suma_terminos = 0.0
+        for i, (xi_sym, ci_sym, yi_sym) in enumerate(
+            zip(resultado["x_nodes"], resultado["coeficientes"], resultado["y_vals"]),
+            start=1,
+        ):
+            xi = float(sp.N(xi_sym))
+            ci = float(sp.N(ci_sym))
+            yi = float(sp.N(yi_sym))
+            termino = ci * yi
+            suma_terminos += termino
+
+            if resultado["offsets"] is None:
+                aprox_iter = suma_terminos
+                cuenta = (
+                    rf"x_{{{i}}}={_num(xi, 10)},\ c_{{{i}}}={_num(ci, 10)},\ f(x_{{{i}}})={_num(yi, 10)},\ "
+                    rf"c_{{{i}}}f(x_{{{i}}})={_num(termino, 10)},\ S_{{{i}}}={_num(suma_terminos, 10)}"
+                )
+            else:
+                aprox_iter = suma_terminos / (h ** orden_derivada)
+                cuenta = (
+                    rf"x_{{{i}}}={_num(xi, 10)},\ c_{{{i}}}={_num(ci, 10)},\ f(x_{{{i}}})={_num(yi, 10)},\ "
+                    rf"c_{{{i}}}f(x_{{{i}}})={_num(termino, 10)},\ "
+                    rf"S_{{{i}}}={_num(suma_terminos, 10)},\ "
+                    rf"f^{{({orden_derivada})}}_{{aprox,i}}={_num(aprox_iter, 10)}"
+                )
+
+            desglose.append(
+                {
+                    "iteracion": i,
+                    "formula": rf"f^{{({orden_derivada})}}(x_0)\approx "
+                    + (
+                        r"\sum_i c_i f(x_i)"
+                        if resultado["offsets"] is None
+                        else rf"\frac{{1}}{{h^{{{orden_derivada}}}}}\sum_i c_i f(x_0+s_i h)"
+                    ),
+                    "cuenta": cuenta,
+                }
+            )
+
+        guardar_desglose_iteraciones("Derivadas Finitas", desglose)
+        registrar_ejecucion(
+            "Derivadas Finitas",
+            f"{esquema}-{orden_txt}",
+            iteraciones=len(desglose),
+            error_final=float(err_abs),
+            convergio=True,
+            tiempo_ms=None,
+        )
+
     except Exception as exc:
         st.error(f"No se pudo calcular la derivada finita: {exc}")
 
@@ -4078,6 +4348,11 @@ def section_integracion_numerica():
             analizar_convergencia = st.checkbox("Mostrar convergencia (error vs n)", value=True)
             n_max = st.number_input("n max para convergencia", value=30, min_value=6, step=2)
             referencia_exacta = st.checkbox("Intentar integral exacta con Sympy", value=True)
+            x_trunc_text = st.text_input(
+                "Punto x* para truncamiento (opcional)",
+                value="",
+                help="Si se indica x*, se evalua |f''(x*)| o |f^(4)(x*)| para estimar el truncamiento.",
+            )
         run_btn = st.form_submit_button("Calcular integral")
 
     if run_btn:
@@ -4137,15 +4412,38 @@ def section_integracion_numerica():
 
             max_f2 = None
             max_f4 = None
+            desc_f2 = None
+            desc_f4 = None
+            x_trunc = None
+            usa_punto_trunc = False
             if expr is not None and (not es_impropia):
-                try:
-                    max_f2 = estimate_max_abs_derivative(expr, x_sym, 2, a_val, b_val)
-                except Exception:
-                    max_f2 = None
-                try:
-                    max_f4 = estimate_max_abs_derivative(expr, x_sym, 4, a_val, b_val)
-                except Exception:
-                    max_f4 = None
+                if x_trunc_text.strip():
+                    x_trunc = parse_numeric_expr(x_trunc_text, "x*", allow_infinite=False)
+                    if not (float(a_val) <= float(x_trunc) <= float(b_val)):
+                        st.error("El punto x* debe pertenecer al intervalo [a, b].")
+                        return
+                    usa_punto_trunc = True
+
+                if usa_punto_trunc:
+                    try:
+                        max_f2 = estimate_abs_derivative_at_point(expr, x_sym, 2, x_trunc)
+                    except Exception:
+                        max_f2 = None
+                    try:
+                        max_f4 = estimate_abs_derivative_at_point(expr, x_sym, 4, x_trunc)
+                    except Exception:
+                        max_f4 = None
+                    desc_f2 = rf"|f''(x^*)| con x^*={float(x_trunc):.6g}"
+                    desc_f4 = rf"|f^(4)(x^*)| con x^*={float(x_trunc):.6g}"
+                else:
+                    try:
+                        max_f2 = estimate_max_abs_derivative(expr, x_sym, 2, a_val, b_val)
+                    except Exception:
+                        max_f2 = None
+                    try:
+                        max_f4 = estimate_max_abs_derivative(expr, x_sym, 4, a_val, b_val)
+                    except Exception:
+                        max_f4 = None
 
             resultado_int = integrar_numerica_soporte_infinito(func, a_val, b_val, int(n), metodo)
             valor = resultado_int["valor"]
@@ -4169,7 +4467,10 @@ def section_integracion_numerica():
                 max_f4=max_f4,
             )
             if np.isfinite(cota_sel):
-                st.metric("Cota teorica de truncamiento", f"{float(cota_sel):.6f}")
+                etiqueta_trunc = "Estimacion de truncamiento" if usa_punto_trunc else "Cota teorica de truncamiento"
+                st.metric(etiqueta_trunc, f"{float(cota_sel):.6f}")
+                if usa_punto_trunc:
+                    st.caption(f"Estimacion usando x*={float(x_trunc):.6g}.")
             else:
                 if es_impropia:
                     st.info("La cota teorica de truncamiento implementada aplica a intervalos finitos.")
@@ -4184,6 +4485,8 @@ def section_integracion_numerica():
                     int(n),
                     max_f2=max_f2,
                     max_f4=max_f4,
+                    desc_f2=desc_f2,
+                    desc_f4=desc_f4,
                 )
                 if mostrar_pasos:
                     with st.expander("Ver paso a paso del error de truncamiento"):
@@ -4348,6 +4651,11 @@ def section_integracion_numerica():
             if np.isfinite(cota_sel):
                 cuentas.append(rf"|E_T|\le {_num(cota_sel)}")
             guardar_cuentas("Integracion Numerica", cuentas)
+            
+            # Guardar desglose de iteraciones si está disponible
+            if "desglose" in resultado_int and resultado_int["desglose"]:
+                guardar_desglose_iteraciones("Integracion Numerica", resultado_int["desglose"])
+            
             registrar_ejecucion(
                 "Integracion Numerica",
                 metodo,
@@ -4440,15 +4748,22 @@ def section_montecarlo():
                 sort_idx = np.argsort(x_all)
                 x_nodes = x_all[sort_idx]
                 y_nodes = y_all[sort_idx]
+                x_nodes_desglose = x_all.copy()
+                y_nodes_desglose = y_all.copy()
             else:
                 # Modo estándar: usar n puntos
                 integral, std, x_nodes, y_nodes = regla_montecarlo(func, a_val, b_val, int(n), seed=seed if usar_seed else None)
+                x_nodes_desglose = np.array(x_nodes, dtype=float)
+                y_nodes_desglose = np.array(y_nodes, dtype=float)
 
             # Calcular error estándar
             if usar_error_max and error_max is not None:
                 num_puntos = total_puntos
             else:
                 num_puntos = int(n)
+
+            media_muestral = float(np.mean(y_nodes))
+            var_muestral = float(np.var(y_nodes, ddof=1)) if len(y_nodes) > 1 else 0.0
             
             error_estandar = std / np.sqrt(num_puntos)
             
@@ -4464,9 +4779,71 @@ def section_montecarlo():
             c_m2.metric("Desviacion estandar", f"{std:.6g}")
             c_m3.metric("Error estándar", f"{error_estandar:.6g}")
             c_m4.metric(f"IC {confianza}%", f"[{lower:.6g}, {upper:.6g}]")
+            c_s1, c_s2 = st.columns(2)
+            c_s1.metric("Media muestral de f(x)", f"{media_muestral:.6g}")
+            c_s2.metric("Varianza muestral de f(x)", f"{var_muestral:.6g}")
             
             # Mostrar IC en formato ± 
             st.write(f"### IC {confianza}% (formato ±): {integral:.6g} ± {margin:.6g}")
+
+            with st.expander("Paso a paso completo de la integral (Monte Carlo)", expanded=mostrar_pasos_activo(False)):
+                ancho = float(b_val) - float(a_val)
+                suma_cuadrados = float(np.sum((np.array(y_nodes_desglose, dtype=float) - media_muestral) ** 2))
+                st.markdown("**1) Generación de muestras uniformes**")
+                st.latex(r"x_i \sim U(a,b),\ i=1,\dots,n")
+                st.write(f"Se generaron n = {int(num_puntos)} muestras en [{float(a_val):.6f}, {float(b_val):.6f}].")
+
+                st.markdown("**2) Media muestral de la función**")
+                st.latex(r"\overline{f}=\frac{1}{n}\sum_{i=1}^{n} f(x_i)")
+                st.latex(rf"\overline{{f}}=\frac{{1}}{{{int(num_puntos)}}}\sum_{{i=1}}^{{{int(num_puntos)}}}f(x_i)={media_muestral:.12g}")
+
+                st.markdown("**3) Varianza muestral de la función**")
+                st.latex(r"s_f^2=\frac{1}{n-1}\sum_{i=1}^{n}(f(x_i)-\overline{f})^2")
+                if int(num_puntos) > 1:
+                    st.latex(rf"s_f^2=\frac{{1}}{{{int(num_puntos)-1}}}\sum_{{i=1}}^{{{int(num_puntos)}}}(f(x_i)-{media_muestral:.6g})^2={var_muestral:.12g}")
+                    st.write(f"Suma de cuadrados = {suma_cuadrados:.12g}")
+                else:
+                    st.write("Con n=1 no se puede estimar varianza con n-1; se reporta 0.")
+
+                st.markdown("**4) Estimador de la integral**")
+                st.latex(r"I_{MC}=(b-a)\,\overline{f}")
+                st.latex(rf"I_{{MC}}=({float(b_val):.6g}-{float(a_val):.6g})\cdot {media_muestral:.12g}={float(integral):.12g}")
+
+                st.markdown("**5) Desviación del estimador e intervalo de confianza**")
+                st.latex(r"\widehat{\sigma}_I=\sqrt{\frac{(b-a)^2}{n}\,s_f^2}")
+                st.latex(rf"\widehat{{\sigma}}_I=\sqrt{{\frac{{({ancho:.6g})^2}}{{{int(num_puntos)}}}\cdot {var_muestral:.12g}}}={float(std):.12g}")
+                st.latex(r"IC_{1-\alpha}:\ I_{MC}\pm z_{1-\alpha/2}\widehat{\sigma}_I")
+                st.latex(rf"IC_{{{float(confianza):.4g}\%}}={float(integral):.12g}\pm {float(z):.6g}\cdot {float(std):.12g}=[{float(lower):.12g},\ {float(upper):.12g}]")
+
+                st.markdown("**6) Desarrollo iterativo acumulado**")
+                x_seq = np.array(x_nodes_desglose, dtype=float)
+                f_seq = np.array(y_nodes_desglose, dtype=float)
+                acum_f = np.cumsum(f_seq)
+                i_seq = np.arange(1, len(f_seq) + 1)
+                prom_seq = acum_f / i_seq
+                integral_seq = ancho * prom_seq
+                df_paso_mc = pd.DataFrame(
+                    {
+                        "i": i_seq,
+                        "x_i": x_seq,
+                        "f(x_i)": f_seq,
+                        "S_i = Σ f": acum_f,
+                        "f̄_i": prom_seq,
+                        "I_i": integral_seq,
+                    }
+                )
+                mostrar_todo = st.checkbox(
+                    "Mostrar todas las iteraciones (puede ser pesado)",
+                    value=False,
+                    key="mc_full_steps_show_all",
+                )
+                st.dataframe(
+                    df_paso_mc if mostrar_todo else df_paso_mc.head(200),
+                    use_container_width=True,
+                    column_config={k: st.column_config.NumberColumn(k, format="%.6f") for k in df_paso_mc.columns if k != "i"},
+                )
+                if not mostrar_todo and len(df_paso_mc) > 200:
+                    st.info(f"Mostrando 200 de {len(df_paso_mc)} iteraciones. Activa la casilla para ver el desarrollo completo.")
 
             # Mostrar puntos
             df_puntos = pd.DataFrame({"x": x_nodes, "f(x)": y_nodes})
@@ -4498,6 +4875,7 @@ def section_montecarlo():
                 rf"I_{{MC}}=(b-a)\,\overline{{f}}",
                 rf"a={_num(a_val)},\ b={_num(b_val)},\ n={int(num_puntos)}",
                 rf"\overline{{f}}={_num(promedio_fx, 12)}",
+                rf"s_f^2={_num(var_muestral, 12)}",
                 rf"I_{{MC}}={_num(integral, 12)}",
                 rf"\hat{{\sigma}}_I={_num(std, 12)}",
                 rf"IC_{{{_num(confianza, 6)}\%}}=[{_num(lower, 12)},\ {_num(upper, 12)}]",
@@ -4506,6 +4884,15 @@ def section_montecarlo():
                 cuentas.append(rf"n_{{efectivo}}={int(num_puntos)}\ \text{{(acumulado por iteraciones)}}")
                 cuentas.append(rf"\text{{objetivo de error}}={_num(error_max, 12)}")
             guardar_cuentas("Monte Carlo", cuentas)
+
+            desglose_mc = _desglose_montecarlo_1d(
+                x_nodes_desglose,
+                y_nodes_desglose,
+                a_val,
+                b_val,
+                max_filas=25,
+            )
+            guardar_desglose_iteraciones("Monte Carlo", desglose_mc)
 
         except Exception as exc:
             st.error(f"Error en Monte Carlo: {exc}")
@@ -4551,6 +4938,8 @@ def section_montecarlo_2d():
 
             # Calcular error estándar
             num_puntos = int(n)
+            media_muestral = float(np.mean(z_nodes))
+            var_muestral = float(np.var(z_nodes, ddof=1)) if len(z_nodes) > 1 else 0.0
             error_estandar = std / np.sqrt(num_puntos)
 
             # Calcular intervalo de confianza
@@ -4564,8 +4953,75 @@ def section_montecarlo_2d():
             c_m2.metric("Desviacion estandar", f"{std:.6g}")
             c_m3.metric("Error estándar", f"{error_estandar:.6g}")
             c_m4.metric(f"IC {confianza}%", f"[{lower:.6g}, {upper:.6g}]")
+            c_s1, c_s2 = st.columns(2)
+            c_s1.metric("Media muestral de f(x,y)", f"{media_muestral:.6g}")
+            c_s2.metric("Varianza muestral de f(x,y)", f"{var_muestral:.6g}")
 
             st.write(f"### IC {confianza}% (formato ±): {integral:.6g} ± {margin:.6g}")
+
+            with st.expander("Paso a paso completo de la integral doble (Monte Carlo 2D)", expanded=mostrar_pasos_activo(False)):
+                area = (float(b_val) - float(a_val)) * (float(d_val) - float(c_val))
+                suma_cuadrados = float(np.sum((np.array(z_nodes, dtype=float) - media_muestral) ** 2))
+                st.markdown("**1) Generación de muestras uniformes en el rectángulo**")
+                st.latex(r"(x_i,y_i) \sim U([a,b]\times[c,d]),\ i=1,\dots,n")
+                st.write(
+                    f"Se generaron n = {int(num_puntos)} pares en x∈[{float(a_val):.6f}, {float(b_val):.6f}] y y∈[{float(c_val):.6f}, {float(d_val):.6f}]."
+                )
+
+                st.markdown("**2) Media muestral de la función en 2D**")
+                st.latex(r"\overline{f}=\frac{1}{n}\sum_{i=1}^{n} f(x_i,y_i)")
+                st.latex(rf"\overline{{f}}=\frac{{1}}{{{int(num_puntos)}}}\sum_{{i=1}}^{{{int(num_puntos)}}}f(x_i,y_i)={media_muestral:.12g}")
+
+                st.markdown("**3) Varianza muestral de f(x,y)**")
+                st.latex(r"s_f^2=\frac{1}{n-1}\sum_{i=1}^{n}(f(x_i,y_i)-\overline{f})^2")
+                if int(num_puntos) > 1:
+                    st.latex(rf"s_f^2=\frac{{1}}{{{int(num_puntos)-1}}}\sum_{{i=1}}^{{{int(num_puntos)}}}(f(x_i,y_i)-{media_muestral:.6g})^2={var_muestral:.12g}")
+                    st.write(f"Suma de cuadrados = {suma_cuadrados:.12g}")
+                else:
+                    st.write("Con n=1 no se puede estimar varianza con n-1; se reporta 0.")
+
+                st.markdown("**4) Estimador de la integral doble**")
+                st.latex(r"I_{MC2D}=A\,\overline{f},\quad A=(b-a)(d-c)")
+                st.latex(rf"A=({float(b_val):.6g}-{float(a_val):.6g})({float(d_val):.6g}-{float(c_val):.6g})={area:.12g}")
+                st.latex(rf"I_{{MC2D}}={area:.12g}\cdot {media_muestral:.12g}={float(integral):.12g}")
+
+                st.markdown("**5) Desviación del estimador e intervalo de confianza**")
+                st.latex(r"\widehat{\sigma}_I=\sqrt{\frac{A^2}{n}\,s_f^2}")
+                st.latex(rf"\widehat{{\sigma}}_I=\sqrt{{\frac{{({area:.12g})^2}}{{{int(num_puntos)}}}\cdot {var_muestral:.12g}}}={float(std):.12g}")
+                st.latex(r"IC_{1-\alpha}:\ I_{MC2D}\pm z_{1-\alpha/2}\widehat{\sigma}_I")
+                st.latex(rf"IC_{{{float(confianza):.4g}\%}}={float(integral):.12g}\pm {float(z):.6g}\cdot {float(std):.12g}=[{float(lower):.12g},\ {float(upper):.12g}]")
+
+                st.markdown("**6) Desarrollo iterativo acumulado**")
+                x_seq = np.array(x_nodes, dtype=float)
+                y_seq = np.array(y_nodes, dtype=float)
+                z_seq = np.array(z_nodes, dtype=float)
+                acum_f = np.cumsum(z_seq)
+                i_seq = np.arange(1, len(z_seq) + 1)
+                prom_seq = acum_f / i_seq
+                integral_seq = area * prom_seq
+                df_paso_mc2d = pd.DataFrame(
+                    {
+                        "i": i_seq,
+                        "x_i": x_seq,
+                        "y_i": y_seq,
+                        "f(x_i,y_i)": z_seq,
+                        "S_i = Σ f": acum_f,
+                        "f̄_i": prom_seq,
+                        "I_i": integral_seq,
+                    }
+                )
+                mostrar_todo_2d = st.checkbox(
+                    "Mostrar todas las iteraciones 2D (puede ser pesado)",
+                    value=False,
+                    key="mc2d_full_steps_show_all",
+                )
+                st.dataframe(
+                    df_paso_mc2d if mostrar_todo_2d else df_paso_mc2d.head(200),
+                    use_container_width=True,
+                    column_config={k: st.column_config.NumberColumn(k, format="%.6f") for k in df_paso_mc2d.columns if k != "i"},
+                )
+                if not mostrar_todo_2d and len(df_paso_mc2d) > 200:
+                    st.info(f"Mostrando 200 de {len(df_paso_mc2d)} iteraciones. Activa la casilla para ver el desarrollo completo.")
 
             # Mostrar puntos
             df_puntos = pd.DataFrame({"x": x_nodes, "y": y_nodes, "f(x,y)": z_nodes})
@@ -4595,11 +5051,24 @@ def section_montecarlo_2d():
                 rf"A=(b-a)(d-c)=({_num(b_val)}-{_num(a_val)})({_num(d_val)}-{_num(c_val)})={_num(area, 12)}",
                 rf"I_{{MC2D}}=A\,\overline{{f}},\ \overline{{f}}=\frac{{1}}{{n}}\sum_{{i=1}}^n f(x_i,y_i)",
                 rf"\overline{{f}}={_num(promedio_fxy, 12)}",
+                rf"s_f^2={_num(var_muestral, 12)}",
                 rf"I_{{MC2D}}={_num(integral, 12)}",
                 rf"\hat{{\sigma}}_I={_num(std, 12)}",
                 rf"IC_{{{_num(confianza, 6)}\%}}=[{_num(lower, 12)},\ {_num(upper, 12)}]",
             ]
             guardar_cuentas("Monte Carlo 2D", cuentas)
+
+            desglose_mc2d = _desglose_montecarlo_2d(
+                x_nodes,
+                y_nodes,
+                z_nodes,
+                a_val,
+                b_val,
+                c_val,
+                d_val,
+                max_filas=25,
+            )
+            guardar_desglose_iteraciones("Monte Carlo 2D", desglose_mc2d)
 
         except Exception as exc:
             st.error(f"Error en integral doble: {exc}")
@@ -4907,12 +5376,31 @@ def section_edo():
             x0_text = st.text_input("x0", value="0", help="Admite expresiones: pi/2, e, sqrt(2), etc.")
             y0_text = st.text_input("y0", value="1", help="Admite expresiones: pi/2, e, sqrt(2), etc.")
         with c2:
-            h_text = st.text_input("Paso h", value="0.1", help="Admite expresiones: pi/10, e/10, etc.")
-            n = st.number_input("Cantidad de pasos n", value=10, min_value=1, step=1)
+            xf_text = st.text_input("x final (xf)", value="1", help="Admite expresiones: pi/2, e, sqrt(2), etc.")
+            n = st.number_input("Cantidad maxima de pasos n", value=10, min_value=1, step=1)
+            h_text = st.text_input(
+                "Paso h (opcional)",
+                value="",
+                help="Si lo dejas vacio, se calcula como (xf - x0) / n.",
+            )
             metodo = st.selectbox("Metodo", ["Euler", "Heun", "RK4"])
         with c3:
             comparar_metodos = st.checkbox("Comparar Euler, Heun y RK4", value=True)
             mostrar_campo = st.checkbox("Mostrar campo de pendientes", value=True)
+            intentar_exacta_auto = st.checkbox(
+                "Intentar solucion exacta automatica (puede tardar)",
+                value=False,
+            )
+            mostrar_pasos_exacta = st.checkbox(
+                "Mostrar resolucion analitica paso a paso",
+                value=False,
+                disabled=not intentar_exacta_auto,
+            )
+            error_max_text = st.text_input(
+                "Error maximo por paso (opcional)",
+                value="",
+                help="Criterio de paro: |y_i - y_(i-1)| <= error_max",
+            )
             y_exact_text = st.text_input(
                 "y(x) exacta opcional (si no la sabes, se calcula sola)",
                 value="",
@@ -4924,14 +5412,65 @@ def section_edo():
             t0 = time.perf_counter()
             x0 = parse_numeric_expr(x0_text, "x0")
             y0 = parse_numeric_expr(y0_text, "y0")
-            h = parse_numeric_expr(h_text, "h")
+            xf = parse_numeric_expr(xf_text, "xf")
+            n_max = int(n)
+            if float(xf) == float(x0):
+                raise ValueError("xf debe ser distinto de x0 para definir un intervalo.")
 
-            rows_euler = metodo_euler(fxy, float(x0), float(y0), float(h), int(n))
-            rows_heun = metodo_heun(fxy, float(x0), float(y0), float(h), int(n))
-            rows_rk4 = metodo_rk4(fxy, float(x0), float(y0), float(h), int(n))
+            if h_text.strip():
+                h = parse_numeric_expr(h_text, "h")
+            else:
+                h = (float(xf) - float(x0)) / float(n_max)
+            if h == 0:
+                raise ValueError("El paso h calculado es 0. Verifica x0, xf y n.")
 
-            rows_map = {"Euler": rows_euler, "Heun": rows_heun, "RK4": rows_rk4}
+            xf_estimado = float(x0) + float(h) * float(n_max)
+            if not np.isclose(xf_estimado, float(xf), rtol=1e-9, atol=1e-12):
+                st.info(
+                    "Con los valores actuales, el metodo terminara en "
+                    f"x={xf_estimado:.6g} (no exactamente en xf={float(xf):.6g})."
+                )
+
+            error_max = None
+            if error_max_text.strip():
+                error_max = abs(parse_numeric_expr(error_max_text, "error maximo"))
+                if error_max == 0:
+                    raise ValueError("El error maximo debe ser mayor que 0.")
+
+            rows_map = {
+                "Euler": metodo_euler(fxy, float(x0), float(y0), float(h), n_max),
+                "Heun": metodo_heun(fxy, float(x0), float(y0), float(h), n_max),
+                "RK4": metodo_rk4(fxy, float(x0), float(y0), float(h), n_max),
+            }
+
+            criterio_convergencia_alcanzado = error_max is None
+            if error_max is not None:
+                rows_base = rows_map[metodo]
+                idx_paro = None
+                for i in range(1, len(rows_base)):
+                    if abs(float(rows_base[i]["y"]) - float(rows_base[i - 1]["y"])) <= float(error_max):
+                        idx_paro = i
+                        break
+
+                if idx_paro is not None:
+                    criterio_convergencia_alcanzado = True
+                    for clave in list(rows_map.keys()):
+                        rows_map[clave] = rows_map[clave][: idx_paro + 1]
+                    st.info(
+                        "Criterio de error maximo alcanzado en "
+                        f"{metodo} en la iteracion {idx_paro} (|dy| <= {error_max:.6g})."
+                    )
+                else:
+                    st.warning(
+                        "No se alcanzo el error maximo dentro de n pasos. "
+                        "Se muestra el intervalo completo hasta xf."
+                    )
+
+            rows_euler = rows_map["Euler"]
+            rows_heun = rows_map["Heun"]
+            rows_rk4 = rows_map["RK4"]
             rows = rows_map[metodo]
+            n_efectivo = max(1, len(rows) - 1)
 
             x_num_e = np.array([r["x"] for r in rows_euler], dtype=float)
             y_num_e = np.array([r["y"] for r in rows_euler], dtype=float)
@@ -4945,42 +5484,66 @@ def section_edo():
             exact_vals = None
             expr_exact = None
             detalle_analitico = None
+            error_exacta_auto = None
 
-            # Primero se intenta resolver la EDO exacta automaticamente.
-            try:
-                expr_exact, exact_fun, detalle_analitico = resolver_y_exacta_edo(
-                    fxy,
-                    x0,
-                    y0,
-                    include_steps=True,
-                )
-                exact_vals = np.array(exact_fun(x_num_r), dtype=float)
-                st.info("Se calculo automaticamente la solucion exacta y(x) para la comparacion.")
-                st.latex(r"y(x)=" + sp.latex(expr_exact))
+            if intentar_exacta_auto:
+                # Resolver symbolicamente puede tardar mucho para ciertas EDO.
+                try:
+                    if mostrar_pasos_exacta:
+                        expr_exact, exact_fun, detalle_analitico = resolver_y_exacta_edo(
+                            fxy,
+                            x0,
+                            y0,
+                            include_steps=True,
+                        )
+                    else:
+                        expr_exact, exact_fun = resolver_y_exacta_edo(
+                            fxy,
+                            x0,
+                            y0,
+                            include_steps=False,
+                        )
 
-                with st.expander("Ver resolucion analitica paso a paso", expanded=False):
-                    for paso in detalle_analitico.get("pasos_texto", []):
-                        st.write(paso)
-                    for paso_latex in detalle_analitico.get("pasos_latex", []):
-                        st.latex(paso_latex)
-                    st.markdown("**Texto copiable de la resolucion:**")
-                    st.code(detalle_analitico.get("texto_copiable", ""), language="text")
-            except Exception as exc_auto:
-                # Si no se puede resolver automaticamente, se permite ingreso manual.
+                    exact_vals = np.array(exact_fun(x_num_r), dtype=float)
+                    st.info("Se calculo automaticamente la solucion exacta y(x) para la comparacion.")
+                    st.latex(r"y(x)=" + sp.latex(expr_exact))
+
+                    if detalle_analitico is not None:
+                        with st.expander("Ver resolucion analitica paso a paso", expanded=False):
+                            for paso in detalle_analitico.get("pasos_texto", []):
+                                st.write(paso)
+                            for paso_latex in detalle_analitico.get("pasos_latex", []):
+                                st.latex(paso_latex)
+                            st.markdown("**Texto copiable de la resolucion:**")
+                            st.code(detalle_analitico.get("texto_copiable", ""), language="text")
+                except Exception as exc_auto:
+                    error_exacta_auto = exc_auto
+
+            if exact_vals is None:
                 if y_exact_text.strip():
                     try:
                         expr_exact = safe_eval_expr(y_exact_text, "x")
                         exact_fun = sp.lambdify(sp.Symbol("x"), expr_exact, "numpy")
                         exact_vals = np.array(exact_fun(x_num_r), dtype=float)
                     except Exception as exc_manual:
-                        st.warning(
-                            f"No se pudo calcular y(x) automatica ({exc_auto}) ni evaluar la manual ({exc_manual})."
-                        )
+                        if error_exacta_auto is not None:
+                            st.warning(
+                                "No se pudo calcular y(x) automatica "
+                                f"({error_exacta_auto}) ni evaluar la manual ({exc_manual})."
+                            )
+                        else:
+                            st.warning(f"No se pudo evaluar la y(x) manual: {exc_manual}")
                 else:
                     try:
-                        _, exact_vals_ref = referencia_edo_alta_precision(fxy, x0, y0, h, int(n), factor=20)
+                        _, exact_vals_ref = referencia_edo_alta_precision(fxy, x0, y0, h, int(n_efectivo), factor=20)
                         exact_vals = np.array(exact_vals_ref, dtype=float)
-                        st.info("No hubo solucion cerrada; se usa referencia numerica de alta precision (RK4 refinado).")
+                        if error_exacta_auto is not None:
+                            st.info(
+                                "No hubo solucion cerrada o fallo la exacta automatica; "
+                                "se usa referencia numerica de alta precision (RK4 refinado)."
+                            )
+                        else:
+                            st.info("Se usa referencia numerica de alta precision (RK4 refinado) para comparar errores.")
                     except Exception:
                         st.warning(
                             "No se pudo obtener y(x) exacta ni referencia de alta precision. "
@@ -5072,6 +5635,7 @@ def section_edo():
             )
 
             fig, ax = plt.subplots(figsize=(9.5, 4.8))
+
             if comparar_metodos:
                 ax.plot(x_num_e, y_num_e, "o-", linewidth=1.8, label="Euler")
                 ax.plot(x_num_h, y_num_h, "^-", linewidth=1.8, label="Heun")
@@ -5163,11 +5727,13 @@ def section_edo():
                 plt.close(fig_fld)
 
             cuentas = [
-                rf"x_0={_num(x0)},\ y_0={_num(y0)},\ h={_num(h)},\ n={int(n)}",
+                rf"x_0={_num(x0)},\ x_f={_num(xf)},\ y_0={_num(y0)},\ h={_num(h)},\ n_{{max}}={int(n_max)},\ n_{{usado}}={int(n_efectivo)}",
                 rf"y_{{Euler}}(x_f)={_num(y_num_e[-1], 12)}",
                 rf"y_{{Heun}}(x_f)={_num(y_num_h[-1], 12)}",
                 rf"y_{{RK4}}(x_f)={_num(y_num_r[-1], 12)}",
             ]
+            if error_max is not None:
+                cuentas.append(rf"\text{{Error maximo por paso}}={_num(error_max)}")
             desglose = []
             for i in range(1, len(rows_euler)):
                 fila_e = rows_euler[i]
@@ -5207,9 +5773,9 @@ def section_edo():
             registrar_ejecucion(
                 "EDO",
                 metodo,
-                iteraciones=int(n),
+                iteraciones=int(n_efectivo),
                 error_final=float(abs(y_num_m[-1] - exact_vals_m[-1])) if exact_vals_m is not None else None,
-                convergio=True,
+                convergio=bool(criterio_convergencia_alcanzado),
                 tiempo_ms=elapsed_ms,
             )
 
@@ -5574,6 +6140,16 @@ def main():
     with tabs[14]:
         mostrar_machete("Derivadas Finitas")
         section_derivadas_finitas()
+        render_panel_formulas(
+            "Formulario de Derivadas Finitas",
+            FORMULAS_POR_APARTADO["Derivadas Finitas"],
+            SIMBOLOS_POR_APARTADO["Derivadas Finitas"],
+            CONDICIONES_POR_APARTADO["Derivadas Finitas"],
+            PASOS_POR_APARTADO["Derivadas Finitas"],
+            st.session_state.get("show_step_by_step_all", False),
+            DESGLOSE_COMPLETO_POR_APARTADO["Derivadas Finitas"],
+            "Derivadas Finitas",
+        )
 
 
 def _is_streamlit_context():
