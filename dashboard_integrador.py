@@ -4327,12 +4327,114 @@ Paso a paso para derivadas finitas:
         st.error(f"No se pudo calcular la derivada finita: {exc}")
 
 
+def mostrar_tablas_referencia():
+    """Muestra tablas de referencia para derivadas e integrales"""
+    col1, col2 = st.columns(2)
+    
+    with col1:
+        with st.expander("📊 Tabla de Derivadas Comunes", expanded=False):
+            derivadas_data = {
+                "f(x)": [
+                    "c (constante)",
+                    "x^n",
+                    "e^x",
+                    "a^x",
+                    "ln(x)",
+                    "log_a(x)",
+                    "sin(x)",
+                    "cos(x)",
+                    "tan(x)",
+                    "sec(x)",
+                    "csc(x)",
+                    "cot(x)",
+                    "arcsin(x)",
+                    "arccos(x)",
+                    "arctan(x)",
+                    "sinh(x)",
+                    "cosh(x)",
+                    "tanh(x)"
+                ],
+                "f'(x)": [
+                    "0",
+                    "n·x^(n-1)",
+                    "e^x",
+                    "a^x·ln(a)",
+                    "1/x",
+                    "1/(x·ln(a))",
+                    "cos(x)",
+                    "-sin(x)",
+                    "sec²(x)",
+                    "sec(x)·tan(x)",
+                    "-csc(x)·cot(x)",
+                    "-csc²(x)",
+                    "1/√(1-x²)",
+                    "-1/√(1-x²)",
+                    "1/(1+x²)",
+                    "cosh(x)",
+                    "sinh(x)",
+                    "sech²(x)"
+                ]
+            }
+            df_derivadas = pd.DataFrame(derivadas_data)
+            st.dataframe(df_derivadas, use_container_width=True, hide_index=True)
+    
+    with col2:
+        with st.expander("∫ Tabla de Integrales Comunes", expanded=False):
+            integrales_data = {
+                "f(x)": [
+                    "c (constante)",
+                    "x^n (n≠-1)",
+                    "1/x",
+                    "e^x",
+                    "a^x",
+                    "sin(x)",
+                    "cos(x)",
+                    "tan(x)",
+                    "sec²(x)",
+                    "1/√(1-x²)",
+                    "1/(1+x²)",
+                    "sinh(x)",
+                    "cosh(x)",
+                    "sec(x)·tan(x)",
+                    "1/(x²+a²)",
+                    "1/√(a²-x²)",
+                    "√(a²-x²)",
+                    "ln(x)"
+                ],
+                "∫f(x)dx": [
+                    "c·x + C",
+                    "x^(n+1)/(n+1) + C",
+                    "ln|x| + C",
+                    "e^x + C",
+                    "a^x/ln(a) + C",
+                    "-cos(x) + C",
+                    "sin(x) + C",
+                    "-ln|cos(x)| + C",
+                    "tan(x) + C",
+                    "arcsin(x) + C",
+                    "arctan(x) + C",
+                    "cosh(x) + C",
+                    "sinh(x) + C",
+                    "sec(x) + C",
+                    "(1/a)·arctan(x/a) + C",
+                    "arcsin(x/a) + C",
+                    "(x/2)·√(a²-x²) + (a²/2)·arcsin(x/a) + C",
+                    "x·ln(x) - x + C"
+                ]
+            }
+            df_integrales = pd.DataFrame(integrales_data)
+            st.dataframe(df_integrales, use_container_width=True, hide_index=True)
+
+
 def section_integracion_numerica():
     st.subheader("Integracion numerica")
     st.info(sugerir_metodo("Integracion"))
     mostrar_pasos = mostrar_pasos_activo(False)
     
     mostrar_casos_practicos("Integracion Numerica")
+    
+    # Mostrar tablas de referencia
+    mostrar_tablas_referencia()
 
     with st.form("form_integracion"):
         c1, c2, c3 = st.columns(3)
