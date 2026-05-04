@@ -6,6 +6,7 @@ import math
 from pathlib import Path
 from statistics import NormalDist
 from datetime import datetime
+import re
 
 # Importar CASOS_PRACTICOS limpio
 sys.path.insert(0, str(Path(__file__).parent))
@@ -1871,13 +1872,61 @@ def _num(v, dec=6):
 DISPLAY_DECIMALS = 7
 
 
-def _format_float_max_decimals(value, decimals=DISPLAY_DECIMALS):
+def _decimales_desde_tolerancia(tol, min_decimales=DISPLAY_DECIMALS, max_decimales=16):
+    """Convierte tolerancia a cantidad de decimales a mostrar.
+
+    Reglas:
+    - Si tol >= 1 y es entero: se interpreta como "cantidad de decimales" directa.
+    - Si 0 < tol < 1: usa el orden de magnitud (ej. 1e-8 -> 8).
+    """
+    try:
+        tol_f = abs(float(tol))
+    except Exception:
+        return int(min_decimales)
+
+    if not np.isfinite(tol_f) or tol_f <= 0:
+        return int(min_decimales)
+
+    if tol_f >= 1.0:
+        if float(tol_f).is_integer():
+            return int(min(max_decimales, max(0, int(tol_f))))
+        return int(min(max_decimales, max(0, int(np.ceil(tol_f)))))
+
+    orden = int(np.ceil(-np.log10(tol_f)))
+    return int(min(max_decimales, max(0, orden)))
+
+
+def registrar_precision_por_tolerancia(tol):
+    """Actualiza precision de visualizacion global segun la tolerancia activa."""
+    dec = _decimales_desde_tolerancia(tol)
+    st.session_state["_display_decimals"] = int(dec)
+
+
+def _display_decimals_runtime():
+    """Resuelve decimales de salida segun la tolerancia del metodo ejecutado."""
+    return int(st.session_state.get("_display_decimals", DISPLAY_DECIMALS))
+
+
+def _fmt_fixed(value, decimals=None):
+    if decimals is None:
+        decimals = _display_decimals_runtime()
+    try:
+        return f"{float(value):.{int(decimals)}f}"
+    except Exception:
+        return str(value)
+
+
+def _format_float_max_decimals(value, decimals=None):
     """Formatea flotantes con maximo de decimales y sin ceros de relleno."""
+    if decimals is None:
+        decimals = _display_decimals_runtime()
     text = f"{float(value):.{decimals}f}".rstrip("0").rstrip(".")
     return "0" if text in {"", "-0"} else text
 
 
-def _round_dataframe_numeric(data, decimals=DISPLAY_DECIMALS):
+def _round_dataframe_numeric(data, decimals=None):
+    if decimals is None:
+        decimals = _display_decimals_runtime()
     if not isinstance(data, pd.DataFrame):
         return data
     data_out = data.copy()
@@ -1887,8 +1936,11 @@ def _round_dataframe_numeric(data, decimals=DISPLAY_DECIMALS):
     return data_out
 
 
-def _format_numbers_in_text(text, decimals=DISPLAY_DECIMALS):
+def _format_numbers_in_text(text, decimals=None):
     import re
+
+    if decimals is None:
+        decimals = _display_decimals_runtime()
 
     pattern = re.compile(r"(?<![\w.])[-+]?\d+(?:\.\d+)?(?:[eE][-+]?\d+)?")
 
@@ -1905,7 +1957,9 @@ def _format_numbers_in_text(text, decimals=DISPLAY_DECIMALS):
     return pattern.sub(_repl, text)
 
 
-def _format_metric_value(value, decimals=DISPLAY_DECIMALS):
+def _format_metric_value(value, decimals=None):
+    if decimals is None:
+        decimals = _display_decimals_runtime()
     if isinstance(value, (float, np.floating)):
         return _format_float_max_decimals(value, decimals)
     if isinstance(value, str):
@@ -1922,25 +1976,29 @@ _STREAMLIT_SUCCESS_ORIG = st.success
 
 
 def _dataframe_with_rounded_decimals(data=None, *args, **kwargs):
+    decimals = _display_decimals_runtime()
     # Si no hay formato explícito por columna, aplicar formato fijo a columnas float
     # para evitar recortes visuales antes de DISPLAY_DECIMALS.
     if isinstance(data, pd.DataFrame) and "column_config" not in kwargs:
         float_cols = list(data.select_dtypes(include=[np.floating]).columns)
         if float_cols:
-            formatos = {c: f"{{:.{DISPLAY_DECIMALS}f}}" for c in float_cols}
+            formatos = {c: f"{{:.{decimals}f}}" for c in float_cols}
             return _STREAMLIT_DATAFRAME_ORIG(data.style.format(formatos), *args, **kwargs)
 
-    data = _round_dataframe_numeric(data, DISPLAY_DECIMALS)
+    data = _round_dataframe_numeric(data, decimals)
     return _STREAMLIT_DATAFRAME_ORIG(data, *args, **kwargs)
 
 
 def _metric_with_rounded_decimals(label, value, delta=None, *args, **kwargs):
-    value_fmt = _format_metric_value(value, DISPLAY_DECIMALS)
-    delta_fmt = _format_metric_value(delta, DISPLAY_DECIMALS)
+    decimals = _display_decimals_runtime()
+    value_fmt = _format_metric_value(value, decimals)
+    delta_fmt = _format_metric_value(delta, decimals)
     return _STREAMLIT_METRIC_ORIG(label, value_fmt, delta_fmt, *args, **kwargs)
 
 
-def _format_textual_args(args, decimals=DISPLAY_DECIMALS):
+def _format_textual_args(args, decimals=None):
+    if decimals is None:
+        decimals = _display_decimals_runtime()
     out = []
     for arg in args:
         if isinstance(arg, str):
@@ -1955,17 +2013,17 @@ def _write_with_rounded_decimals(*args, **kwargs):
 
 
 def _info_with_rounded_decimals(body, *args, **kwargs):
-    body_fmt = _format_numbers_in_text(body, DISPLAY_DECIMALS) if isinstance(body, str) else body
+    body_fmt = _format_numbers_in_text(body) if isinstance(body, str) else body
     return _STREAMLIT_INFO_ORIG(body_fmt, *args, **kwargs)
 
 
 def _warning_with_rounded_decimals(body, *args, **kwargs):
-    body_fmt = _format_numbers_in_text(body, DISPLAY_DECIMALS) if isinstance(body, str) else body
+    body_fmt = _format_numbers_in_text(body) if isinstance(body, str) else body
     return _STREAMLIT_WARNING_ORIG(body_fmt, *args, **kwargs)
 
 
 def _success_with_rounded_decimals(body, *args, **kwargs):
-    body_fmt = _format_numbers_in_text(body, DISPLAY_DECIMALS) if isinstance(body, str) else body
+    body_fmt = _format_numbers_in_text(body) if isinstance(body, str) else body
     return _STREAMLIT_SUCCESS_ORIG(body_fmt, *args, **kwargs)
 
 
@@ -2999,6 +3057,8 @@ CASOS_PRACTICOS = {
     }
 }
 
+# Nota: los casos prácticos están centralizados en el archivo
+# `casos_practicos_limpio.py`. Se importa como `CASOS_PRACTICOS_CLEAN`.
 
 def mostrar_casos_practicos(metodo_nombre):
     """Muestra el caso práctico de forma clara y accesible."""
@@ -3017,23 +3077,43 @@ def mostrar_casos_practicos(metodo_nombre):
         st.markdown(f"**Como interviene el metodo:**")
         st.info(caso['aplicacion'])
         
-        # Destacar la fórmula/datos principales para copiar
-        st.markdown(f"**Copia y pega esto en la calculadora:**")
-        
-        # Mostrar formula_para_copiar si existe
-        if 'formula_para_copiar' in caso:
-            st.code(caso['formula_para_copiar'], language='python')
-        # Si no existe, intentar extraer la fórmula principal
-        elif 'funcion' in caso:
-            st.code(caso['funcion'], language='python')
-        elif 'g' in caso:
-            st.code(caso['g'], language='python')
-        elif 'f' in caso:
-            st.code(caso['f'], language='python')
-        
-        # Mostrar todos los demás parámetros
-        st.markdown(f"**Otros parametros:**")
-        param_dict = {k: v for k, v in caso.items() if k not in ["nombre", "descripcion", "aplicacion", "formula_para_copiar"]}
+        # Mostrar parámetros en el orden que espera el formulario del dashboard.
+        # Eliminamos la caja "Copia y pega esto en la calculadora" y aseguramos
+        # que los 'slots' a completar coincidan exactamente con lo mostrado.
+        orden_por_metodo = {
+            # Para columnas (c1, c2): la visualizacion se organiza intercalando
+            # items de c1 y c2: (c1_0, c2_0, c1_1, c2_1, ...). Queremos que la
+            # "Tolerancia" ('tol') aparezca en la segunda posicion (top-right)
+            # cuando exista.
+            "Newton-Raphson": ["funcion", "tol", "x0", "max_iter"],
+            "Aitken": ["g", "tol", "x0", "max_iter"],
+            "Biseccion": ["funcion", "b", "a", "tol", "max_iter"],
+            "Punto Fijo": ["f_plot", "tol", "g", "max_iter", "x0", "x_min", "x_max"],
+            "Lagrange + Derivacion": ["datos_x", "datos_y", "punto"],
+            # Integracion usa 3 columnas; el orden propuesto intenta dejar 'n'
+            # en la segunda posicion para que aparezca junto arriba a la derecha.
+            "Integracion Numerica": ["funcion", "n", "a", "b", "metodo"],
+            "Ajuste de Curvas": ["datos_x", "tipo", "datos_y", "grado"],
+            "Monte Carlo": ["funcion", "n", "a", "b", "confianza", "usar_seed", "seed", "usar_error_max", "error_max"],
+            "Monte Carlo 2D": ["funcion", "n", "a", "c", "b", "d", "confianza", "usar_seed", "seed"],
+            "Sistemas Lineales": ["A", "metodo", "b", "x0", "tol", "max_iter", "n"],
+            "EDO": ["f", "xf", "x0", "n", "y0", "h", "metodo"],
+            "Red Neuronal GD": ["alpha", "semilla", "epocas", "generar_datos"],
+        }
+
+        # Filtrar y ordenar parámetros del caso práctico
+        excluded_keys = {"nombre", "descripcion", "aplicacion", "formula_para_copiar"}
+        raw_params = {k: v for k, v in caso.items() if k not in excluded_keys}
+
+        metodo_order = orden_por_metodo.get(metodo_nombre, None)
+        if metodo_order:
+            ordered_keys = [k for k in metodo_order if k in raw_params]
+            # Añadir cualquier parámetro extra que no esté en el orden esperado
+            ordered_keys += [k for k in raw_params.keys() if k not in ordered_keys]
+        else:
+            ordered_keys = list(raw_params.keys())
+
+        param_dict = {k: raw_params[k] for k in ordered_keys}
         etiquetas_param = {
             "funcion": "Funcion para f(x)",
             "g": "Funcion para g(x)",
@@ -3061,17 +3141,61 @@ def mostrar_casos_practicos(metodo_nombre):
             "generar_datos": "Tipo de datos a generar",
         }
         
-        # Mostrar parámetros en columnas
+        # Mostrar parámetros en columnas manteniendo el mismo orden
         cols = st.columns(2)
         items = list(param_dict.items())
+
+        def _looks_like_2d_expression(s: str) -> bool:
+            if not isinstance(s, str):
+                return False
+            low = s.replace(" ", "")
+            if "(x,y)" in s or "(y,x)" in s:
+                return True
+            if "if" in low and "y" in low:
+                return True
+            for token in ["+y", "-y", "*y", "/y", "(y", "=y", " y", "y ", ",y", "y,"]:
+                if token in low:
+                    return True
+            return False
+
+        def _sanitize_conditional(expr_text: str) -> str:
+            """Convierte 'A if COND else B' en 'Piecewise((A, COND), (B, True))'.
+            Si no parece un inline-if, devuelve la cadena original.
+            """
+            if not isinstance(expr_text, str):
+                return expr_text
+            txt = expr_text.strip()
+            m = re.match(r"(?s)\s*(?P<a>.+?)\s+if\s+(?P<cond>.+?)\s+else\s+(?P<b>.+)\s*$", txt)
+            if not m:
+                return txt
+            a = m.group("a").strip()
+            cond = m.group("cond").strip()
+            b = m.group("b").strip()
+            return f"Piecewise(({a}, {cond}), ({b}, True))"
+
         for i, (key, value) in enumerate(items):
             with cols[i % 2]:
-                etiqueta = etiquetas_param.get(key, key.replace("_", " ").capitalize())
+                if key in ("funcion", "formula_para_copiar", "f") and isinstance(value, str):
+                    if _looks_like_2d_expression(value):
+                        etiqueta = "Funcion para f(x,y)"
+                    else:
+                        etiqueta = etiquetas_param.get(key, "Funcion para f(x)")
+                else:
+                    etiqueta = etiquetas_param.get(key, key.replace("_", " ").capitalize())
+
                 st.caption(f"{etiqueta}")
                 if isinstance(value, (list, tuple)):
-                    st.code("\n".join(str(v) for v in value), language='python')
+                    st.code(", ".join(str(v) for v in value), language='python')
                 else:
-                    st.code(str(value), language='python')
+                    # Si es un inline-if, mostrar la versión sanitizada lista para pegar
+                    if isinstance(value, str) and (" if " in value and " else " in value):
+                        try:
+                            safe_val = _sanitize_conditional(value)
+                        except Exception:
+                            safe_val = value
+                        st.code(safe_val, language='python')
+                    else:
+                        st.code(str(value), language='python')
 
 
 
@@ -3098,6 +3222,7 @@ def section_newton():
 
     if run_btn:
         try:
+            registrar_precision_por_tolerancia(tol)
             t0 = time.perf_counter()
             x0_run = float(x0)
             if buscar_primera_positiva:
@@ -3121,7 +3246,7 @@ def section_newton():
             ]
             if columnas_numericas_aitken:
                 st.dataframe(
-                    df.style.format({col: "{:.6f}" for col in columnas_numericas_aitken}),
+                    df.style.format({col: _fmt_fixed for col in columnas_numericas_aitken}),
                     use_container_width=True,
                 )
             else:
@@ -3198,6 +3323,7 @@ def section_aitken():
 
     if run_btn:
         try:
+            registrar_precision_por_tolerancia(tol)
             t0 = time.perf_counter()
             root, iterations, converged = run_silent(metodo_aitken, g, float(x0), float(tol), int(max_iter))
             if root is None or not iterations:
@@ -3206,7 +3332,7 @@ def section_aitken():
 
             df = pd.DataFrame(iterations)
             columnas_num = ["x_(n-1)", "x_n", "x_(n+1)", "x_acelerado", "Error"]
-            formato_aitken = {c: "{:.7f}" for c in columnas_num if c in df.columns}
+            formato_aitken = {c: _fmt_fixed for c in columnas_num if c in df.columns}
             if formato_aitken:
                 st.dataframe(df.style.format(formato_aitken), use_container_width=True)
             else:
@@ -3293,6 +3419,7 @@ def section_biseccion():
 
     if run_btn:
         try:
+            registrar_precision_por_tolerancia(tol)
             t0 = time.perf_counter()
             root, rows = run_silent(
                 metodo_biseccion,
@@ -3314,7 +3441,7 @@ def section_biseccion():
 
             st.metric("Raiz aproximada", f"{root:.12g}")
             st.metric("Iteraciones", len(df))
-            st.metric("Error final |f(c)|", f"{float(df['Error_f(c)'].iloc[-1]):.6f}")
+            st.metric("Error final |f(c)|", _fmt_fixed(float(df["Error_f(c)"].iloc[-1])))
             elapsed_ms = (time.perf_counter() - t0) * 1000.0
             st.metric("Tiempo de ejecucion (ms)", elapsed_ms)
 
@@ -3473,6 +3600,7 @@ def section_punto_fijo():
 
     if ejecutar_btn:
         try:
+            registrar_precision_por_tolerancia(tol)
             params_directo = {
                 "f_plot": f_plot,
                 "x0": float(x0),
@@ -3608,6 +3736,7 @@ def section_comparativa():
         run_btn = st.form_submit_button("Ejecutar comparativa")
 
     if run_btn:
+        registrar_precision_por_tolerancia(tol)
         t0 = time.perf_counter()
         results = []
 
@@ -4131,9 +4260,20 @@ def section_derivadas_finitas():
     f_text = st.text_input("f(x) exacta", value="sin(x)", key="df_f_text")
 
     c1, c2, c3 = st.columns(3)
-    orden_txt = c1.selectbox("Tipo de derivada", ["Primera derivada", "Segunda derivada"], key="df_orden")
+    orden_txt = c1.selectbox("Tipo de derivada", ["Primera derivada", "Segunda derivada", "Derivada enesima"], key="df_orden")
     modo_puntos = c2.radio("Puntos del stencil", ["Automático", "Manual"], horizontal=True, key="df_modo_puntos")
     esquema = c3.selectbox("Esquema", ["adelante", "atras", "centrada"], key="df_esquema")
+
+    orden_enesima = None
+    if orden_txt == "Derivada enesima":
+        orden_enesima = st.number_input(
+            "Orden m de la derivada enesima",
+            value=3,
+            min_value=1,
+            max_value=10,
+            step=1,
+            key="df_orden_enesima",
+        )
 
     cantidad_puntos = None
     puntos_manual_text = None
@@ -4186,6 +4326,11 @@ Paso a paso para derivadas finitas:
         st.latex(r"f^{(m)}(x_0) \approx \sum_{i=0}^{p-1} c_i f(x_i)")
         st.latex(r"x_i = x_0 + s_i h \text{ (modo automatico) }\quad \text{o nodos manuales } x_i")
         st.latex(r"s_i: \text{ offsets del stencil},\quad c_i: \text{ coeficientes de derivacion}")
+        st.markdown("**Error de truncamiento (orden dominante):**")
+        st.latex(r"f'(x_0)=\frac{f(x_0+h)-f(x_0)}{h}+\mathcal{O}(h)")
+        st.latex(r"f'(x_0)=\frac{f(x_0+h)-f(x_0-h)}{2h}+\mathcal{O}(h^2)")
+        st.latex(r"f''(x_0)=\frac{f(x_0+h)-2f(x_0)+f(x_0-h)}{h^2}+\mathcal{O}(h^2)")
+        st.latex(r"f^{(m)}(x_0)=\sum_i c_i f(x_i)+\mathcal{O}(h^p)")
 
     if not calcular_btn:
         return
@@ -4198,7 +4343,12 @@ Paso a paso para derivadas finitas:
         if h <= 0:
             raise ValueError("h debe ser positivo")
 
-        orden_derivada = 1 if orden_txt == "Primera derivada" else 2
+        if orden_txt == "Primera derivada":
+            orden_derivada = 1
+        elif orden_txt == "Segunda derivada":
+            orden_derivada = 2
+        else:
+            orden_derivada = int(orden_enesima)
         if modo_puntos == "Manual":
             x_nodes_manual = parse_expr_list(puntos_manual_text)
             resultado = aproximar_derivada_finitas_manual(
@@ -4644,6 +4794,38 @@ def section_integracion_numerica():
                 fig = plot_integracion_visual(func, a_val, b_val, int(n), metodo)
             render_chart(fig)
             plt.close(fig)
+
+            with st.expander("Formulas de error de truncamiento", expanded=mostrar_pasos):
+                st.markdown("**Rectangulo:**")
+                st.latex(r"|E_T| \leq \frac{(b-a)}{24}h^2\max_{x\in[a,b]}|f''(x)|")
+                st.markdown("**Trapecio:**")
+                st.latex(r"|E_T| \leq \frac{(b-a)}{12}h^2\max_{x\in[a,b]}|f''(x)|")
+                st.markdown("**Simpson 1/3:**")
+                st.latex(r"|E_T| \leq \frac{(b-a)}{180}h^4\max_{x\in[a,b]}|f^{(4)}(x)|")
+                st.markdown("**Simpson 3/8:**")
+                st.latex(r"|E_T| \leq \frac{(b-a)}{80}h^4\max_{x\in[a,b]}|f^{(4)}(x)|")
+                st.markdown("**Monte Carlo:** no aplica truncamiento determinista (error estadistico).")
+
+            if resultado_int.get("desglose"):
+                with st.expander("Resolucion integral paso a paso", expanded=mostrar_pasos):
+                    formula_metodo = {
+                        "Rectangulo": r"I\approx h\sum_{i=0}^{n-1}f(x_{i+1/2})",
+                        "Trapecio": r"I\approx h\left[\frac{f(x_0)}{2}+\sum_{i=1}^{n-1}f(x_i)+\frac{f(x_n)}{2}\right]",
+                        "Simpson 1/3": r"I\approx \frac{h}{3}\left[f(x_0)+4\sum_{i\,impar}f(x_i)+2\sum_{i\,par}f(x_i)+f(x_n)\right]",
+                        "Simpson 3/8": r"I\approx \frac{3h}{8}\left[f(x_0)+3\sum_{i\not\equiv0\ (3)}f(x_i)+2\sum_{i\equiv0\ (3),i>0}f(x_i)\right]",
+                    }
+                    if metodo in formula_metodo:
+                        st.latex(formula_metodo[metodo])
+
+                    for fila in resultado_int["desglose"]:
+                        iter_txt = fila.get("iteracion", "")
+                        st.markdown(f"**Iteracion {iter_txt}**")
+                        if fila.get("formula"):
+                            st.latex(fila["formula"])
+                        if fila.get("cuenta"):
+                            st.latex(fila["cuenta"])
+            elif es_impropia:
+                st.info("La resolucion paso a paso detallada no esta implementada para integrales impropias transformadas.")
 
             if comparar_metodos:
                 comp_rows = []
@@ -5326,6 +5508,7 @@ def section_sistemas_lineales():
 
     if run_btn:
         try:
+            registrar_precision_por_tolerancia(tol)
             t0 = time.perf_counter()
             mostrar_pasos = mostrar_pasos_activo(mostrar_pasos_local)
             A = parse_matrix_text(A_text, int(n))
@@ -6064,6 +6247,9 @@ def main():
             "Ajuste de Curvas",
             "Sistemas Lineales",
             "EDO",
+            "Diagramas de Fase",
+            "Modelos Logísticos",
+            "Enfriamiento (Newton)",
             "Red Neuronal GD",
             "Busqueda g(x)",
             "Derivadas Finitas",
@@ -6123,23 +6309,12 @@ def main():
             "Punto Fijo",
         )
     with tabs[4]:
-        st.markdown("### Comparación de 4 métodos de búsqueda de raíces")
         section_comparativa()
-        render_panel_formulas(
-            "Formulario de Comparativa",
-            FORMULAS_POR_APARTADO["Comparativa"],
-            SIMBOLOS_POR_APARTADO["Comparativa"],
-            CONDICIONES_POR_APARTADO["Comparativa"],
-            PASOS_POR_APARTADO["Comparativa"],
-            st.session_state.get("show_step_by_step_all", False),
-            DESGLOSE_COMPLETO_POR_APARTADO["Comparativa"],
-            "Comparativa",
-        )
     with tabs[5]:
         mostrar_machete("Lagrange + Derivacion")
         section_lagrange()
         render_panel_formulas(
-            "Formulario de Lagrange y Derivacion",
+            "Formulario de Lagrange + Derivacion",
             FORMULAS_POR_APARTADO["Lagrange + Derivacion"],
             SIMBOLOS_POR_APARTADO["Lagrange + Derivacion"],
             CONDICIONES_POR_APARTADO["Lagrange + Derivacion"],
@@ -6225,6 +6400,157 @@ def main():
             "EDO",
         )
     with tabs[12]:
+        # Diagramas de fase unidimensionales (dx/dt = f(x))
+        st.subheader("Diagramas de fase (1D)")
+        st.info("Analiza ecuaciones de la forma dx/dt = f(x). Muestra puntos de equilibrio y su estabilidad.")
+
+        with st.form("form_phase_1d"):
+            c1, c2 = st.columns(2)
+            with c1:
+                f_text = st.text_input("f(x)", value="x*(1-x)")
+                x_min = st.number_input("x min", value=-2.0)
+                x_max = st.number_input("x max", value=2.0)
+            with c2:
+                samples = st.number_input("Muestras (grid)", value=400, min_value=50, step=10)
+                detectar_equilibrios = st.checkbox("Detectar equilibrios (raices)", value=True)
+            run_phase = st.form_submit_button("Analizar fase")
+
+        if run_phase:
+            try:
+                x = np.linspace(float(x_min), float(x_max), int(samples))
+                y = build_func_plot(f_text, x)
+
+                fig, ax = plt.subplots(figsize=(9, 4.6))
+                ax.plot(x, y, linewidth=2, label=f"f(x) = {f_text}")
+                ax.axhline(0, color="black", linewidth=0.8, alpha=0.5)
+
+                # Arrows on x-axis showing direction
+                arrow_x = np.linspace(float(x_min), float(x_max), 25)
+                arrow_y = build_func_plot(f_text, arrow_x)
+                u = np.sign(arrow_y)
+                ax.quiver(arrow_x, np.zeros_like(arrow_x), u, np.zeros_like(u), angles="xy", scale_units="xy", scale=1, width=0.005, color="tab:orange")
+
+                equilibria = []
+                if detectar_equilibrios:
+                    # Detect sign changes
+                    for i in range(len(x) - 1):
+                        if np.isfinite(y[i]) and np.isfinite(y[i + 1]) and y[i] * y[i + 1] <= 0:
+                            # linear interpolation root estimate
+                            xi = x[i]
+                            xj = x[i + 1]
+                            yi = y[i]
+                            yj = y[i + 1]
+                            if yj - yi != 0:
+                                xr = xi - yi * (xj - xi) / (yj - yi)
+                            else:
+                                xr = 0.5 * (xi + xj)
+                            equilibria.append(xr)
+
+                # Mark equilibria and assess stability by derivative
+                for xr in sorted(set(np.round(equilibria, 8))):
+                    h = 1e-6
+                    fp = (build_func_plot(f_text, np.array([xr + h])) - build_func_plot(f_text, np.array([xr - h]))) / (2 * h)
+                    fp = float(fp)
+                    stability = "estable" if fp < 0 else "inestable" if fp > 0 else "indeterminado"
+                    ax.plot([xr], [0], "o", color="red" if fp > 0 else "green", markersize=8)
+                    ax.annotate(f"{xr:.4g}\n{stability}", xy=(xr, 0), xytext=(5, 8), textcoords="offset points")
+
+                ax.set_title("Diagrama de fase: f(x) y direccion de movimiento")
+                ax.set_xlabel("x")
+                ax.set_ylabel("f(x)")
+                ax.grid(alpha=0.3)
+                ax.legend()
+                render_chart(fig)
+                plt.close(fig)
+            except Exception as exc:
+                st.error(f"Error analizando diagrama de fase: {exc}")
+    with tabs[13]:
+        # Modelos logísticos (ecuacion y solucion analitica)
+        st.subheader("Modelos logísticos")
+        st.info("dN/dt = r*N*(1 - N/K). Muestra evolución temporal y puntos de equilibrio.")
+
+        with st.form("form_logistic"):
+            c1, c2 = st.columns(2)
+            with c1:
+                r = st.number_input("Tasa de crecimiento r", value=1.0, format="%.4f")
+                K = st.number_input("Capacidad K", value=10.0, format="%.4f")
+            with c2:
+                N0 = st.number_input("Poblacion inicial N0", value=0.5, format="%.4f")
+                tmax = st.number_input("Tiempo max t", value=10.0, format="%.2f")
+            run_log = st.form_submit_button("Simular logistica")
+
+        if run_log:
+            try:
+                t = np.linspace(0, float(tmax), 400)
+                r_f = float(r)
+                K_f = float(K)
+                N0_f = float(N0)
+                denom = 1 + ((K_f - N0_f) / max(N0_f, 1e-12)) * np.exp(-r_f * t)
+                N = K_f / denom
+
+                fig, ax = plt.subplots(figsize=(9, 4.6))
+                ax.plot(t, N, linewidth=2, label=f"N(t) (logistica), r={r_f}, K={K_f}")
+                ax.axhline(0, color="black", linewidth=0.8, alpha=0.5)
+                ax.axhline(K_f, color="gray", linestyle="--", label="Equilibrio K")
+                ax.set_title("Solucion logistica")
+                ax.set_xlabel("t")
+                ax.set_ylabel("N(t)")
+                ax.legend()
+                ax.grid(alpha=0.3)
+                render_chart(fig)
+                plt.close(fig)
+
+                Ngrid = np.linspace(0, max(K_f * 1.2, N.max() * 1.2), 300)
+                fN = r_f * Ngrid * (1 - Ngrid / K_f)
+                fig2, ax2 = plt.subplots(figsize=(8, 3.6))
+                ax2.plot(Ngrid, fN, linewidth=2)
+                ax2.axhline(0, color="black")
+                ax2.axvline(0, color="black")
+                ax2.scatter([0, K_f], [0, 0], color=["red", "green"])
+                ax2.set_title("Diagrama de fase: f(N)")
+                ax2.set_xlabel("N")
+                ax2.set_ylabel("dN/dt")
+                ax2.grid(alpha=0.3)
+                render_chart(fig2)
+                plt.close(fig2)
+            except Exception as exc:
+                st.error(f"Error en modelo logistico: {exc}")
+    with tabs[14]:
+        # Enfriamiento de Newton: dT/dt = -k*(T - T_env)
+        st.subheader("Enfriamiento de Newton")
+        st.info("Modelo dT/dt = -k*(T - T_env). Solucion analitica y curva de decaimiento.")
+
+        with st.form("form_newton_cooling"):
+            c1, c2 = st.columns(2)
+            with c1:
+                k = st.number_input("Constante k (1/t)", value=0.1, format="%.4f", min_value=0.0)
+                T0 = st.number_input("Temperatura inicial T0", value=90.0, format="%.2f")
+            with c2:
+                T_env = st.number_input("Temperatura ambiente T_env", value=20.0, format="%.2f")
+                tmax_c = st.number_input("Tiempo max t", value=120.0, format="%.1f")
+            run_newton_c = st.form_submit_button("Calcular enfriamiento")
+
+        if run_newton_c:
+            try:
+                t = np.linspace(0, float(tmax_c), 400)
+                kf = float(k)
+                T0f = float(T0)
+                Tenvf = float(T_env)
+                Tt = Tenvf + (T0f - Tenvf) * np.exp(-kf * t)
+
+                fig, ax = plt.subplots(figsize=(9, 4.6))
+                ax.plot(t, Tt, linewidth=2, label=f"T(t), k={kf}")
+                ax.axhline(Tenvf, color="gray", linestyle="--", label="T_env")
+                ax.set_title("Enfriamiento de Newton")
+                ax.set_xlabel("t")
+                ax.set_ylabel("T(t)")
+                ax.legend()
+                ax.grid(alpha=0.3)
+                render_chart(fig)
+                plt.close(fig)
+            except Exception as exc:
+                st.error(f"Error calculando enfriamiento: {exc}")
+    with tabs[15]:
         mostrar_machete("Red Neuronal GD")
         section_red_neuronal_descenso()
         render_panel_formulas(
@@ -6237,9 +6563,9 @@ def main():
             DESGLOSE_COMPLETO_POR_APARTADO["Red Neuronal GD"],
             "Red Neuronal GD",
         )
-    with tabs[13]:
+    with tabs[16]:
         section_busqueda_g()
-    with tabs[14]:
+    with tabs[17]:
         mostrar_machete("Derivadas Finitas")
         section_derivadas_finitas()
         render_panel_formulas(
