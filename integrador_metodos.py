@@ -1,4 +1,6 @@
 import numpy as np
+import matplotlib.pyplot as plt
+import sympy as sp
 from Metodos.input_parser import parse_real, parse_real_or_default, parse_int_or_default
 
 from Metodos.metodo_newton_raphson import (
@@ -170,6 +172,293 @@ def comparativa_metodos():
             print(f"Divergencia máxima entre raíces: {divergencia_max:.10e}")
 
         print("=" * 130 + "\n")
+
+
+def sistema_lineal_2d(fx=None, fy=None, A=None, eq_point=(0.0, 0.0), x0=(1.0, 0.0), t_max=10.0, num_points=400, grid_limits=((-5, 5), (-5, 5)), show_plot=True, symbolic=False):
+    """Analiza y grafica un sistema dinámico lineal 2D.
+
+    Parámetros:
+    - fx, fy: funciones f(x,y) y g(x,y) o None si se proporciona A
+    - A: matriz 2x2 (lista/array) del sistema lineal; si se pasa se usa directamente
+    - eq_point: punto de equilibrio donde evaluar la jacobiana (por defecto (0,0))
+    - x0: condición inicial (x0, y0) para mostrar la solución analítica
+    - t_max, num_points: rango temporal para las trayectorias
+    - grid_limits: ((xmin,xmax),(ymin,ymax)) para el quiver y líneas
+    - show_plot: si True muestra las gráficas
+
+    Retorna un diccionario con la matriz A, autovalores (formateados), autovectores, tipo y la solución analítica.
+    """
+    if A is None:
+        if fx is None or fy is None:
+            raise ValueError("Debe pasar A o las funciones fx y fy")
+        h = 1e-6
+        x_eq, y_eq = eq_point
+
+        def pdx(f):
+            return (f(x_eq + h, y_eq) - f(x_eq - h, y_eq)) / (2 * h)
+
+        def pdy(f):
+            return (f(x_eq, y_eq + h) - f(x_eq, y_eq - h)) / (2 * h)
+
+        a = pdx(fx)
+        b = pdy(fx)
+        c = pdx(fy)
+        d = pdy(fy)
+        A = np.array([[a, b], [c, d]], dtype=float)
+    else:
+        A = np.array(A, dtype=float).reshape(2, 2)
+
+    eigvals, eigvecs = np.linalg.eig(A)
+    # Limpiar valores numéricos muy pequeños hacia cero para presentación
+    tol_eig = 1e-12
+    eigvals = np.array([complex(0, 0) if (abs(np.real(v)) < tol_eig and abs(np.imag(v)) < tol_eig) else v for v in eigvals])
+
+    def fmt_lam(l):
+        alpha = float(np.real(l))
+        beta = float(np.imag(l))
+        # Considerar como cero si son muy pequeños
+        if abs(alpha) < tol_eig:
+            alpha = 0.0
+        if abs(beta) < tol_eig:
+            beta = 0.0
+
+        if beta == 0.0:
+            return f"{alpha:.6g}"
+        sign = "+" if beta >= 0 else "-"
+        return f"{alpha:.6g} {sign} {abs(beta):.6g}i"
+
+    eig_strs = [fmt_lam(l) for l in eigvals]
+
+    re = np.real(eigvals)
+    im = np.imag(eigvals)
+    tipo = "Indeterminado"
+    if np.all(np.isreal(eigvals)):
+        if np.all(re < 0):
+            tipo = "Nodo estable (atractor)"
+        elif np.all(re > 0):
+            tipo = "Nodo inestable (repulsor)"
+        elif re[0] * re[1] < 0:
+            tipo = "Punto silla (saddle)"
+        else:
+            tipo = "Nodo degenerado"
+    else:
+        if np.all(re < 0):
+            tipo = "Espiral estable (atractor espiral)"
+        elif np.all(re > 0):
+            tipo = "Espiral inestable (repulsor espiral)"
+        elif np.allclose(re, 0):
+            tipo = "Centro (neutro, oscilatorio)"
+        else:
+            tipo = "Espiral (mixto)"
+
+    try:
+        P = eigvecs
+        P_inv = np.linalg.inv(P)
+    except Exception:
+        P = None
+        P_inv = None
+
+    t = np.linspace(0, t_max, num_points)
+
+    def analytic_solution(x0_vec):
+        x0_vec = np.asarray(x0_vec, dtype=float)
+        if P_inv is None:
+            return None
+        c = P_inv.dot(x0_vec)
+        sol = np.empty((len(t), 2), dtype=float)
+        for i, ti in enumerate(t):
+            sol[i, :] = (P.dot(np.diag(np.exp(eigvals * ti))).dot(c)).real
+        return sol
+
+    sol_x0 = analytic_solution(x0)
+
+    (xmin, xmax), (ymin, ymax) = grid_limits
+    nx, ny = 20, 20
+    X, Y = np.meshgrid(np.linspace(xmin, xmax, nx), np.linspace(ymin, ymax, ny))
+    U = A[0, 0] * X + A[0, 1] * Y
+    V = A[1, 0] * X + A[1, 1] * Y
+
+    nulls = []
+    a, b, c, d = A[0, 0], A[0, 1], A[1, 0], A[1, 1]
+    if abs(b) > 1e-12:
+        ys1 = -a / b * np.linspace(xmin, xmax, 2)
+        xs1 = np.linspace(xmin, xmax, 2)
+        nulls.append((xs1, ys1, "dx/dt=0"))
+    else:
+        xs1 = np.zeros(2)
+        ys1 = np.linspace(ymin, ymax, 2)
+        nulls.append((xs1, ys1, "dx/dt=0"))
+
+    if abs(d) > 1e-12:
+        ys2 = -c / d * np.linspace(xmin, xmax, 2)
+        xs2 = np.linspace(xmin, xmax, 2)
+        nulls.append((xs2, ys2, "dy/dt=0"))
+    else:
+        xs2 = np.zeros(2)
+        ys2 = np.linspace(ymin, ymax, 2)
+        nulls.append((xs2, ys2, "dy/dt=0"))
+
+    if show_plot:
+        fig, ax = plt.subplots(figsize=(7, 7))
+        # Magnitud y dirección
+        speed = np.hypot(U, V)
+        angles = np.arctan2(V, U)  # en radianes (-pi, pi)
+
+        # Streamplot de fondo (suave)
+        ax.streamplot(X, Y, U, V, color='lightgray', density=1.2, linewidth=1)
+
+        # Quiver principal: flechas coloreadas por ángulo para mostrar dirección claramente
+        # Normalizar vectores para que las flechas de fondo sean uniformes en tamaño
+        with np.errstate(invalid='ignore', divide='ignore'):
+            U_norm = np.where(speed == 0, 0, U / speed)
+            V_norm = np.where(speed == 0, 0, V / speed)
+
+        # Colormap por ángulo (hsv da un mapa de direcciones intuitivo)
+        cmap = plt.get_cmap('hsv')
+        angle_norm = (angles + np.pi) / (2 * np.pi)  # normalizar a [0,1]
+        flat_color = cmap(angle_norm.flatten())
+        flat_color = flat_color.reshape(X.shape + (4,))
+
+        # Dibujar flechitas pequeñas de fondo con cabecitas visibles
+        # Escala en "xy" para que la longitud sea proporcional al plot
+        quiver = ax.quiver(
+            X,
+            Y,
+            U_norm,
+            V_norm,
+            angle_norm,
+            cmap='hsv',
+            pivot='mid',
+            scale_units='xy',
+            scale=10,
+            width=0.0035,
+            headwidth=3,
+            headlength=5,
+            minlength=0.1,
+        )
+        # Señalizar que la figura contiene quiver para el renderer
+        fig._has_quiver = True
+        # Añadir una barra de colores que indica la dirección (ángulo)
+        cbar = fig.colorbar(quiver, ax=ax, orientation='vertical', fraction=0.046, pad=0.04)
+        cbar.set_label('Dirección (normalizada: -π→π)')
+
+        for xs, ys, label in nulls:
+            ax.plot(xs, ys)
+
+        # No mostrar etiquetas de núclinas para mantener el diagrama limpio
+
+        starts = []
+        grid_init = np.array([[-4, -4], [-4, 0], [-4, 4], [0, -4], [0, 4], [4, -4], [4, 0], [4, 4]])
+        for xi in grid_init:
+            sol = analytic_solution(xi)
+            if sol is not None:
+                ax.plot(sol[:, 0], sol[:, 1], '-', linewidth=1)
+                ax.plot(sol[0, 0], sol[0, 1], 'o', color='C1')
+
+        # Marcar punto de equilibrio (solo marcador, sin texto)
+        eq_x, eq_y = float(eq_point[0]), float(eq_point[1])
+        ax.scatter([eq_x], [eq_y], color='red', s=60, zorder=6)
+
+        # Dibujar autovectores en el punto de equilibrio (si son reales)
+        try:
+            for idx in range(eigvecs.shape[1]):
+                v = np.real(eigvecs[:, idx])
+                if np.linalg.norm(v) < 1e-12:
+                    continue
+                v = v / np.linalg.norm(v)
+                arrow_len = max(xmax - xmin, ymax - ymin) * 0.2
+                ax.arrow(eq_x, eq_y, v[0] * arrow_len, v[1] * arrow_len, head_width=0.12 * arrow_len, color='C3', linewidth=2, length_includes_head=True)
+                ax.arrow(eq_x, eq_y, -v[0] * arrow_len, -v[1] * arrow_len, head_width=0.12 * arrow_len, color='C3', linewidth=2, length_includes_head=True)
+        except Exception:
+            pass
+
+        if sol_x0 is not None:
+            ax.plot(sol_x0[:, 0], sol_x0[:, 1], 'r-', linewidth=2, label='Trayectoria x0')
+            ax.plot(sol_x0[0, 0], sol_x0[0, 1], 'ro')
+
+        # Ajustar límites con padding para alejar un poco la vista (menos zoom)
+        xpad = max(0.2 * (xmax - xmin), 0.5)
+        ypad = max(0.2 * (ymax - ymin), 0.5)
+        ax.set_xlim(xmin - xpad, xmax + xpad)
+        ax.set_ylim(ymin - ypad, ymax + ypad)
+        ax.axhline(0, color='black', linewidth=0.5)
+        ax.axvline(0, color='black', linewidth=0.5)
+        ax.set_xlabel('x')
+        ax.set_ylabel('y')
+        ax.set_title('Diagrama de fase y núclinas')
+        ax.legend()
+        # No llamar plt.show() — devolver la figura en el resultado para que el caller la renderice
+        fig_phase = fig
+
+    resultado = {
+        'A': A,
+        'autovalores': eig_strs,
+        'autovectores': eigvecs,
+        'tipo': tipo,
+        'solucion_analitica_t': t,
+        'solucion_analitica_x0': sol_x0,
+        'fig_phase': fig_phase if show_plot else None,
+    }
+
+    # Si se solicita, construir la solución simbólica general X(T) = exp(A*T) * [C1, C2]^T
+    if symbolic:
+        try:
+            T = sp.symbols('T')
+            A_sym = sp.Matrix(A)
+
+            # Rutin a robusta para exponencial matricial en 2x2 usando descomposición por valores propios / Jordan
+            def symbolic_matrix_exp_2x2(M, t):
+                I = sp.eye(2)
+                eigs = list(M.eigenvals().items())
+                if len(eigs) == 2:
+                    # Dos autovalores (posiblemente iguales listed separately)
+                    # Build list of (lambda, multiplicity)
+                    lambdas = []
+                    for lam, mult in eigs:
+                        lambdas.append((sp.simplify(lam), int(mult)))
+                    # If distinct
+                    if lambdas[0][0] != lambdas[1][0]:
+                        l1 = lambdas[0][0]
+                        l2 = lambdas[1][0]
+                        expAT = (sp.exp(l1 * t) * (M - l2 * I) / (l1 - l2) + sp.exp(l2 * t) * (M - l1 * I) / (l2 - l1))
+                        return sp.simplify(expAT)
+                    else:
+                        # same eigenvalue with multiplicities
+                        lam = lambdas[0][0]
+                        N = M - lam * I
+                        expAT = sp.exp(lam * t) * (I + N * t)
+                        return sp.simplify(expAT)
+                else:
+                    # Fallback: use general matrix exponential
+                    return sp.exp(M * t)
+
+            expAT = symbolic_matrix_exp_2x2(A_sym, T)
+            C1, C2 = sp.symbols('C1 C2')
+            C = sp.Matrix([C1, C2])
+            X_T = sp.simplify(expAT * C)
+            # Proveer formas simplificadas y factorizadas para mejor lectura
+            X_T_simpl = sp.simplify(sp.expand(X_T))
+            X_T_fact = sp.factor(X_T_simpl)
+            resultado['solucion_symbolica'] = X_T_simpl
+            resultado['solucion_symbolica_factored'] = X_T_fact
+
+            # También devolver la forma en términos de condiciones iniciales simbólicas x0,y0 (C1=Cx0, C2=Cy0)
+            x0_sym, y0_sym = sp.symbols('x0 y0')
+            X_T_x0 = sp.simplify(X_T_simpl.subs({C1: x0_sym, C2: y0_sym}))
+            resultado['solucion_symbolica_x0'] = X_T_x0
+        except Exception:
+            resultado['solucion_symbolica'] = None
+            resultado['solucion_symbolica_factored'] = None
+            resultado['solucion_symbolica_x0'] = None
+
+    print('\nMatriz A:')
+    print(A)
+    print('\nAutovalores:')
+    for s in eig_strs:
+        print(' -', s)
+    print('\nTipo de punto fijo:', tipo)
+
+    return resultado
 
 
 def main():

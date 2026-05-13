@@ -18,10 +18,14 @@ import pandas as pd
 import streamlit as st
 import streamlit.components.v1 as components
 import sympy as sp
+from integrador_metodos import sistema_lineal_2d
 
 from Metodos.input_parser import build_numeric_function
 from Metodos.metodo_aitken import metodo_aitken
-from Metodos.metodo_de_biseccion import metodo_biseccion
+from Metodos.metodo_de_biseccion import (
+    metodo_biseccion,
+    graficar_funcion as graficar_biseccion,
+)
 from Metodos.metodo_lagrange_derivacion import (
     _cota_error_global_teorica,
     aproximar_derivada_tres_formas,
@@ -30,7 +34,10 @@ from Metodos.metodo_lagrange_derivacion import (
     tabla_diferencias_divididas,
 )
 from Metodos.metodo_newton_raphson import metodo_newton_raphson
-from Metodos.metodo_punto_fijo import metodo_punto_fijo
+from Metodos.metodo_punto_fijo import (
+    metodo_punto_fijo,
+    graficar_funcion as graficar_punto_fijo,
+)
 from Metodos.metodo_integracion_numerica import (
     evaluar_funcion_robusta,
     regla_rectangulo,
@@ -58,7 +65,6 @@ from Metodos.busqueda_G import (
     obtener_despejes_punto_fijo,
     validar_convergencia as validar_convergencia_punto_fijo,
 )
-
 
 ALLOWED_LOCALS = {
     "e": sp.E,
@@ -1524,8 +1530,10 @@ def render_chart(fig, force_static=False):
 
     # mpl_to_plotly suele deformar heatmaps/imshow (ejes gigantes o imagen invisible).
     has_image_axes = any(len(ax.images) > 0 for ax in fig.get_axes())
+    # Evitar conversión interactiva si la figura contiene quiver (no se convierte bien)
+    has_quiver = getattr(fig, '_has_quiver', False)
 
-    if interactive and not has_image_axes:
+    if interactive and not has_image_axes and not has_quiver:
         try:
             mpl_to_plotly = __import__("plotly.tools", fromlist=["mpl_to_plotly"]).mpl_to_plotly
 
@@ -6233,351 +6241,462 @@ def main():
         help="Convierte graficos de Matplotlib a Plotly para hacer zoom, paneo y hover.",
     )
 
-    tabs = st.tabs(
-        [
-            "Newton-Raphson",
-            "Aitken",
-            "Biseccion",
-            "Punto Fijo",
-            "Comparativa",
-            "Lagrange",
-            "Integracion Numerica",
-            "Monte Carlo",
-            "Monte Carlo 2D",
-            "Ajuste de Curvas",
-            "Sistemas Lineales",
-            "EDO",
-            "Diagramas de Fase",
-            "Modelos Logísticos",
-            "Enfriamiento (Newton)",
-            "Red Neuronal GD",
-            "Busqueda g(x)",
-            "Derivadas Finitas",
-        ]
-    )
+    # Construir lista de pestañas ordenada alfabéticamente e incluir el nuevo apartado 2D
+    TAB_TITLES = [
+        "Newton-Raphson",
+        "Aitken",
+        "Biseccion",
+        "Punto Fijo",
+        "Comparativa",
+        "Lagrange + Derivacion",
+        "Integracion Numerica",
+        "Monte Carlo",
+        "Monte Carlo 2D",
+        "Ajuste de Curvas",
+        "Sistemas Lineales",
+        "EDO",
+        "Diagramas de Fase",
+        "Modelos Logísticos",
+        "Enfriamiento (Newton)",
+        "Red Neuronal GD",
+        "Busqueda g(x)",
+        "Derivadas Finitas",
+        "Sistema Lineal 2D",
+    ]
 
-    with tabs[0]:
-        mostrar_machete("Newton-Raphson")
-        section_newton()
-        render_panel_formulas(
-            "Formulario de Newton-Raphson",
-            FORMULAS_POR_APARTADO["Newton-Raphson"],
-            SIMBOLOS_POR_APARTADO["Newton-Raphson"],
-            CONDICIONES_POR_APARTADO["Newton-Raphson"],
-            PASOS_POR_APARTADO["Newton-Raphson"],
-            st.session_state.get("show_step_by_step_all", False),
-            DESGLOSE_COMPLETO_POR_APARTADO["Newton-Raphson"],
-            "Newton-Raphson",
-        )
-    with tabs[1]:
-        mostrar_machete("Aitken")
-        section_aitken()
-        render_panel_formulas(
-            "Formulario de Aitken",
-            FORMULAS_POR_APARTADO["Aitken"],
-            SIMBOLOS_POR_APARTADO["Aitken"],
-            CONDICIONES_POR_APARTADO["Aitken"],
-            PASOS_POR_APARTADO["Aitken"],
-            st.session_state.get("show_step_by_step_all", False),
-            DESGLOSE_COMPLETO_POR_APARTADO["Aitken"],
-            "Aitken",
-        )
-    with tabs[2]:
-        mostrar_machete("Biseccion")
-        section_biseccion()
-        render_panel_formulas(
-            "Formulario de Biseccion",
-            FORMULAS_POR_APARTADO["Biseccion"],
-            SIMBOLOS_POR_APARTADO["Biseccion"],
-            CONDICIONES_POR_APARTADO["Biseccion"],
-            PASOS_POR_APARTADO["Biseccion"],
-            st.session_state.get("show_step_by_step_all", False),
-            DESGLOSE_COMPLETO_POR_APARTADO["Biseccion"],
-            "Biseccion",
-        )
-    with tabs[3]:
-        mostrar_machete("Punto Fijo")
-        section_punto_fijo()
-        render_panel_formulas(
-            "Formulario de Punto Fijo",
-            FORMULAS_POR_APARTADO["Punto Fijo"],
-            SIMBOLOS_POR_APARTADO["Punto Fijo"],
-            CONDICIONES_POR_APARTADO["Punto Fijo"],
-            PASOS_POR_APARTADO["Punto Fijo"],
-            st.session_state.get("show_step_by_step_all", False),
-            DESGLOSE_COMPLETO_POR_APARTADO["Punto Fijo"],
-            "Punto Fijo",
-        )
-    with tabs[4]:
-        section_comparativa()
-    with tabs[5]:
-        mostrar_machete("Lagrange + Derivacion")
-        section_lagrange()
-        render_panel_formulas(
-            "Formulario de Lagrange + Derivacion",
-            FORMULAS_POR_APARTADO["Lagrange + Derivacion"],
-            SIMBOLOS_POR_APARTADO["Lagrange + Derivacion"],
-            CONDICIONES_POR_APARTADO["Lagrange + Derivacion"],
-            PASOS_POR_APARTADO["Lagrange + Derivacion"],
-            st.session_state.get("show_step_by_step_all", False),
-            DESGLOSE_COMPLETO_POR_APARTADO["Lagrange + Derivacion"],
-            "Lagrange + Derivacion",
-        )
-    with tabs[6]:
-        mostrar_machete("Integracion Numerica")
-        section_integracion_numerica()
-        render_panel_formulas(
-            "Formulario de Integracion Numerica",
-            FORMULAS_POR_APARTADO["Integracion Numerica"],
-            SIMBOLOS_POR_APARTADO["Integracion Numerica"],
-            CONDICIONES_POR_APARTADO["Integracion Numerica"],
-            PASOS_POR_APARTADO["Integracion Numerica"],
-            st.session_state.get("show_step_by_step_all", False),
-            DESGLOSE_COMPLETO_POR_APARTADO["Integracion Numerica"],
-            "Integracion Numerica",
-        )
-    with tabs[7]:
-        section_montecarlo()
-        render_panel_formulas(
-            "Formulario de Integracion por Monte Carlo",
-            FORMULAS_POR_APARTADO["Monte Carlo"],
-            SIMBOLOS_POR_APARTADO["Monte Carlo"],
-            CONDICIONES_POR_APARTADO["Monte Carlo"],
-            PASOS_POR_APARTADO["Monte Carlo"],
-            st.session_state.get("show_step_by_step_all", False),
-            DESGLOSE_COMPLETO_POR_APARTADO["Monte Carlo"],
-            "Monte Carlo",
-        )
-    with tabs[8]:
-        section_montecarlo_2d()
-        render_panel_formulas(
-            "Formulario de Integracion Doble por Monte Carlo",
-            FORMULAS_POR_APARTADO["Monte Carlo 2D"],
-            SIMBOLOS_POR_APARTADO["Monte Carlo 2D"],
-            CONDICIONES_POR_APARTADO["Monte Carlo 2D"],
-            PASOS_POR_APARTADO["Monte Carlo 2D"],
-            st.session_state.get("show_step_by_step_all", False),
-            DESGLOSE_COMPLETO_POR_APARTADO["Monte Carlo 2D"],
-            "Monte Carlo 2D",
-        )
-    with tabs[9]:
-        mostrar_machete("Ajuste de Curvas")
-        section_ajuste_curvas()
-        render_panel_formulas(
-            "Formulario de Ajuste de Curvas",
-            FORMULAS_POR_APARTADO["Ajuste de Curvas"],
-            SIMBOLOS_POR_APARTADO["Ajuste de Curvas"],
-            CONDICIONES_POR_APARTADO["Ajuste de Curvas"],
-            PASOS_POR_APARTADO["Ajuste de Curvas"],
-            st.session_state.get("show_step_by_step_all", False),
-            DESGLOSE_COMPLETO_POR_APARTADO["Ajuste de Curvas"],
-            "Ajuste de Curvas",
-        )
-    with tabs[10]:
-        mostrar_machete("Sistemas Lineales")
-        section_sistemas_lineales()
-        render_panel_formulas(
-            "Formulario de Sistemas Lineales",
-            FORMULAS_POR_APARTADO["Sistemas Lineales"],
-            SIMBOLOS_POR_APARTADO["Sistemas Lineales"],
-            CONDICIONES_POR_APARTADO["Sistemas Lineales"],
-            PASOS_POR_APARTADO["Sistemas Lineales"],
-            st.session_state.get("show_step_by_step_all", False),
-            DESGLOSE_COMPLETO_POR_APARTADO["Sistemas Lineales"],
-            "Sistemas Lineales",
-        )
-    with tabs[11]:
-        mostrar_machete("EDO")
-        section_edo()
-        render_panel_formulas(
-            "Formulario de EDO",
-            FORMULAS_POR_APARTADO["EDO"],
-            SIMBOLOS_POR_APARTADO["EDO"],
-            CONDICIONES_POR_APARTADO["EDO"],
-            PASOS_POR_APARTADO["EDO"],
-            st.session_state.get("show_step_by_step_all", False),
-            DESGLOSE_COMPLETO_POR_APARTADO["EDO"],
-            "EDO",
-        )
-    with tabs[12]:
-        # Diagramas de fase unidimensionales (dx/dt = f(x))
-        st.subheader("Diagramas de fase (1D)")
-        st.info("Analiza ecuaciones de la forma dx/dt = f(x). Muestra puntos de equilibrio y su estabilidad.")
+    TAB_TITLES = sorted(TAB_TITLES, key=lambda s: s.lower())
 
-        with st.form("form_phase_1d"):
-            c1, c2 = st.columns(2)
-            with c1:
-                f_text = st.text_input("f(x)", value="x*(1-x)")
-                x_min = st.number_input("x min", value=-2.0)
-                x_max = st.number_input("x max", value=2.0)
-            with c2:
-                samples = st.number_input("Muestras (grid)", value=400, min_value=50, step=10)
-                detectar_equilibrios = st.checkbox("Detectar equilibrios (raices)", value=True)
-            run_phase = st.form_submit_button("Analizar fase")
+    tabs = st.tabs(TAB_TITLES)
 
-        if run_phase:
-            try:
-                x = np.linspace(float(x_min), float(x_max), int(samples))
-                y = build_func_plot(f_text, x)
+    for tab_name, tab in zip(TAB_TITLES, tabs):
+        with tab:
+            # Mostrar machete cuando exista
+            if tab_name in MACHETES_TEORICOS:
+                mostrar_machete(tab_name)
 
-                fig, ax = plt.subplots(figsize=(9, 4.6))
-                ax.plot(x, y, linewidth=2, label=f"f(x) = {f_text}")
-                ax.axhline(0, color="black", linewidth=0.8, alpha=0.5)
+            # Mapear cada pestaña a su comportamiento existente
+            if tab_name == "Newton-Raphson":
+                section_newton()
+                render_panel_formulas(
+                    "Formulario de Newton-Raphson",
+                    FORMULAS_POR_APARTADO["Newton-Raphson"],
+                    SIMBOLOS_POR_APARTADO["Newton-Raphson"],
+                    CONDICIONES_POR_APARTADO["Newton-Raphson"],
+                    PASOS_POR_APARTADO["Newton-Raphson"],
+                    st.session_state.get("show_step_by_step_all", False),
+                    DESGLOSE_COMPLETO_POR_APARTADO["Newton-Raphson"],
+                    "Newton-Raphson",
+                )
 
-                # Arrows on x-axis showing direction
-                arrow_x = np.linspace(float(x_min), float(x_max), 25)
-                arrow_y = build_func_plot(f_text, arrow_x)
-                u = np.sign(arrow_y)
-                ax.quiver(arrow_x, np.zeros_like(arrow_x), u, np.zeros_like(u), angles="xy", scale_units="xy", scale=1, width=0.005, color="tab:orange")
+            elif tab_name == "Aitken":
+                section_aitken()
+                render_panel_formulas(
+                    "Formulario de Aitken",
+                    FORMULAS_POR_APARTADO["Aitken"],
+                    SIMBOLOS_POR_APARTADO["Aitken"],
+                    CONDICIONES_POR_APARTADO["Aitken"],
+                    PASOS_POR_APARTADO["Aitken"],
+                    st.session_state.get("show_step_by_step_all", False),
+                    DESGLOSE_COMPLETO_POR_APARTADO["Aitken"],
+                    "Aitken",
+                )
 
-                equilibria = []
-                if detectar_equilibrios:
-                    # Detect sign changes
-                    for i in range(len(x) - 1):
-                        if np.isfinite(y[i]) and np.isfinite(y[i + 1]) and y[i] * y[i + 1] <= 0:
-                            # linear interpolation root estimate
-                            xi = x[i]
-                            xj = x[i + 1]
-                            yi = y[i]
-                            yj = y[i + 1]
-                            if yj - yi != 0:
-                                xr = xi - yi * (xj - xi) / (yj - yi)
+            elif tab_name == "Biseccion":
+                section_biseccion()
+                render_panel_formulas(
+                    "Formulario de Biseccion",
+                    FORMULAS_POR_APARTADO["Biseccion"],
+                    SIMBOLOS_POR_APARTADO["Biseccion"],
+                    CONDICIONES_POR_APARTADO["Biseccion"],
+                    PASOS_POR_APARTADO["Biseccion"],
+                    st.session_state.get("show_step_by_step_all", False),
+                    DESGLOSE_COMPLETO_POR_APARTADO["Biseccion"],
+                    "Biseccion",
+                )
+
+            elif tab_name == "Punto Fijo":
+                section_punto_fijo()
+                render_panel_formulas(
+                    "Formulario de Punto Fijo",
+                    FORMULAS_POR_APARTADO["Punto Fijo"],
+                    SIMBOLOS_POR_APARTADO["Punto Fijo"],
+                    CONDICIONES_POR_APARTADO["Punto Fijo"],
+                    PASOS_POR_APARTADO["Punto Fijo"],
+                    st.session_state.get("show_step_by_step_all", False),
+                    DESGLOSE_COMPLETO_POR_APARTADO["Punto Fijo"],
+                    "Punto Fijo",
+                )
+
+            elif tab_name == "Comparativa":
+                section_comparativa()
+
+            elif tab_name == "Lagrange + Derivacion":
+                section_lagrange()
+                render_panel_formulas(
+                    "Formulario de Lagrange + Derivacion",
+                    FORMULAS_POR_APARTADO["Lagrange + Derivacion"],
+                    SIMBOLOS_POR_APARTADO["Lagrange + Derivacion"],
+                    CONDICIONES_POR_APARTADO["Lagrange + Derivacion"],
+                    PASOS_POR_APARTADO["Lagrange + Derivacion"],
+                    st.session_state.get("show_step_by_step_all", False),
+                    DESGLOSE_COMPLETO_POR_APARTADO["Lagrange + Derivacion"],
+                    "Lagrange + Derivacion",
+                )
+
+            elif tab_name == "Integracion Numerica":
+                section_integracion_numerica()
+                render_panel_formulas(
+                    "Formulario de Integracion Numerica",
+                    FORMULAS_POR_APARTADO["Integracion Numerica"],
+                    SIMBOLOS_POR_APARTADO["Integracion Numerica"],
+                    CONDICIONES_POR_APARTADO["Integracion Numerica"],
+                    PASOS_POR_APARTADO["Integracion Numerica"],
+                    st.session_state.get("show_step_by_step_all", False),
+                    DESGLOSE_COMPLETO_POR_APARTADO["Integracion Numerica"],
+                    "Integracion Numerica",
+                )
+
+            elif tab_name == "Monte Carlo":
+                section_montecarlo()
+                render_panel_formulas(
+                    "Formulario de Integracion por Monte Carlo",
+                    FORMULAS_POR_APARTADO["Monte Carlo"],
+                    SIMBOLOS_POR_APARTADO["Monte Carlo"],
+                    CONDICIONES_POR_APARTADO["Monte Carlo"],
+                    PASOS_POR_APARTADO["Monte Carlo"],
+                    st.session_state.get("show_step_by_step_all", False),
+                    DESGLOSE_COMPLETO_POR_APARTADO["Monte Carlo"],
+                    "Monte Carlo",
+                )
+
+            elif tab_name == "Monte Carlo 2D":
+                section_montecarlo_2d()
+                render_panel_formulas(
+                    "Formulario de Integracion Doble por Monte Carlo",
+                    FORMULAS_POR_APARTADO["Monte Carlo 2D"],
+                    SIMBOLOS_POR_APARTADO["Monte Carlo 2D"],
+                    CONDICIONES_POR_APARTADO["Monte Carlo 2D"],
+                    PASOS_POR_APARTADO["Monte Carlo 2D"],
+                    st.session_state.get("show_step_by_step_all", False),
+                    DESGLOSE_COMPLETO_POR_APARTADO["Monte Carlo 2D"],
+                    "Monte Carlo 2D",
+                )
+
+            elif tab_name == "Ajuste de Curvas":
+                section_ajuste_curvas()
+                render_panel_formulas(
+                    "Formulario de Ajuste de Curvas",
+                    FORMULAS_POR_APARTADO["Ajuste de Curvas"],
+                    SIMBOLOS_POR_APARTADO["Ajuste de Curvas"],
+                    CONDICIONES_POR_APARTADO["Ajuste de Curvas"],
+                    PASOS_POR_APARTADO["Ajuste de Curvas"],
+                    st.session_state.get("show_step_by_step_all", False),
+                    DESGLOSE_COMPLETO_POR_APARTADO["Ajuste de Curvas"],
+                    "Ajuste de Curvas",
+                )
+
+            elif tab_name == "Sistemas Lineales":
+                section_sistemas_lineales()
+                render_panel_formulas(
+                    "Formulario de Sistemas Lineales",
+                    FORMULAS_POR_APARTADO["Sistemas Lineales"],
+                    SIMBOLOS_POR_APARTADO["Sistemas Lineales"],
+                    CONDICIONES_POR_APARTADO["Sistemas Lineales"],
+                    PASOS_POR_APARTADO["Sistemas Lineales"],
+                    st.session_state.get("show_step_by_step_all", False),
+                    DESGLOSE_COMPLETO_POR_APARTADO["Sistemas Lineales"],
+                    "Sistemas Lineales",
+                )
+
+            elif tab_name == "EDO":
+                section_edo()
+                render_panel_formulas(
+                    "Formulario de EDO",
+                    FORMULAS_POR_APARTADO["EDO"],
+                    SIMBOLOS_POR_APARTADO["EDO"],
+                    CONDICIONES_POR_APARTADO["EDO"],
+                    PASOS_POR_APARTADO["EDO"],
+                    st.session_state.get("show_step_by_step_all", False),
+                    DESGLOSE_COMPLETO_POR_APARTADO["EDO"],
+                    "EDO",
+                )
+
+            elif tab_name == "Diagramas de Fase":
+                # mantener el contenido original del diagrama de fase 1D
+                st.subheader("Diagramas de fase (1D)")
+                st.info("Analiza ecuaciones de la forma dx/dt = f(x). Muestra puntos de equilibrio y su estabilidad.")
+
+                with st.form("form_phase_1d"):
+                    c1, c2 = st.columns(2)
+                    with c1:
+                        f_text = st.text_input("f(x)", value="x*(1-x)")
+                        x_min = st.number_input("x min", value=-2.0)
+                        x_max = st.number_input("x max", value=2.0)
+                    with c2:
+                        samples = st.number_input("Muestras (grid)", value=400, min_value=50, step=10)
+                        detectar_equilibrios = st.checkbox("Detectar equilibrios (raices)", value=True)
+                    run_phase = st.form_submit_button("Analizar fase")
+
+                if run_phase:
+                    try:
+                        x = np.linspace(float(x_min), float(x_max), int(samples))
+                        y = build_func_plot(f_text, x)
+
+                        fig, ax = plt.subplots(figsize=(9, 4.6))
+                        ax.plot(x, y, linewidth=2, label=f"f(x) = {f_text}")
+                        ax.axhline(0, color="black", linewidth=0.8, alpha=0.5)
+
+                        arrow_x = np.linspace(float(x_min), float(x_max), 25)
+                        arrow_y = build_func_plot(f_text, arrow_x)
+                        u = np.sign(arrow_y)
+                        ax.quiver(arrow_x, np.zeros_like(arrow_x), u, np.zeros_like(u), angles="xy", scale_units="xy", scale=1, width=0.005, color="tab:orange")
+
+                        equilibria = []
+                        if detectar_equilibrios:
+                            for i in range(len(x) - 1):
+                                if np.isfinite(y[i]) and np.isfinite(y[i + 1]) and y[i] * y[i + 1] <= 0:
+                                    xi = x[i]
+                                    xj = x[i + 1]
+                                    yi = y[i]
+                                    yj = y[i + 1]
+                                    if yj - yi != 0:
+                                        xr = xi - yi * (xj - xi) / (yj - yi)
+                                    else:
+                                        xr = 0.5 * (xi + xj)
+                                    equilibria.append(xr)
+
+                        for xr in sorted(set(np.round(equilibria, 8))):
+                            h = 1e-6
+                            fp = (build_func_plot(f_text, np.array([xr + h])) - build_func_plot(f_text, np.array([xr - h]))) / (2 * h)
+                            fp = float(fp)
+                            stability = "estable" if fp < 0 else "inestable" if fp > 0 else "indeterminado"
+                            ax.plot([xr], [0], "o", color="red" if fp > 0 else "green", markersize=8)
+                            ax.annotate(f"{xr:.4g}\n{stability}", xy=(xr, 0), xytext=(5, 8), textcoords="offset points")
+
+                        ax.set_title("Diagrama de fase: f(x) y direccion de movimiento")
+                        ax.set_xlabel("x")
+                        ax.set_ylabel("f(x)")
+                        ax.grid(alpha=0.3)
+                        ax.legend()
+                        render_chart(fig)
+                        plt.close(fig)
+                    except Exception as exc:
+                        st.error(f"Error analizando diagrama de fase: {exc}")
+
+            elif tab_name == "Modelos Logísticos":
+                st.subheader("Modelos logísticos")
+                st.info("dN/dt = r*N*(1 - N/K). Muestra evolución temporal y puntos de equilibrio.")
+
+                with st.form("form_logistic"):
+                    c1, c2 = st.columns(2)
+                    with c1:
+                        r = st.number_input("Tasa de crecimiento r", value=1.0, format="%.4f")
+                        K = st.number_input("Capacidad K", value=10.0, format="%.4f")
+                    with c2:
+                        N0 = st.number_input("Poblacion inicial N0", value=0.5, format="%.4f")
+                        tmax = st.number_input("Tiempo max t", value=10.0, format="%.2f")
+                    run_log = st.form_submit_button("Simular logistica")
+
+                if run_log:
+                    try:
+                        t = np.linspace(0, float(tmax), 400)
+                        r_f = float(r)
+                        K_f = float(K)
+                        N0_f = float(N0)
+                        denom = 1 + ((K_f - N0_f) / max(N0_f, 1e-12)) * np.exp(-r_f * t)
+                        N = K_f / denom
+
+                        fig, ax = plt.subplots(figsize=(9, 4.6))
+                        ax.plot(t, N, linewidth=2, label=f"N(t) (logistica), r={r_f}, K={K_f}")
+                        ax.axhline(0, color="black", linewidth=0.8, alpha=0.5)
+                        ax.axhline(K_f, color="gray", linestyle="--", label="Equilibrio K")
+                        ax.set_title("Solucion logistica")
+                        ax.set_xlabel("t")
+                        ax.set_ylabel("N(t)")
+                        ax.legend()
+                        ax.grid(alpha=0.3)
+                        render_chart(fig)
+                        plt.close(fig)
+
+                        Ngrid = np.linspace(0, max(K_f * 1.2, N.max() * 1.2), 300)
+                        fN = r_f * Ngrid * (1 - Ngrid / K_f)
+                        fig2, ax2 = plt.subplots(figsize=(8, 3.6))
+                        ax2.plot(Ngrid, fN, linewidth=2)
+                        ax2.axhline(0, color="black")
+                        ax2.axvline(0, color="black")
+                        ax2.scatter([0, K_f], [0, 0], color=["red", "green"])
+                        ax2.set_title("Diagrama de fase: f(N)")
+                        ax2.set_xlabel("N")
+                        ax2.set_ylabel("dN/dt")
+                        ax2.grid(alpha=0.3)
+                        render_chart(fig2)
+                        plt.close(fig2)
+                    except Exception as exc:
+                        st.error(f"Error en modelo logistico: {exc}")
+
+            elif tab_name == "Enfriamiento (Newton)":
+                st.subheader("Enfriamiento de Newton")
+                st.info("Modelo dT/dt = -k*(T - T_env). Solucion analitica y curva de decaimiento.")
+
+                with st.form("form_newton_cooling"):
+                    c1, c2 = st.columns(2)
+                    with c1:
+                        k = st.number_input("Constante k (1/t)", value=0.1, format="%.4f", min_value=0.0)
+                        T0 = st.number_input("Temperatura inicial T0", value=90.0, format="%.2f")
+                    with c2:
+                        T_env = st.number_input("Temperatura ambiente T_env", value=20.0, format="%.2f")
+                        tmax_c = st.number_input("Tiempo max t", value=120.0, format="%.1f")
+                    run_newton_c = st.form_submit_button("Calcular enfriamiento")
+
+                if run_newton_c:
+                    try:
+                        t = np.linspace(0, float(tmax_c), 400)
+                        kf = float(k)
+                        T0f = float(T0)
+                        Tenvf = float(T_env)
+                        Tt = Tenvf + (T0f - Tenvf) * np.exp(-kf * t)
+
+                        fig, ax = plt.subplots(figsize=(9, 4.6))
+                        ax.plot(t, Tt, linewidth=2, label=f"T(t), k={kf}")
+                        ax.axhline(Tenvf, color="gray", linestyle="--", label="T_env")
+                        ax.set_title("Enfriamiento de Newton")
+                        ax.set_xlabel("t")
+                        ax.set_ylabel("T(t)")
+                        ax.legend()
+                        ax.grid(alpha=0.3)
+                        render_chart(fig)
+                        plt.close(fig)
+                    except Exception as exc:
+                        st.error(f"Error calculando enfriamiento: {exc}")
+
+            elif tab_name == "Red Neuronal GD":
+                section_red_neuronal_descenso()
+                render_panel_formulas(
+                    "Formulario de Red Neuronal GD",
+                    FORMULAS_POR_APARTADO["Red Neuronal GD"],
+                    SIMBOLOS_POR_APARTADO["Red Neuronal GD"],
+                    CONDICIONES_POR_APARTADO["Red Neuronal GD"],
+                    PASOS_POR_APARTADO["Red Neuronal GD"],
+                    st.session_state.get("show_step_by_step_all", False),
+                    DESGLOSE_COMPLETO_POR_APARTADO["Red Neuronal GD"],
+                    "Red Neuronal GD",
+                )
+
+            elif tab_name == "Busqueda g(x)":
+                section_busqueda_g()
+
+            elif tab_name == "Derivadas Finitas":
+                section_derivadas_finitas()
+                render_panel_formulas(
+                    "Formulario de Derivadas Finitas",
+                    FORMULAS_POR_APARTADO["Derivadas Finitas"],
+                    SIMBOLOS_POR_APARTADO["Derivadas Finitas"],
+                    CONDICIONES_POR_APARTADO["Derivadas Finitas"],
+                    PASOS_POR_APARTADO["Derivadas Finitas"],
+                    st.session_state.get("show_step_by_step_all", False),
+                    DESGLOSE_COMPLETO_POR_APARTADO["Derivadas Finitas"],
+                    "Derivadas Finitas",
+                )
+
+            elif tab_name == "Sistema Lineal 2D":
+                st.subheader("Sistema lineal 2D (análisis y diagrama de fase)")
+                st.info("Introduce la matriz A (2x2) o las funciones f(x,y), g(x,y). Se muestran autovalores, autovectores, solución analítica y diagrama de fase.")
+
+                with st.form("form_sistema_lineal_2d"):
+                    fx_text = st.text_input("f(x,y)", value="-1*x + 2*y")
+                    fy_text = st.text_input("g(x,y)", value="-3*x -4*y")
+                    symbolic_sol = st.checkbox("Mostrar solución simbólica general (C1,C2,T)", value=True)
+                    run_sys2d = st.form_submit_button("Analizar sistema 2D")
+
+                # Opcional (fuera del form para que los widgets aparezcan inmediatamente al marcar):
+                with st.expander("Opcional: proporcionar condición inicial y tiempo (para C1,C2 numéricos)", expanded=False):
+                    provide_ic = st.checkbox("Proporcionar condición inicial (x0,y0)")
+                    if provide_ic:
+                        x0x = st.number_input("x0 (cond. inicial)", value=1.0, key="sys2d_x0")
+                        x0y = st.number_input("y0 (cond. inicial)", value=0.0, key="sys2d_y0")
+                    else:
+                        x0x = None
+                        x0y = None
+                    provide_t = st.checkbox("Proporcionar tiempo máximo t")
+                    if provide_t:
+                        tmax_in = st.number_input("Tiempo max t", value=10.0, key="sys2d_tmax")
+                    else:
+                        tmax_in = None
+
+                if run_sys2d:
+                    try:
+                        # Construir funciones desde las expresiones ingresadas (dos variables)
+                        def make_2d_func(expr_text):
+                            x_sym, y_sym = sp.symbols('x y')
+                            expr = sp.sympify(expr_text, locals={**ALLOWED_LOCALS, 'x': x_sym, 'y': y_sym})
+                            invalid = expr.free_symbols - {x_sym, y_sym}
+                            if invalid:
+                                raise ValueError(f"Variables no permitidas en la función: {invalid}")
+                            return sp.lambdify((x_sym, y_sym), expr, 'numpy')
+
+                        fx = make_2d_func(fx_text)
+                        fy = make_2d_func(fy_text)
+
+                        # Preparar argumentos opcionales
+                        call_kwargs = {}
+                        if x0x is not None and x0y is not None:
+                            call_kwargs['x0'] = (float(x0x), float(x0y))
+                        if tmax_in is not None:
+                            call_kwargs['t_max'] = float(tmax_in)
+
+                        res = sistema_lineal_2d(fx=fx, fy=fy, eq_point=(0.0, 0.0), symbolic=bool(symbolic_sol), **call_kwargs)
+
+                        st.write("Autovalores:", res.get("autovalores"))
+                        st.write("Autovectores:")
+                        st.write(res.get("autovectores"))
+                        st.write("Tipo:", res.get("tipo"))
+
+                        # Mostrar solución simbólica simplificada (si se generó)
+                        if symbolic_sol:
+                            sol_sym = res.get('solucion_symbolica')
+                            if sol_sym is not None:
+                                try:
+                                    st.markdown("**Solución simbólica (simplificada):**")
+                                    st.latex(sp.latex(sol_sym))
+                                except Exception:
+                                    st.write(sol_sym)
                             else:
-                                xr = 0.5 * (xi + xj)
-                            equilibria.append(xr)
+                                st.info('No se pudo obtener la solución simbólica para este sistema.')
 
-                # Mark equilibria and assess stability by derivative
-                for xr in sorted(set(np.round(equilibria, 8))):
-                    h = 1e-6
-                    fp = (build_func_plot(f_text, np.array([xr + h])) - build_func_plot(f_text, np.array([xr - h]))) / (2 * h)
-                    fp = float(fp)
-                    stability = "estable" if fp < 0 else "inestable" if fp > 0 else "indeterminado"
-                    ax.plot([xr], [0], "o", color="red" if fp > 0 else "green", markersize=8)
-                    ax.annotate(f"{xr:.4g}\n{stability}", xy=(xr, 0), xytext=(5, 8), textcoords="offset points")
+                        # Mostrar diagrama de fase (figura devuelta por el método)
+                        fig_phase = res.get('fig_phase')
+                        if fig_phase is not None:
+                            st.markdown("**Diagrama de fase:**")
+                            try:
+                                render_chart(fig_phase)
+                            except Exception:
+                                st.pyplot(fig_phase)
 
-                ax.set_title("Diagrama de fase: f(x) y direccion de movimiento")
-                ax.set_xlabel("x")
-                ax.set_ylabel("f(x)")
-                ax.grid(alpha=0.3)
-                ax.legend()
-                render_chart(fig)
-                plt.close(fig)
-            except Exception as exc:
-                st.error(f"Error analizando diagrama de fase: {exc}")
-    with tabs[13]:
-        # Modelos logísticos (ecuacion y solucion analitica)
-        st.subheader("Modelos logísticos")
-        st.info("dN/dt = r*N*(1 - N/K). Muestra evolución temporal y puntos de equilibrio.")
+                        # Si el usuario proporcionó condición inicial, calcular C1,C2 numéricos
+                        if 'x0' in call_kwargs:
+                            try:
+                                P = res.get('autovectores')
+                                if P is not None:
+                                    P = np.asarray(P, dtype=float)
+                                    P_inv = np.linalg.inv(P)
+                                    c_vals = P_inv.dot(np.array([float(x0x), float(x0y)]))
+                                    st.write(f"Constantes numéricas: C1 = {float(c_vals[0]):.6g}, C2 = {float(c_vals[1]):.6g}")
+                            except Exception:
+                                st.info("No fue posible calcular las constantes C1/C2 numéricas para este sistema.")
 
-        with st.form("form_logistic"):
-            c1, c2 = st.columns(2)
-            with c1:
-                r = st.number_input("Tasa de crecimiento r", value=1.0, format="%.4f")
-                K = st.number_input("Capacidad K", value=10.0, format="%.4f")
-            with c2:
-                N0 = st.number_input("Poblacion inicial N0", value=0.5, format="%.4f")
-                tmax = st.number_input("Tiempo max t", value=10.0, format="%.2f")
-            run_log = st.form_submit_button("Simular logistica")
-
-        if run_log:
-            try:
-                t = np.linspace(0, float(tmax), 400)
-                r_f = float(r)
-                K_f = float(K)
-                N0_f = float(N0)
-                denom = 1 + ((K_f - N0_f) / max(N0_f, 1e-12)) * np.exp(-r_f * t)
-                N = K_f / denom
-
-                fig, ax = plt.subplots(figsize=(9, 4.6))
-                ax.plot(t, N, linewidth=2, label=f"N(t) (logistica), r={r_f}, K={K_f}")
-                ax.axhline(0, color="black", linewidth=0.8, alpha=0.5)
-                ax.axhline(K_f, color="gray", linestyle="--", label="Equilibrio K")
-                ax.set_title("Solucion logistica")
-                ax.set_xlabel("t")
-                ax.set_ylabel("N(t)")
-                ax.legend()
-                ax.grid(alpha=0.3)
-                render_chart(fig)
-                plt.close(fig)
-
-                Ngrid = np.linspace(0, max(K_f * 1.2, N.max() * 1.2), 300)
-                fN = r_f * Ngrid * (1 - Ngrid / K_f)
-                fig2, ax2 = plt.subplots(figsize=(8, 3.6))
-                ax2.plot(Ngrid, fN, linewidth=2)
-                ax2.axhline(0, color="black")
-                ax2.axvline(0, color="black")
-                ax2.scatter([0, K_f], [0, 0], color=["red", "green"])
-                ax2.set_title("Diagrama de fase: f(N)")
-                ax2.set_xlabel("N")
-                ax2.set_ylabel("dN/dt")
-                ax2.grid(alpha=0.3)
-                render_chart(fig2)
-                plt.close(fig2)
-            except Exception as exc:
-                st.error(f"Error en modelo logistico: {exc}")
-    with tabs[14]:
-        # Enfriamiento de Newton: dT/dt = -k*(T - T_env)
-        st.subheader("Enfriamiento de Newton")
-        st.info("Modelo dT/dt = -k*(T - T_env). Solucion analitica y curva de decaimiento.")
-
-        with st.form("form_newton_cooling"):
-            c1, c2 = st.columns(2)
-            with c1:
-                k = st.number_input("Constante k (1/t)", value=0.1, format="%.4f", min_value=0.0)
-                T0 = st.number_input("Temperatura inicial T0", value=90.0, format="%.2f")
-            with c2:
-                T_env = st.number_input("Temperatura ambiente T_env", value=20.0, format="%.2f")
-                tmax_c = st.number_input("Tiempo max t", value=120.0, format="%.1f")
-            run_newton_c = st.form_submit_button("Calcular enfriamiento")
-
-        if run_newton_c:
-            try:
-                t = np.linspace(0, float(tmax_c), 400)
-                kf = float(k)
-                T0f = float(T0)
-                Tenvf = float(T_env)
-                Tt = Tenvf + (T0f - Tenvf) * np.exp(-kf * t)
-
-                fig, ax = plt.subplots(figsize=(9, 4.6))
-                ax.plot(t, Tt, linewidth=2, label=f"T(t), k={kf}")
-                ax.axhline(Tenvf, color="gray", linestyle="--", label="T_env")
-                ax.set_title("Enfriamiento de Newton")
-                ax.set_xlabel("t")
-                ax.set_ylabel("T(t)")
-                ax.legend()
-                ax.grid(alpha=0.3)
-                render_chart(fig)
-                plt.close(fig)
-            except Exception as exc:
-                st.error(f"Error calculando enfriamiento: {exc}")
-    with tabs[15]:
-        mostrar_machete("Red Neuronal GD")
-        section_red_neuronal_descenso()
-        render_panel_formulas(
-            "Formulario de Red Neuronal GD",
-            FORMULAS_POR_APARTADO["Red Neuronal GD"],
-            SIMBOLOS_POR_APARTADO["Red Neuronal GD"],
-            CONDICIONES_POR_APARTADO["Red Neuronal GD"],
-            PASOS_POR_APARTADO["Red Neuronal GD"],
-            st.session_state.get("show_step_by_step_all", False),
-            DESGLOSE_COMPLETO_POR_APARTADO["Red Neuronal GD"],
-            "Red Neuronal GD",
-        )
-    with tabs[16]:
-        section_busqueda_g()
-    with tabs[17]:
-        mostrar_machete("Derivadas Finitas")
-        section_derivadas_finitas()
-        render_panel_formulas(
-            "Formulario de Derivadas Finitas",
-            FORMULAS_POR_APARTADO["Derivadas Finitas"],
-            SIMBOLOS_POR_APARTADO["Derivadas Finitas"],
-            CONDICIONES_POR_APARTADO["Derivadas Finitas"],
-            PASOS_POR_APARTADO["Derivadas Finitas"],
-            st.session_state.get("show_step_by_step_all", False),
-            DESGLOSE_COMPLETO_POR_APARTADO["Derivadas Finitas"],
-            "Derivadas Finitas",
-        )
+                        # Mostrar solución simbólica general (si se generó)
+                        if symbolic_sol:
+                            sol_sym = res.get('solucion_symbolica')
+                            if sol_sym is not None:
+                                try:
+                                    st.markdown("**Solución simbólica (simplificada):**")
+                                    st.latex(sp.latex(sol_sym))
+                                except Exception:
+                                    st.write(sol_sym)
+                            else:
+                                st.info('No se pudo obtener la solución simbólica para este sistema.')
+                    except Exception as exc:
+                        st.error(f"Error analizando sistema lineal 2D: {exc}")
 
 
 def _is_streamlit_context():
