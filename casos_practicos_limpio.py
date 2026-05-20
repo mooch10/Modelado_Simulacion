@@ -99,6 +99,14 @@ CASOS_PRACTICOS = {
         "n": 50,
         "aplicacion": "En farmacología y medicina, ecuaciones diferenciales modelan cómo el cuerpo metaboliza drogas. RK4 predice concentración en sangre sin experimentos, solo matemáticas."
     },
+    "Sistemas Dinamicos No Homogeneos": {
+        "nombre": "Oscilador forzado y amortiguado",
+        "descripcion": "Sistema lineal 2D con fuerza externa constante. Permite comparar trayectorias, estabilidad del sistema homogéneo y desplazamiento del equilibrio.",
+        "formula_para_copiar": "A=[[0,-1],[-9,0]]; f=[1,0]",
+        "A": [[0, -1], [-9, 0]],
+        "f_vector": [1.0, 0.0],
+        "aplicacion": "En vibraciones, circuitos y control, un forzamiento externo cambia la trayectoria natural del sistema. Este módulo deja ver si el equilibrio se desplaza o si la fuerza variable rompe la dinámica homogénea."
+    },
     "Red Neuronal GD": {
         "nombre": "Calificacion vs horas estudiadas",
         "descripcion": "Datos de varios estudiantes: (2 hrs, 60%), (4 hrs, 75%), (6 hrs, 85%), (8 hrs, 95%). Red neuronal aprende: calificación = w*horas + b. ¿Qué nota obtendrás con 5 horas?",

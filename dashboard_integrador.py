@@ -1,5 +1,6 @@
 ﻿import io
 import contextlib
+import ast
 import sys
 import time
 import math
@@ -54,6 +55,7 @@ from Metodos.metodo_integracion_numerica import (
 from Metodos.metodo_ajuste_curvas import regresion_lineal, regresion_polinomial
 from Metodos.metodo_sistemas_lineales import gauss_jordan, gauss_seidel
 from Metodos.metodo_edo import metodo_euler, metodo_heun, metodo_rk4, construir_funcion_edo
+from Metodos.metodo_sistemas_dinamicos_no_homogeneos import resolver_sistema_dinamico_no_homogeneo
 from Metodos.metodo_red_neuronal_descenso_gradiente import (
     dataset_prueba_pequeno,
     entrenar_descenso_gradiente_lineal,
@@ -292,6 +294,33 @@ MACHETES_TEORICOS = {
             "• n > 0 (iteraciones)",
             "• Heun usa predictor-corrector para mejorar Euler",
             "• RK4 es mas preciso que Euler"
+        ]
+    },
+    "Sistemas Dinamicos No Homogeneos": {
+        "definicion": "Sistemas lineales 2D no autónomos de la forma X' = A X + f(t), con una fuerza externa que puede desplazar el equilibrio o romper la simetría temporal.",
+        "utilidad": "Analizar osciladores forzados, sistemas eléctricos y modelos con excitación externa. Permite ver estabilidad, equilibrio desplazado y respuesta temporal.",
+        "pasos": [
+            "1. Definir A y el vector constante de forzamiento f",
+            "2. Calcular autovalores y autovectores de A",
+            "3. Clasificar la estabilidad del sistema homogéneo según las partes real e imaginaria",
+            "4. Escribir la solución homogénea en forma matricial: X_h(t) = e^{At}X(0) o P e^{Dt} P^{-1}X(0)",
+            "5. Si det(A) != 0, calcular X_p = -A^{-1} f",
+            "6. Resolver cada trayectoria con solve_ivp",
+            "7. Dibujar retrato de fase y evolución temporal"
+        ],
+        "formulas": [
+            r"$X' = A X + f(t)$",
+            r"$X_h(t) = e^{At}X(0)$",
+            r"$X_h(t) = P e^{Dt} P^{-1} X(0) \quad \text{si } A \text{ es diagonalizable}$",
+            r"$X_p = -A^{-1} f \quad \text{si } \det(A)\neq 0$",
+            r"$X(t)$ se obtiene numéricamente con solve\_ivp"
+        ],
+        "requisitos": [
+            "• A debe ser una matriz 2x2",
+            "• f debe ser un vector constante de 2 componentes",
+            "• X0_list debe contener condiciones iniciales 2D",
+            "• t_span debe definir un intervalo válido",
+            "• t_eval debe cubrir el intervalo de simulación"
         ]
     },
     "Red Neuronal GD": {
@@ -2148,6 +2177,8 @@ def sugerir_metodo(apartado, **kwargs):
         return "Recomendacion: Punto Fijo o Aitken son utiles cuando no quieres derivar explicitamente."
     if apartado == "EDO":
         return "Recomendacion: usa RK4 para mejor precision; Euler para aprendizaje y Heun como punto intermedio."
+    if apartado == "Sistemas Dinamicos No Homogeneos":
+        return "Recomendacion: usa solve_ivp con RK45 y revisa si la fuerza externa es constante para calcular el equilibrio desplazado."
     if apartado == "Integracion":
         return "Recomendacion: Simpson (1/3 o 3/8) suele dar mejor precision si la funcion es suave y n cumple requisitos."
     return ""
@@ -2480,6 +2511,13 @@ SIMBOLOS_POR_APARTADO = {
         r"$k_1,k_2,k_3,k_4$: pendientes de RK4",
         r"$y_n$: aproximacion en el nodo $x_n$",
     ],
+    "Sistemas Dinamicos No Homogeneos": [
+        r"$X' = AX + f(t)$: sistema lineal no autonomo",
+        r"$A$: matriz constante 2x2 del sistema homogéneo",
+        r"$f(t)$: forzante externa de dos componentes",
+        r"$X_p$: equilibrio desplazado para forzante constante",
+        r"$t_{eval}$: malla temporal de evaluacion",
+    ],
     "Red Neuronal GD": [
         r"$x,y$: datos de entrada y salida",
         r"$w,b$: peso y sesgo",
@@ -2559,6 +2597,12 @@ CONDICIONES_POR_APARTADO = {
         "El paso h debe ser positivo y acorde a la estabilidad del metodo.",
         "Heun suele reducir el error de Euler con costo computacional moderado.",
         "RK4 suele ofrecer mayor precision que Euler con el mismo h.",
+    ],
+    "Sistemas Dinamicos No Homogeneos": [
+        "A debe ser una matriz 2x2 real.",
+        "f(t) debe devolver un vector de dos componentes.",
+        "Si f(t) es constante y det(A) != 0, el equilibrio desplazado se calcula con -A^{-1}f.",
+        "El retrato de fase es una instantanea del campo en un tiempo de referencia.",
     ],
     "Red Neuronal GD": [
         "Elegir una tasa de aprendizaje alpha estable (ni muy grande ni muy chica).",
@@ -2929,6 +2973,14 @@ DESGLOSE_COMPLETO_POR_APARTADO = {
         "Si hay solucion exacta, calcular errores por nodo.",
         "Graficar trayectorias y campo de pendientes opcional.",
     ],
+    "Sistemas Dinamicos No Homogeneos": [
+        "Definir A, f(t), X0_list, t_span y t_eval.",
+        "Calcular autovalores y autovectores de A.",
+        "Clasificar la estabilidad usando las partes real e imaginaria de los autovalores.",
+        "Si f(t) es constante y A es invertible, calcular X_p = -A^{-1} f.",
+        "Resolver cada trayectoria con solve_ivp.",
+        "Graficar retrato de fase y evolucion temporal en subplots.",
+    ],
     "Red Neuronal GD": [
         "Definir dataset, alpha, epocas y semilla.",
         "Inicializar parametros w y b.",
@@ -3106,6 +3158,7 @@ def mostrar_casos_practicos(metodo_nombre):
             "Monte Carlo 2D": ["funcion", "n", "a", "c", "b", "d", "confianza", "usar_seed", "seed"],
             "Sistemas Lineales": ["A", "metodo", "b", "x0", "tol", "max_iter", "n"],
             "EDO": ["f", "xf", "x0", "n", "y0", "h", "metodo"],
+            "Sistemas Dinamicos No Homogeneos": ["A", "f_vector"],
             "Red Neuronal GD": ["alpha", "semilla", "epocas", "generar_datos"],
         }
 
@@ -3147,6 +3200,7 @@ def mostrar_casos_practicos(metodo_nombre):
             "epocas": "Numero de epocas",
             "semilla": "Semilla aleatoria",
             "generar_datos": "Tipo de datos a generar",
+            "f_vector": "Vector de forzamiento f (1x2)",
         }
         
         # Mostrar parámetros en columnas manteniendo el mismo orden
@@ -6076,6 +6130,145 @@ def section_edo():
             mostrar_error_guiado("EDO", exc)
 
 
+def _parse_x0_list(texto):
+    valor = ast.literal_eval(texto)
+    if not isinstance(valor, (list, tuple)):
+        raise ValueError("X0_list debe ser una lista o tupla de condiciones iniciales")
+
+    resultado = []
+    for idx, item in enumerate(valor, start=1):
+        if not isinstance(item, (list, tuple)) or len(item) != 2:
+            raise ValueError(f"X0_list[{idx}] debe ser una pareja (x0, y0)")
+        resultado.append(
+            (
+                parse_numeric_expr(str(item[0]), f"X0_list[{idx}][0]"),
+                parse_numeric_expr(str(item[1]), f"X0_list[{idx}][1]"),
+            )
+        )
+    return resultado
+
+
+def section_sistemas_dinamicos_no_homogeneos():
+    st.subheader("Sistemas dinamicos no homogeneos 2D")
+    st.info(sugerir_metodo("Sistemas Dinamicos No Homogeneos"))
+
+    mostrar_casos_practicos("Sistemas Dinamicos No Homogeneos")
+
+    with st.form("form_sistema_dinamico_no_homogeneo"):
+        c1, c2 = st.columns(2)
+        with c1:
+            A_text = st.text_area(
+                "Matriz A (2x2)",
+                value="0, -1\n-9, 0",
+                height=90,
+                help="Escribe dos filas separadas por salto de línea y dos coeficientes por fila.",
+            )
+        with c2:
+            f_text = st.text_input(
+                "Vector de forzamiento f (1x2)",
+                value="1, 0",
+                help="Escribe dos componentes separadas por coma. Se interpreta como vector constante.",
+            )
+            mostrar_constante = st.checkbox("Informar equilibrio desplazado si det(A) != 0", value=True)
+
+        run_btn = st.form_submit_button("Simular sistema no homogeneo")
+
+    if run_btn:
+        try:
+            A = parse_matrix_text(A_text, 2)
+            f_vector = np.asarray(parse_optional_vector_csv(f_text, 2), dtype=float)
+
+            X0_list = [(1.0, 0.0), (0.5, 0.5), (-2.0, 1.0)]
+            t0, tf = 0.0, 10.0
+            t_eval = np.linspace(t0, tf, 600)
+
+            resultado = resolver_sistema_dinamico_no_homogeneo(
+                A,
+                f_vector,
+                X0_list,
+                (t0, tf),
+                t_eval,
+            )
+
+            st.metric("Clasificacion", resultado["clasificacion"])
+            eigvals = resultado["eigvals"]
+            st.write("Autovalores:")
+            st.code("\n".join([f"lambda_{i + 1} = {eigvals[i]}" for i in range(len(eigvals))]), language="text")
+            st.write("Autovectores:")
+            st.code(str(resultado["eigvecs"]), language="text")
+
+            solucion_homogenea = resultado.get("solucion_homogenea", {})
+            if solucion_homogenea:
+                st.markdown("**Solución homogénea en forma matricial:**")
+                st.latex(solucion_homogenea.get("latex", r"X_h(t) = e^{At}X(0)"))
+                st.caption(solucion_homogenea.get("texto", ""))
+
+            solucion_componentes = resultado.get("solucion_componentes", {})
+            if solucion_componentes.get("disponible"):
+                st.markdown("**Solución explícita por componentes:**")
+                st.code(solucion_componentes.get("x_t", ""), language="text")
+                st.code(solucion_componentes.get("y_t", ""), language="text")
+                st.caption(
+                    f"Autovalores usados: lambda_1 = {solucion_componentes.get('lambda1', '')}, "
+                    f"lambda_2 = {solucion_componentes.get('lambda2', '')}"
+                )
+
+            if resultado["forzante_constante"]:
+                st.success("La fuerza externa es constante.")
+                if mostrar_constante and resultado["equilibrio_desplazado"] is not None:
+                    st.write(f"Equilibrio desplazado X_p = {resultado['equilibrio_desplazado']}")
+                elif mostrar_constante:
+                    st.warning("No se pudo calcular equilibrio desplazado porque det(A) = 0.")
+            else:
+                st.info("La fuerza externa varía con el tiempo; no existe equilibrio desplazado constante.")
+
+            for idx, solucion in enumerate(resultado["trayectorias"], start=1):
+                final = solucion.y[:, -1]
+                st.write(f"Trayectoria {idx}: estado final = {final}")
+
+            render_chart(resultado["fig"], force_static=True)
+            plt.close(resultado["fig"])
+
+            if resultado.get("fig_homogeneo") is not None:
+                st.markdown("**Diagrama de fase del sistema homogéneo:**")
+                render_chart(resultado["fig_homogeneo"], force_static=True)
+                plt.close(resultado["fig_homogeneo"])
+
+            cuentas = [
+                rf"A={_num(A)}",
+                rf"f={_num(f_vector)}",
+                r"t_{span}=(0, 10)",
+                r"n_{eval}=600",
+            ]
+            if resultado["equilibrio_desplazado"] is not None:
+                cuentas.append(rf"X_p={_num(resultado['equilibrio_desplazado'])}")
+            guardar_cuentas("Sistemas Dinamicos No Homogeneos", cuentas)
+
+            desglose = [
+                {
+                    "iteracion": 0,
+                    "formula": r"X' = AX + f(t)",
+                    "cuenta": rf"A={_num(A)},\ f={_num(f_vector)}",
+                },
+                {
+                    "iteracion": 1,
+                    "formula": r"\lambda_1,\lambda_2 \text{ de } A",
+                    "cuenta": rf"\lambda=({sp.sstr(eigvals[0])}, {sp.sstr(eigvals[1])})",
+                },
+            ]
+            guardar_desglose_iteraciones("Sistemas Dinamicos No Homogeneos", desglose)
+            registrar_ejecucion(
+                "Sistemas Dinamicos No Homogeneos",
+                "solve_ivp",
+                iteraciones=len(resultado["trayectorias"]),
+                convergio=True,
+                tiempo_ms=0.0,
+            )
+
+        except Exception as exc:
+            mostrar_error_guiado("Sistemas Dinamicos No Homogeneos", exc)
+
+
 def section_red_neuronal_descenso():
     st.subheader("Red neuronal base con descenso de gradiente")
     
@@ -6255,6 +6448,7 @@ def main():
         "Ajuste de Curvas",
         "Sistemas Lineales",
         "EDO",
+        "Sistemas Dinamicos No Homogeneos",
         "Diagramas de Fase",
         "Modelos Logísticos",
         "Enfriamiento (Newton)",
@@ -6419,6 +6613,20 @@ def main():
                     st.session_state.get("show_step_by_step_all", False),
                     DESGLOSE_COMPLETO_POR_APARTADO["EDO"],
                     "EDO",
+                )
+
+            elif tab_name == "Sistemas Dinamicos No Homogeneos":
+                section_sistemas_dinamicos_no_homogeneos()
+                apartado_sdnh = "Sistemas Dinamicos No Homogeneos"
+                render_panel_formulas(
+                    "Formulario de Sistemas Dinamicos No Homogeneos",
+                    FORMULAS_POR_APARTADO.get(apartado_sdnh, []),
+                    SIMBOLOS_POR_APARTADO.get(apartado_sdnh, []),
+                    CONDICIONES_POR_APARTADO.get(apartado_sdnh, []),
+                    PASOS_POR_APARTADO.get(apartado_sdnh, []),
+                    st.session_state.get("show_step_by_step_all", False),
+                    DESGLOSE_COMPLETO_POR_APARTADO.get(apartado_sdnh, []),
+                    apartado_sdnh,
                 )
 
             elif tab_name == "Diagramas de Fase":
